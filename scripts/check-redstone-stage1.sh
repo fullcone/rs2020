@@ -97,7 +97,9 @@ check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
 check_file "scripts/build-rootfs.sh"
 check_file "scripts/build-kernel.sh"
 check_file "scripts/build-installer.sh"
+check_file "scripts/build-modules.sh"
 check_file "scripts/build-all.sh"
+check_file "scripts/check-redstone-image.sh"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -127,7 +129,9 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-rootfs.sh \
         scripts/build-kernel.sh \
         scripts/build-installer.sh \
+        scripts/build-modules.sh \
         scripts/build-all.sh \
+        scripts/check-redstone-image.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -161,6 +165,24 @@ if command -v git >/dev/null 2>&1; then
         ok "check-redstone-stage1.sh is tracked executable"
     else
         fail "check-redstone-stage1.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/build-modules.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "build-modules.sh is tracked executable"
+    else
+        fail "build-modules.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/check-redstone-image.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "check-redstone-image.sh is tracked executable"
+    else
+        fail "check-redstone-image.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

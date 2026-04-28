@@ -369,3 +369,49 @@ Next checkpoint:
   `/etc/switchd/redstone-stage1.bcm`.
 - Bring up one front-panel port, pass one ping through the ASIC data path, and
   run `redstone-stage1-capture` for the next DTS/platform-driver increment.
+
+### Stage-3 Redstone Support Module Packaging
+
+Completed:
+
+- Added `scripts/build-modules.sh` to build the Redstone stage-1 kernel support
+  modules against the Linux 5.10.224 build tree.
+- Built and checked the BDE, AS5610-compatible CPLD placeholder, and retimer
+  modules required by `platform-init.sh`.
+- Fixed the retimer class module build on Linux 5.10 by including the kernel
+  device-number helper header used for `MKDEV`.
+- Added `scripts/check-redstone-image.sh` to verify the generated Redstone
+  rootfs staging tree contains board selection, switchd, BDE modules, platform
+  modules, and `redstone-stage1.bcm`.
+- Extended the source preflight so it also covers the module build script and
+  generated-image staging check.
+- Updated `build-all.sh` so full builds also build and verify these external
+  modules before rootfs assembly.
+
+Verified:
+
+- `sh -n scripts/build-modules.sh`
+- `sh -n scripts/check-redstone-image.sh`
+- `bash -n scripts/build-all.sh`
+- `EDGENOS_BOARD=redstone ./scripts/build-modules.sh build`
+- `EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `EDGENOS_BOARD=redstone ./scripts/check-redstone-image.sh`
+- `EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
+- `EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Generated module outputs from this WSL build:
+
+- `asic/bde/linux-kernel-bde.ko`: 17K
+- `asic/bde/linux-user-bde.ko`: 5.1K
+- `platform/cpld/accton_as5610_52x_cpld.ko`: 11K
+- `platform/retimer/retimer_class.ko`: 6.2K
+- `platform/retimer/ds100df410.ko`: 11K
+
+Next checkpoint:
+
+- Boot `output/images/edgenos-redstone-stage1.bin` on Redstone hardware.
+- Confirm `linux-kernel-bde.ko`, `linux-user-bde.ko`, CPLD placeholder, and
+  retimer modules load from `/lib/modules/extra`.
+- Confirm BCM56846 appears through BDE, then start `switchd` with
+  `/etc/switchd/redstone-stage1.bcm`.

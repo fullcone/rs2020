@@ -6,7 +6,7 @@
 # Usage:
 #   docker run --rm --privileged --network=host \
 #     -v $(pwd)/output:/build/output \
-#     -v $(pwd):/src:ro \
+#     -v $(pwd):/src \
 #     debian:bookworm /src/scripts/build-all.sh
 
 set -e
@@ -88,15 +88,37 @@ build_initramfs() {
     rm -rf "$INITROOT"
     mkdir -p "$INITROOT"/{bin,sbin,dev,proc,sys,newroot,lower,rw}
 
-    # Compile static init
-    powerpc-linux-gnu-gcc -static -Os \
-        -o "$INITROOT/init" "$SRCDIR/initramfs/nos-init.c"
+    local INIT_SRC="$SRCDIR/initramfs/nos-init.c"
+    [ -f "$INIT_SRC" ] || { echo "ERROR: init source not found: $INIT_SRC"; exit 1; }
+
+    powerpc-linux-gnu-gcc -static -nostdlib -nostartfiles -nodefaultlibs \
+        -ffreestanding -fno-stack-protector -Os -Wall -Wno-unused-function \
+        -Wl,-e,_start \
+        -o "$INITROOT/init" "$INIT_SRC" -lgcc
     chmod +x "$INITROOT/init"
 
     # Create cpio archive
     mkdir -p "$OUTDIR/images"
     (cd "$INITROOT" && find . | cpio -o -H newc) | gzip -9 > "$OUTDIR/images/initramfs.cpio.gz"
     log "Initramfs: $OUTDIR/images/initramfs.cpio.gz ($(du -sh "$OUTDIR/images/initramfs.cpio.gz" | cut -f1))"
+}
+
+# ── Build external modules ───────────────────────────────────
+build_modules() {
+    log "Building external kernel modules..."
+
+    for dir in asic/bde platform/cpld platform/retimer; do
+        make -C "$KSRC" M="$SRCDIR/$dir" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- modules
+    done
+
+    for mod in \
+        asic/bde/linux-kernel-bde.ko \
+        asic/bde/linux-user-bde.ko \
+        platform/cpld/accton_as5610_52x_cpld.ko \
+        platform/retimer/retimer_class.ko \
+        platform/retimer/ds100df410.ko; do
+        [ -f "$SRCDIR/$mod" ] || { echo "ERROR: expected module missing: $mod"; exit 1; }
+    done
 }
 
 # ── Build Debian rootfs ──────────────────────────────────────
@@ -356,6 +378,7 @@ build_installer() {
 log "EdgeNOS full build starting..."
 install_deps
 build_kernel
+build_modules
 build_initramfs
 build_rootfs
 build_fit

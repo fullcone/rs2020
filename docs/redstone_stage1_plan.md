@@ -157,6 +157,21 @@ build script refreshes `olddefconfig` before compiling so an interrupted or
 stale `.config` cannot force an interactive `syncconfig` prompt during the real
 build.
 
+Build the external kernel modules required by `platform-init.sh` before
+assembling the final rootfs:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-modules.sh build
+```
+
+This stage checks that the BDE, CPLD, and retimer modules were produced:
+
+- `asic/bde/linux-kernel-bde.ko`
+- `asic/bde/linux-user-bde.ko`
+- `platform/cpld/accton_as5610_52x_cpld.ko`
+- `platform/retimer/retimer_class.ko`
+- `platform/retimer/ds100df410.ko`
+
 The Redstone rootfs path has been verified with Buildroot 2023.02.9 on WSL.
 Buildroot is extracted under `${XDG_CACHE_HOME:-$HOME/.cache}/edgenos/buildroot`
 by default, or under `EDGENOS_BUILDROOT_WORKDIR` when that variable is set. Keep
@@ -168,6 +183,13 @@ break its host-tool checks.
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh download
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh build
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble
+```
+
+After assembly, verify the generated staging tree contains the stage-1 runtime
+pieces that will go into `rootfs.sqsh`:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/check-redstone-image.sh
 ```
 
 The current Redstone stage-1 rootfs intentionally uses:
