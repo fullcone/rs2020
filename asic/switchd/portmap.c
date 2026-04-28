@@ -65,13 +65,35 @@ static const int port_to_i2c_bus[SWITCHD_MAX_PORTS] = {
     66, 67, 68, 69,                    /* ports 49-52 (QSFP, mux 0x77) */
 };
 
+static int parse_portmap_key(const char *key, int *port)
+{
+    int parsed;
+    int consumed;
+
+    /* Accept both OpenMDK-style portmap_N.0 and Broadcom SDK-style portmap_N. */
+    consumed = 0;
+    if (sscanf(key, "portmap_%d.0%n", &parsed, &consumed) == 1 &&
+        key[consumed] == '\0') {
+        *port = parsed;
+        return 1;
+    }
+
+    consumed = 0;
+    if (sscanf(key, "portmap_%d%n", &parsed, &consumed) == 1 &&
+        key[consumed] == '\0') {
+        *port = parsed;
+        return 1;
+    }
+
+    return 0;
+}
+
 void portmap_parse_config(const char *key, const char *val)
 {
     int port;
     int lane, speed;
 
-    /* Parse portmap_N.0=lane:speed */
-    if (sscanf(key, "portmap_%d.0", &port) != 1)
+    if (!parse_portmap_key(key, &port))
         return;
     if (sscanf(val, "%d:%d", &lane, &speed) != 2)
         return;
