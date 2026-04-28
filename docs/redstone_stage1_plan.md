@@ -190,6 +190,28 @@ Verified Redstone rootfs outputs:
 - `output/rootfs/rootfs.squashfs`
 - `output/images/rootfs.sqsh`
 
+The Redstone installer packaging path has been verified from the Redstone
+kernel and rootfs outputs with:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-installer.sh fit
+EDGENOS_BOARD=redstone ./scripts/build-installer.sh image
+```
+
+`initramfs-build.sh` compiles `initramfs/nos-init.c` as a freestanding
+PowerPC raw-syscall init because that source defines `_start` directly and does
+not link against libc startup files. The script uses `-nostdlib`,
+`-nostartfiles`, `-nodefaultlibs`, and explicit `-lgcc`; the same flags are used
+by the Docker fallback path.
+
+Verified Redstone installer outputs:
+
+- `initramfs.cpio.gz`
+- `output/images/nos.its`
+- `output/images/uImage-powerpc.itb`
+- `output/images/payload.tar`
+- `output/images/edgenos-redstone-stage1.bin`
+
 ## SDK Direction
 
 The open SDK track is OpenBCM 6.5.27. That gives the Redstone fork a public,

@@ -1,5 +1,7 @@
 output/
 build/
+/initramfs.cpio.gz
+/root/
 *.o
 *.ko
 *.mod

@@ -325,3 +325,47 @@ Next checkpoint:
   Redstone kernel outputs with the assembled Redstone rootfs.
 - Boot the image on hardware, confirm BCM56846 PCIe enumeration, start BDE and
   `switchd`, then run `redstone-stage1-capture`.
+
+### Stage-3 Redstone Installer Packaging
+
+Completed:
+
+- Fixed `initramfs-build.sh` so it can build the raw-syscall
+  `initramfs/nos-init.c` source that defines `_start` directly.
+- Kept the compile path freestanding with `-nostdlib`, `-nostartfiles`,
+  `-nodefaultlibs`, and explicit `-lgcc`; the Docker fallback uses the same
+  flags and source path.
+- Ignored generated top-level initramfs build outputs:
+  - `initramfs.cpio.gz`
+  - `root/`
+- Built the Redstone FIT image from the existing Redstone kernel, initramfs,
+  and `redstone-stage1.dtb`.
+- Built the Redstone ONIE installer image from the Redstone FIT and assembled
+  rootfs.
+
+Verified:
+
+- `bash -n initramfs-build.sh`
+- `bash -n scripts/build-installer.sh`
+- `EDGENOS_BOARD=redstone ./scripts/build-installer.sh fit`
+- `EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
+- `file root/init initramfs.cpio.gz output/images/uImage-powerpc.itb output/images/edgenos-redstone-stage1.bin`
+- `grep -q redstone-stage1 output/images/nos.its`
+- `grep -q accton_as5610_52x output/images/nos.its`
+- `grep -q "EdgeNOS for Redstone" output/images/nos.its`
+- `wsl sh scripts/check-redstone-stage1.sh`
+- Artifact sizes from this WSL build:
+  - `initramfs.cpio.gz`: 2.5K
+  - `output/images/uImage-powerpc.itb`: 4.4M
+  - `output/images/rootfs.sqsh`: 11M
+  - `output/images/payload.tar`: 15M
+  - `output/images/edgenos-redstone-stage1.bin`: 15M
+
+Next checkpoint:
+
+- Boot `output/images/edgenos-redstone-stage1.bin` on Redstone hardware.
+- Confirm the kernel reaches BusyBox init, the rootfs board selector is
+  `redstone`, BCM56846 appears on PCIe, BDE starts, and `switchd` reads
+  `/etc/switchd/redstone-stage1.bcm`.
+- Bring up one front-panel port, pass one ping through the ASIC data path, and
+  run `redstone-stage1-capture` for the next DTS/platform-driver increment.
