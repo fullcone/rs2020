@@ -94,3 +94,29 @@ Verified:
 Next checkpoint:
 
 - Add the first-pass Redstone hardware inventory table for DTS work.
+
+### Stage-2 Hardware Inventory Seed
+
+Completed:
+
+- Added `docs/redstone_hardware_inventory.md` with a first-pass Redstone
+  hardware inventory for Linux 5.10 DTS and platform work.
+- Captured confirmed Redstone facts from the original DTB, ZebOS startup
+  script, BCM config files, SDK startup scripts, and original modules.
+- Marked AS5610-derived DTS, I2C, ONLP SFP, and CPLD code as placeholders that
+  must not be treated as Redstone hardware proof.
+- Linked the stage-1 plan to the new inventory so future DTS work starts from
+  extracted Redstone evidence.
+
+Verified:
+
+- Decompiled `../../boot_original/p2020rdb.dtb` with `dtc` and checked the
+  CPU, localbus, CPLD, I2C, Ethernet, and PCIe nodes used in the inventory.
+- Inspected `../../cf_card/ZEBOS/zebos.sh` and BCM config files for board
+  identity, BDE startup, ASIC startup, and port map evidence.
+- `git diff --check` passes.
+
+Next checkpoint:
+
+- Create a Linux 5.10 Redstone DTS skeleton from original `p2020rdb.dtb` facts
+  only: CPU, localbus, CPLD, I2C, management Ethernet, PCIe, and flash layout.

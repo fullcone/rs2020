@@ -47,6 +47,11 @@ DTS. The FIT config name intentionally stays `accton_as5610_52x` because the
 current installer and U-Boot boot command still select
 `bootm ...#accton_as5610_52x`.
 
+The first-pass hardware inventory for replacing that placeholder lives in
+`docs/redstone_hardware_inventory.md`. Treat that document as the source of
+truth for what has been extracted from Redstone evidence versus what is still
+an AS5610-derived placeholder.
+
 To select it on an already-running image:
 
 ```sh
@@ -128,6 +133,9 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 
 - Add Redstone DTS coverage for I2C muxes, EEPROM, CPLD/GPIO, fans, thermal,
   PSU, and front-panel optical cages.
+- Start from the original `p2020rdb.dtb` facts recorded in
+  `docs/redstone_hardware_inventory.md`, not from the current AS5610 mux and
+  CPLD assumptions.
 - Map Redstone LED and transceiver-present behavior.
 - Keep these changes independent from Broadcom SDK integration.
 
