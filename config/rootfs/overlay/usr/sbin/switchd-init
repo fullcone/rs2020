@@ -118,6 +118,8 @@ start)
 start-foreground)
     log "Starting EdgeNOS switchd in foreground..."
     preflight
+    mkdir -p "$(dirname "$PIDFILE")"
+    echo $$ > "$PIDFILE"
     exec "$SWITCHD" -f -c "$SELECTED_CONFIG"
     ;;
 

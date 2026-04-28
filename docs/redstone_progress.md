@@ -76,3 +76,21 @@ Next checkpoint:
 
 - Add a first-pass Redstone hardware inventory table for DTS work: I2C muxes,
   EEPROMs, CPLD/GPIO, fans, PSU, optics presence, and management Ethernet.
+
+### Stage-1 switchd Foreground PID Tracking
+
+Completed:
+
+- Fixed `switchd-init start-foreground` so it writes `/var/run/switchd.pid`
+  before `exec`ing `switchd`.
+- Preserved the shared `switchd-init` control path: systemd foreground starts
+  now leave a PID file that the existing `status` and `stop` commands can use.
+
+Verified:
+
+- `bash -n` passes for `config/rootfs/overlay/usr/sbin/switchd-init`.
+- `git diff --check` passes.
+
+Next checkpoint:
+
+- Add the first-pass Redstone hardware inventory table for DTS work.
