@@ -61,8 +61,9 @@ Completed:
   - `output/images/edgenos-redstone-stage1.bin`
 - Kept the FIT config selector as `accton_as5610_52x` so the current installer
   U-Boot command remains compatible.
-- Documented that `redstone-stage1.dtb` still uses the AS5610 DTS source as a
-  compatibility placeholder until Redstone hardware validation replaces it.
+- This step initially used the AS5610 DTS as a compatibility placeholder. The
+  Redstone board selection now points at the stage-1 DTS skeleton recorded
+  below.
 
 Verified:
 
@@ -120,3 +121,30 @@ Next checkpoint:
 
 - Create a Linux 5.10 Redstone DTS skeleton from original `p2020rdb.dtb` facts
   only: CPU, localbus, CPLD, I2C, management Ethernet, PCIe, and flash layout.
+
+### Stage-2 Redstone DTS Skeleton
+
+Completed:
+
+- Added `kernel/dts/redstone-stage1.dts` from extracted original
+  `p2020rdb.dtb` facts.
+- Switched `EDGENOS_BOARD=redstone`, `rs2020`, and `r0678` to use
+  `kernel/dts/redstone-stage1.dts`.
+- Kept AS5610 as the default build target.
+- Left AS5610-specific mux, optics, fan, and CPLD assumptions out of the
+  Redstone DTS skeleton.
+
+Verified:
+
+- `dtc -I dts -O dtb -o /tmp/redstone-stage1.dtb kernel/dts/redstone-stage1.dts`
+- `EDGENOS_BOARD=redstone` resolves to `kernel/dts/redstone-stage1.dts` and
+  `redstone-stage1.dtb`.
+- `EDGENOS_BOARD=as5610-52x` still resolves to the existing AS5610 DTS and
+  image names.
+- `git diff --check`
+
+Next checkpoint:
+
+- Validate the new DTS against a Linux 5.10 Redstone boot log.
+- Capture `dmesg`, `/proc/device-tree`, `lspci -nn`, `ip link`, and I2C scan
+  output from hardware, then extend the DTS only from confirmed differences.

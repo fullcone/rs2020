@@ -65,9 +65,10 @@ Redstone hardware proof:
 - `platform/onlp/sfpi.c`
 - `platform/cpld/accton_as5610_52x_cpld.c`
 
-Current Redstone-named build artifacts still use `kernel/dts/as5610-52x.dts`
-as a compatibility placeholder. The next DTS step should create a Redstone
-skeleton from `../../boot_original/p2020rdb.dtb` facts only.
+`kernel/dts/redstone-stage1.dts` is now the Redstone stage-1 DTS skeleton. It
+captures only extracted original `../../boot_original/p2020rdb.dtb` facts and
+keeps AS5610-specific mux, optics, fan, and CPLD assumptions out until hardware
+output proves them.
 
 ## First Hardware-Capture Checklist
 

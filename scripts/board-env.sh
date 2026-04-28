@@ -15,8 +15,8 @@ case "$EDGENOS_BOARD" in
     redstone|rs2020|r0678)
         EDGENOS_BOARD="redstone"
         EDGENOS_BOARD_LABEL="Redstone"
-        # Compatibility placeholder until a hardware-validated Redstone DTS exists.
-        EDGENOS_DTS_SOURCE="kernel/dts/as5610-52x.dts"
+        # Stage-1 skeleton from the extracted Redstone/P2020 DTB.
+        EDGENOS_DTS_SOURCE="kernel/dts/redstone-stage1.dts"
         EDGENOS_DTS_BASENAME="redstone-stage1"
         EDGENOS_KERNEL_DEFCONFIG="config/kernel/as5610_defconfig"
         EDGENOS_IMAGE_NAME="edgenos-redstone-stage1.bin"

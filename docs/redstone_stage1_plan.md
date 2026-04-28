@@ -40,17 +40,16 @@ Expected Redstone stage-1 outputs:
 - `output/kernel/redstone-stage1.dtb`
 - `output/images/edgenos-redstone-stage1.bin`
 
-The Redstone DTB currently comes from `kernel/dts/as5610-52x.dts` as a
-compatibility placeholder. It is renamed to `redstone-stage1.dtb` so the build
-surface is Redstone-specific, but it is not yet a hardware-validated Redstone
-DTS. The FIT config name intentionally stays `accton_as5610_52x` because the
-current installer and U-Boot boot command still select
-`bootm ...#accton_as5610_52x`.
+The Redstone DTB now comes from `kernel/dts/redstone-stage1.dts`, a stage-1
+skeleton derived from the extracted original Redstone `p2020rdb.dtb` facts. The
+build surface is Redstone-specific, but the DTS is not yet hardware-validated.
+The FIT config name intentionally stays `accton_as5610_52x` because the current
+installer and U-Boot boot command still select `bootm ...#accton_as5610_52x`.
 
-The first-pass hardware inventory for replacing that placeholder lives in
+The first-pass hardware inventory for extending that skeleton lives in
 `docs/redstone_hardware_inventory.md`. Treat that document as the source of
 truth for what has been extracted from Redstone evidence versus what is still
-an AS5610-derived placeholder.
+an AS5610-derived platform placeholder.
 
 To select it on an already-running image:
 
@@ -122,8 +121,8 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 ### Stage 1: Minimal Data Path
 
 - Build kernel/rootfs with Redstone board selection and Redstone switchd config.
-- Keep the Redstone DTS marked as a compatibility placeholder until hardware
-  validation proves the board wiring.
+- Keep the Redstone DTS marked as a stage-1 skeleton until hardware validation
+  proves the board wiring.
 - Load BDE and detect BCM56846.
 - Start switchd with `redstone-stage1.bcm`.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.
@@ -134,8 +133,7 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 - Add Redstone DTS coverage for I2C muxes, EEPROM, CPLD/GPIO, fans, thermal,
   PSU, and front-panel optical cages.
 - Start from the original `p2020rdb.dtb` facts recorded in
-  `docs/redstone_hardware_inventory.md`, not from the current AS5610 mux and
-  CPLD assumptions.
+  `docs/redstone_hardware_inventory.md`.
 - Map Redstone LED and transceiver-present behavior.
 - Keep these changes independent from Broadcom SDK integration.
 
