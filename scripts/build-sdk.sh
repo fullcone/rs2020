@@ -11,7 +11,8 @@ MDK_INIT="$TOPDIR/asic/mdk-init"
 
 if [ ! -d "$OPENMDK" ]; then
     echo "ERROR: OpenMDK not found at $OPENMDK"
-    echo "Clone it with: git clone --depth 1 https://github.com/Broadcom-Network-Switching-Software/OpenMDK.git asic/openmdk"
+    echo "Clone it with: git clone https://github.com/Broadcom-Network-Switching-Software/OpenMDK.git asic/openmdk"
+    echo "Then pin it with: git -C asic/openmdk checkout db9c678696800d1ebb8d331cb462acde85c31ffb"
     exit 1
 fi
 

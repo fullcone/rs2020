@@ -45,7 +45,8 @@ sudo apt-get install -y gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu make
 Clone OpenMDK into the expected local path:
 
 ```sh
-git clone --depth 1 https://github.com/Broadcom-Network-Switching-Software/OpenMDK.git asic/openmdk
+git clone https://github.com/Broadcom-Network-Switching-Software/OpenMDK.git asic/openmdk
+git -C asic/openmdk checkout db9c678696800d1ebb8d331cb462acde85c31ffb
 ```
 
 Build the OpenMDK static libraries and switch daemon:

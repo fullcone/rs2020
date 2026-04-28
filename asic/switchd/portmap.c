@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,17 @@
 
 /* PHY headers - for direct PHY_CONFIG_SET access */
 #include <phy/phy.h>
+
+static int only_trailing_space(const char *s)
+{
+    while (*s) {
+        if (!isspace((unsigned char)*s))
+            return 0;
+        s++;
+    }
+
+    return 1;
+}
 
 /* Port-to-SerDes lane mapping for AS5610-52X
  * Index = front-panel port (0-based), value = SerDes lane
@@ -73,14 +85,14 @@ static int parse_portmap_key(const char *key, int *port)
     /* Accept both OpenMDK-style portmap_N.0 and Broadcom SDK-style portmap_N. */
     consumed = 0;
     if (sscanf(key, "portmap_%d.0%n", &parsed, &consumed) == 1 &&
-        key[consumed] == '\0') {
+        only_trailing_space(key + consumed)) {
         *port = parsed;
         return 1;
     }
 
     consumed = 0;
     if (sscanf(key, "portmap_%d%n", &parsed, &consumed) == 1 &&
-        key[consumed] == '\0') {
+        only_trailing_space(key + consumed)) {
         *port = parsed;
         return 1;
     }
