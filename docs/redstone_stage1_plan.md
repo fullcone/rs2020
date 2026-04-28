@@ -118,11 +118,11 @@ EDGENOS_BOARD=redstone ./scripts/build-kernel.sh download
 
 ## Build Verification
 
-On WSL/Ubuntu, install the PowerPC toolchain:
+On WSL/Ubuntu, install the PowerPC toolchain and kernel host build tools:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu make
+sudo apt-get install -y gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu make flex bison bc device-tree-compiler u-boot-tools
 ```
 
 Clone OpenMDK into the expected local path:
@@ -144,6 +144,18 @@ The stage-1 branch has been verified to build `asic/switchd/switchd` as an
 ELF32 big-endian PowerPC static executable with `powerpc-linux-gnu-gcc` 13.3.0.
 That verifies the local build path only; it does not replace Redstone hardware
 testing.
+
+The Redstone-selected kernel path has also been verified on WSL/Ubuntu with:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-kernel.sh build
+```
+
+That build produces `output/kernel/uImage`,
+`output/kernel/redstone-stage1.dtb`, and `output/kernel/vmlinux`. The kernel
+build script refreshes `olddefconfig` before compiling so an interrupted or
+stale `.config` cannot force an interactive `syncconfig` prompt during the real
+build.
 
 ## SDK Direction
 

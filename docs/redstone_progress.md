@@ -248,3 +248,34 @@ Next checkpoint:
 - Build the Redstone kernel with `EDGENOS_BOARD=redstone`.
 - Decide whether to satisfy the full rootfs/image build through Docker, a Linux
   host with root privileges, or a Buildroot-only path that avoids `debootstrap`.
+
+### Stage-3 Redstone Kernel Build
+
+Completed:
+
+- Installed the missing WSL host build tools required by Linux Kconfig:
+  `flex` and `bison`.
+- Updated `scripts/build-kernel.sh` so `olddefconfig` is refreshed before every
+  kernel build, even when `.config` already exists.
+- Built the Redstone-selected Linux 5.10.224 kernel path with
+  `EDGENOS_BOARD=redstone`.
+- Produced:
+  - `output/kernel/uImage`
+  - `output/kernel/redstone-stage1.dtb`
+  - `output/kernel/vmlinux`
+
+Verified:
+
+- `EDGENOS_BOARD=redstone ./scripts/build-kernel.sh build`
+- `file output/kernel/uImage output/kernel/redstone-stage1.dtb output/kernel/vmlinux`
+- `dtc -I dtb -O dts output/kernel/redstone-stage1.dtb >/dev/null`
+- `sh -n scripts/build-kernel.sh`
+- `git diff --check`
+- `git ls-files -o --exclude-standard`
+
+Next checkpoint:
+
+- Build a Redstone rootfs/image that includes the capture script and the
+  Redstone kernel outputs.
+- Decide whether the full image build should use a Linux root/debootstrap path
+  or a Buildroot-only path that avoids Docker on this Windows host.

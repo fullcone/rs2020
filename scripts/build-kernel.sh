@@ -70,11 +70,13 @@ build() {
 
     install_dts
 
-    # Copy defconfig if .config doesn't exist
+    # Copy defconfig if .config doesn't exist.
     if [ ! -f "$KSRC/.config" ]; then
         cp "$TOPDIR/$EDGENOS_KERNEL_DEFCONFIG" "$KSRC/.config"
-        make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
     fi
+    # Always refresh .config before the real build. A previous interrupted
+    # configure step can leave .config present but still require syncconfig.
+    make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
 
     echo "==> Building kernel (${JOBS} jobs)..."
     make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS -j$JOBS \
