@@ -69,6 +69,28 @@ journalctl -u switchd -f
 - `portmap_N.0=lane:speed`, used by the current AS5610 config.
 - `portmap_N=lane:speed`, used by Broadcom SDK-style board configs.
 
+## First-Boot Capture
+
+The rootfs includes `redstone-stage1-capture` for the first hardware boot. It
+collects the board selector, device-tree properties, dmesg, PCI, network, BDE,
+switchd, EEPROM, CPLD, and hwmon evidence into `/var/log/redstone-stage1/`.
+The default mode avoids active I2C probing:
+
+```sh
+redstone-stage1-capture
+```
+
+On a bench system, after confirming it is safe to touch all discovered I2C
+buses, collect an active scan as well:
+
+```sh
+redstone-stage1-capture --scan-i2c
+```
+
+Use the resulting tarball as the input for DTS and platform-driver changes.
+Do not promote pending Redstone assumptions to final board facts without this
+kind of live hardware output.
+
 ## Build Verification
 
 On WSL/Ubuntu, install the PowerPC toolchain:
@@ -127,6 +149,8 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 - Start switchd with `redstone-stage1.bcm`.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.
 - Assign test IPs and pass one ping through the ASIC.
+- Run `redstone-stage1-capture` and keep the tarball with the hardware test
+  notes for follow-up DTS and platform work.
 
 ### Stage 2: Platform Inventory
 

@@ -1,0 +1,145 @@
+#!/bin/sh
+# Capture Redstone stage-1 bring-up evidence without changing hardware state.
+
+set -u
+
+SCAN_I2C=0
+BASE_DIR=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
+
+usage() {
+    echo "Usage: redstone-stage1-capture [--scan-i2c]"
+    echo "  --scan-i2c  additionally run active i2cdetect scans on discovered buses"
+}
+
+case "${1:-}" in
+    "")
+        ;;
+    --scan-i2c)
+        SCAN_I2C=1
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+if ! mkdir -p "$BASE_DIR" 2>/dev/null; then
+    BASE_DIR=/tmp/redstone-stage1
+    mkdir -p "$BASE_DIR" || exit 1
+fi
+
+STAMP=$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s)
+OUT_DIR="$BASE_DIR/$STAMP"
+LOG="$OUT_DIR/capture.log"
+
+mkdir -p "$OUT_DIR" || exit 1
+: > "$LOG"
+
+log() {
+    printf '%s\n' "$*" | tee -a "$LOG" >/dev/null
+}
+
+capture_shell() {
+    name=$1
+    shift
+    cmd=$1
+    out="$OUT_DIR/$name.txt"
+
+    log "capture: $name"
+    {
+        printf '$ %s\n\n' "$cmd"
+        sh -c "$cmd"
+        rc=$?
+        printf '\nexit=%s\n' "$rc"
+    } > "$out" 2>&1
+}
+
+copy_file() {
+    src=$1
+    dst=$2
+
+    if [ -e "$src" ]; then
+        log "copy: $src"
+        cp -a "$src" "$OUT_DIR/$dst" >> "$LOG" 2>&1 || true
+    fi
+}
+
+capture_dt_prop() {
+    prop=$1
+    src="/proc/device-tree/$prop"
+    dst="$OUT_DIR/device-tree/$prop.txt"
+
+    if [ -e "$src" ]; then
+        mkdir -p "$(dirname "$dst")"
+        tr '\000' '\n' < "$src" > "$dst" 2>>"$LOG" || true
+    fi
+}
+
+capture_sysfs_files() {
+    src=$1
+    name=$2
+    maxdepth=${3:-2}
+
+    [ -d "$src" ] || return 0
+
+    log "sysfs: $src"
+    mkdir -p "$OUT_DIR/$name"
+    find "$src" -maxdepth "$maxdepth" -type f 2>/dev/null | while IFS= read -r file; do
+        rel=${file#"$src"/}
+        safe=$(printf '%s' "$rel" | tr '/ ' '__')
+        {
+            printf '# %s\n' "$file"
+            dd if="$file" bs=4096 count=1 2>/dev/null | tr '\000' '\n'
+        } > "$OUT_DIR/$name/$safe.txt" 2>>"$LOG" || true
+    done
+}
+
+copy_file /etc/edgenos/board etc_edgenos_board.txt
+copy_file /etc/os-release etc_os-release.txt
+
+mkdir -p "$OUT_DIR/device-tree"
+capture_dt_prop model
+capture_dt_prop compatible
+capture_dt_prop aliases/ethernet0
+capture_dt_prop aliases/ethernet1
+capture_dt_prop aliases/ethernet2
+
+capture_shell uname 'uname -a'
+capture_shell cmdline 'cat /proc/cmdline'
+capture_shell cpuinfo 'cat /proc/cpuinfo'
+capture_shell memory 'cat /proc/meminfo'
+capture_shell modules 'cat /proc/modules 2>/dev/null || true; echo; lsmod 2>/dev/null || true'
+capture_shell dmesg 'dmesg'
+capture_shell dmesg_redstone_focus 'dmesg | grep -iE "bcm|bde|trident|5684|gianfar|i2c|cpld|sfp|qsfp|pcie|pci|eth|eeprom" || true'
+capture_shell pci 'if command -v lspci >/dev/null 2>&1; then lspci -nn -vv; else echo "lspci unavailable"; fi; echo; for d in /sys/bus/pci/devices/*; do [ -d "$d" ] || continue; echo "## $d"; for f in vendor device class subsystem_vendor subsystem_device irq; do [ -r "$d/$f" ] && printf "%s=" "$f" && cat "$d/$f"; done; done'
+capture_shell net 'ip addr 2>/dev/null || ifconfig -a 2>/dev/null || true; echo; ip link 2>/dev/null || true; echo; for d in /sys/class/net/*; do [ -d "$d" ] || continue; iface=${d##*/}; echo "## $iface"; for f in address operstate carrier speed duplex; do [ -r "$d/$f" ] && printf "%s=" "$f" && cat "$d/$f"; done; if command -v ethtool >/dev/null 2>&1; then ethtool "$iface" 2>/dev/null || true; ethtool -i "$iface" 2>/dev/null || true; fi; done'
+capture_shell i2c_list 'if command -v i2cdetect >/dev/null 2>&1; then i2cdetect -l; else echo "i2cdetect unavailable"; fi; echo; ls -la /sys/bus/i2c/devices 2>/dev/null || true'
+capture_shell switchd 'switchd-init status 2>/dev/null || true; echo; ps w 2>/dev/null || ps 2>/dev/null || true; echo; ls -la /etc/switchd 2>/dev/null || true; echo; ls -la /run 2>/dev/null | grep -i switchd || true; ls -la /var/run 2>/dev/null | grep -i switchd || true; echo; for f in /etc/switchd/*.bcm /etc/switchd/config.bcm; do [ -f "$f" ] || continue; echo "## $f"; sed -n "1,220p" "$f"; done'
+capture_shell bde_devices 'ls -l /dev 2>/dev/null | grep -iE "bde|bcm|uk|proxy" || true'
+capture_shell logs 'if command -v journalctl >/dev/null 2>&1; then journalctl -b --no-pager; fi; for f in /var/log/messages /var/log/syslog /var/log/dmesg; do [ -f "$f" ] || continue; echo "## $f"; cat "$f"; done'
+
+capture_sysfs_files /sys/class/eeprom sys_class_eeprom 2
+capture_sysfs_files /sys/class/kennisis_cpld sys_class_kennisis_cpld 2
+capture_sysfs_files /sys/class/cpld sys_class_cpld 2
+capture_sysfs_files /sys/class/hwmon sys_class_hwmon 3
+
+if [ "$SCAN_I2C" = "1" ]; then
+    capture_shell i2c_scan 'if command -v i2cdetect >/dev/null 2>&1; then for b in /sys/bus/i2c/devices/i2c-*; do [ -d "$b" ] || continue; bus=${b##*-}; echo "## i2c-$bus"; i2cdetect -y "$bus" 2>&1 || true; done; else echo "i2cdetect unavailable"; fi'
+else
+    printf '%s\n' 'active i2cdetect scans skipped; rerun with --scan-i2c on a bench system if needed' > "$OUT_DIR/i2c_scan_skipped.txt"
+fi
+
+if command -v tar >/dev/null 2>&1; then
+    tarball="$BASE_DIR/$STAMP.tar.gz"
+    if (cd "$BASE_DIR" && tar czf "$tarball" "$STAMP") >> "$LOG" 2>&1; then
+        log "tarball: $tarball"
+        printf 'Redstone stage-1 capture written to %s\n' "$tarball"
+        exit 0
+    fi
+fi
+
+printf 'Redstone stage-1 capture written to %s\n' "$OUT_DIR"

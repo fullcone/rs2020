@@ -148,3 +148,28 @@ Next checkpoint:
 - Validate the new DTS against a Linux 5.10 Redstone boot log.
 - Capture `dmesg`, `/proc/device-tree`, `lspci -nn`, `ip link`, and I2C scan
   output from hardware, then extend the DTS only from confirmed differences.
+
+### Stage-2 First-Boot Capture Script
+
+Completed:
+
+- Added `redstone-stage1-capture` to the rootfs overlay.
+- The script captures board selection, device-tree properties, kernel logs,
+  PCI, network, BDE device nodes, switchd status/config, EEPROM, CPLD, and
+  hwmon evidence into `/var/log/redstone-stage1/`.
+- Active I2C scans are opt-in with `--scan-i2c`; the default capture avoids
+  probing every discovered bus.
+- Updated the stage-1 plan and hardware inventory to make the capture tarball
+  the input for future Redstone DTS and platform-driver changes.
+
+Verified:
+
+- `sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture`
+- `bash -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture`
+- `git diff --check`
+
+Next checkpoint:
+
+- Build a Redstone rootfs/image including the capture script.
+- Boot it on hardware, run `redstone-stage1-capture`, then use the tarball to
+  validate PCIe BCM56846 enumeration and live device-tree differences.

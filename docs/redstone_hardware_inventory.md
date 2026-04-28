@@ -76,6 +76,7 @@ Collect these on a live Redstone boot before turning pending items into final
 DTS or driver claims:
 
 ```sh
+redstone-stage1-capture
 cat /proc/device-tree/model
 cat /proc/device-tree/compatible
 cat /sys/class/eeprom/pro_name
@@ -85,3 +86,9 @@ dmesg | grep -iE 'bcm|bde|trident|5684|gianfar|i2c|cpld|sfp|qsfp'
 find /sys/class -maxdepth 2 -type f | grep -iE 'cpld|eeprom|fan|psu|sfp|qsfp|thermal'
 i2cdetect -l
 ```
+
+`redstone-stage1-capture` writes a timestamped capture under
+`/var/log/redstone-stage1/` and creates a tarball when `tar` is available. It
+does not run active I2C scans by default. Use
+`redstone-stage1-capture --scan-i2c` only on a bench system where active
+probing is acceptable.
