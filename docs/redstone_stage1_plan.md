@@ -89,7 +89,9 @@ redstone-stage1-capture --scan-i2c
 
 Use the resulting tarball as the input for DTS and platform-driver changes.
 Do not promote pending Redstone assumptions to final board facts without this
-kind of live hardware output.
+kind of live hardware output. The capture script follows `/sys/class` symlinks
+when collecting EEPROM, CPLD, and hwmon evidence, because those class entries
+normally point into real device directories.
 
 ## Source Preflight
 
@@ -105,6 +107,14 @@ This verifies that the Redstone aliases resolve to `redstone-stage1.dtb` and
 `switchd-init` scripts, that `switchd.service` uses the common init path, and
 that `redstone-stage1.bcm` still exposes 52 front-panel port mappings. If `dtc`
 is installed, the script also compiles the Redstone DTS skeleton.
+
+The kernel source download and extraction path is generated under `build/` and
+is intentionally ignored by git. To seed the Linux 5.10 source tree and install
+the selected Redstone DTS before a kernel build:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-kernel.sh download
+```
 
 ## Build Verification
 

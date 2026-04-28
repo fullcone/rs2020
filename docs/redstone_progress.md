@@ -199,3 +199,52 @@ Next checkpoint:
 - Build a Redstone rootfs/image including the capture script.
 - Boot it on hardware, run `redstone-stage1-capture`, then use the tarball to
   validate PCIe BCM56846 enumeration and live device-tree differences.
+
+### Stage-2 Capture Sysfs Symlink Fix
+
+Completed:
+
+- Updated `redstone-stage1-capture` so sysfs class collection follows symlinked
+  entries under `/sys/class`.
+- Preserved a fallback to plain `find` if the target runtime does not support
+  `find -L`.
+- Documented that EEPROM, CPLD, and hwmon evidence depends on following
+  `/sys/class` symlinks into the real device directories.
+
+Verified:
+
+- `sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture`
+- `bash -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture`
+- `git diff --check`
+- `scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Include this fix in the next PR review request.
+- Boot it on hardware, run `redstone-stage1-capture`, and confirm the tarball
+  includes non-empty EEPROM, CPLD, and hwmon class evidence when those classes
+  exist.
+
+### Stage-3 Kernel Source Seed
+
+Completed:
+
+- Ran the Redstone kernel source download path with `EDGENOS_BOARD=redstone`.
+- Confirmed the Linux 5.10.224 source tree receives
+  `arch/powerpc/boot/dts/redstone-stage1.dts`.
+- Confirmed the kernel DTS `Makefile` includes `redstone-stage1.dtb`.
+- Added `build/` to `.gitignore` because downloaded kernel sources and tarballs
+  are generated build inputs, not reviewable source.
+
+Verified:
+
+- `EDGENOS_BOARD=redstone ./scripts/build-kernel.sh download`
+- `test -f build/linux-5.10.224/arch/powerpc/boot/dts/redstone-stage1.dts`
+- `grep -q redstone-stage1.dtb build/linux-5.10.224/arch/powerpc/boot/dts/Makefile`
+- `git ls-files -o --exclude-standard`
+
+Next checkpoint:
+
+- Build the Redstone kernel with `EDGENOS_BOARD=redstone`.
+- Decide whether to satisfy the full rootfs/image build through Docker, a Linux
+  host with root privileges, or a Buildroot-only path that avoids `debootstrap`.

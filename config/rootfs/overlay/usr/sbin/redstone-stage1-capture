@@ -88,7 +88,11 @@ capture_sysfs_files() {
 
     log "sysfs: $src"
     mkdir -p "$OUT_DIR/$name"
-    find "$src" -maxdepth "$maxdepth" -type f 2>/dev/null | while IFS= read -r file; do
+    if find -L "$src" -maxdepth 0 -type d >/dev/null 2>&1; then
+        find -L "$src" -maxdepth "$maxdepth" -type f 2>/dev/null
+    else
+        find "$src" -maxdepth "$maxdepth" -type f 2>/dev/null
+    fi | while IFS= read -r file; do
         rel=${file#"$src"/}
         safe=$(printf '%s' "$rel" | tr '/ ' '__')
         {
