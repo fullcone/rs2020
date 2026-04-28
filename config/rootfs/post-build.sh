@@ -3,6 +3,7 @@
 # Called with $1 = target rootfs directory
 
 TARGET_DIR="$1"
+EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
 
 # Set root password to 'as5610'
 HASH='$6$52x8izoNf.9aB3Vd$azJoPieNNwYutepMslp9J.32/wB0pGCdd5lxeiz9J8jhoBdqwllvIvNIvyGYnCWfYuVZ4LBP9970NCzaymfsI/'
@@ -46,3 +47,7 @@ ln -sf /usr/lib/systemd/system/systemd-resolved.service "$WANTS/systemd-resolved
 
 # Set hostname
 echo "edgenos" > "${TARGET_DIR}/etc/hostname"
+
+# Record board profile for runtime init scripts.
+mkdir -p "${TARGET_DIR}/etc/edgenos"
+printf '%s\n' "$EDGENOS_BOARD" > "${TARGET_DIR}/etc/edgenos/board"

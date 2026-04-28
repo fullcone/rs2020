@@ -7,6 +7,7 @@ BRVER="2023.02.9"
 BRSRC="$TOPDIR/build/buildroot-$BRVER"
 OUTDIR="$TOPDIR/output"
 JOBS=$(nproc)
+EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
 
 download() {
     if [ -d "$BRSRC" ]; then
@@ -93,6 +94,10 @@ assemble() {
         echo "  Applying rootfs overlay..."
         cp -a "$TOPDIR/config/rootfs/overlay/"* "$STAGING/"
     fi
+
+    # Select board-specific runtime defaults.
+    mkdir -p "$STAGING/etc/edgenos"
+    printf '%s\n' "$EDGENOS_BOARD" > "$STAGING/etc/edgenos/board"
 
     # Create final squashfs
     echo "  Creating squashfs image..."

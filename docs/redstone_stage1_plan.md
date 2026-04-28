@@ -20,13 +20,24 @@ stage 1.
 4x40G BCM56846 layout. The file is not installed as the default
 `/etc/switchd/config.bcm`; the existing AS5610 default remains unchanged.
 
-To select it on a Redstone image:
+To build a rootfs that selects it at boot:
 
 ```sh
-cp /etc/switchd/redstone-stage1.bcm /etc/switchd/config.bcm
+EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble
+```
+
+To select it on an already-running image:
+
+```sh
+mkdir -p /etc/edgenos
+echo redstone > /etc/edgenos/board
 systemctl restart switchd
 journalctl -u switchd -f
 ```
+
+`switchd.service` runs through `switchd-init`, which chooses
+`/etc/switchd/redstone-stage1.bcm` when `/etc/edgenos/board` or
+`EDGENOS_BOARD` is `redstone`, `rs2020`, or `r0678`.
 
 `switchd` now accepts both config key styles:
 

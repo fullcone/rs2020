@@ -17,6 +17,7 @@ KVER="5.10.224"
 KSRC="/build/linux-${KVER}"
 JESSIE_MIRROR="http://archive.debian.org/debian"
 JOBS=$(nproc)
+EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
 
 log() { echo "==> $*"; }
 
@@ -186,6 +187,10 @@ EOF
     # Install ASIC config
     mkdir -p "$STAGING/etc/switchd"
     cp "$SRCDIR/config/bcm/"* "$STAGING/etc/switchd/" 2>/dev/null || true
+
+    # Select board-specific runtime defaults.
+    mkdir -p "$STAGING/etc/edgenos"
+    printf '%s\n' "$EDGENOS_BOARD" > "$STAGING/etc/edgenos/board"
 
     # Install switchd binary if built
     [ -f "$OUTDIR/switchd/switchd" ] && \

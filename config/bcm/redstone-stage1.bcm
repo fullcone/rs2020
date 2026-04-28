@@ -5,8 +5,8 @@
 # must add PHY polarity, external PHY address, MDI pair, MMU, L2/L3, and ACL
 # programming separately.
 #
-# To use in a Redstone image:
-#   cp /etc/switchd/redstone-stage1.bcm /etc/switchd/config.bcm
+# To use in a Redstone image, set the board selector before starting switchd:
+#   echo redstone > /etc/edgenos/board
 #   systemctl restart switchd
 
 portmap_1=6:10
