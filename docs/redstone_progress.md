@@ -173,3 +173,29 @@ Next checkpoint:
 - Build a Redstone rootfs/image including the capture script.
 - Boot it on hardware, run `redstone-stage1-capture`, then use the tarball to
   validate PCIe BCM56846 enumeration and live device-tree differences.
+
+### Stage-2 Redstone Source Preflight
+
+Completed:
+
+- Added `scripts/check-redstone-stage1.sh` as a build-path preflight for the
+  Redstone source tree.
+- The preflight checks Redstone board alias resolution, required DTS/config
+  files, rootfs overlay inclusion points, switchd service wiring, 52 front-panel
+  port mappings, shell syntax, optional DTS compilation, and the executable
+  mode for both the preflight script and `redstone-stage1-capture`.
+- Documented the preflight in the stage-1 plan so it is the required check
+  before a full rootfs or installer build.
+
+Verified:
+
+- `wsl sh -n /mnt/c/other_project/R0678/redstone_system_extracted/_external/edgenos/scripts/check-redstone-stage1.sh`
+- `wsl sh /mnt/c/other_project/R0678/redstone_system_extracted/_external/edgenos/scripts/check-redstone-stage1.sh`
+- `git diff --cached --check`
+- `git diff --check`
+
+Next checkpoint:
+
+- Build a Redstone rootfs/image including the capture script.
+- Boot it on hardware, run `redstone-stage1-capture`, then use the tarball to
+  validate PCIe BCM56846 enumeration and live device-tree differences.

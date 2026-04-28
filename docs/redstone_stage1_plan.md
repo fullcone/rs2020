@@ -91,6 +91,21 @@ Use the resulting tarball as the input for DTS and platform-driver changes.
 Do not promote pending Redstone assumptions to final board facts without this
 kind of live hardware output.
 
+## Source Preflight
+
+Before spending time on a full Redstone rootfs or installer build, run the
+source-tree preflight:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh
+```
+
+This verifies that the Redstone aliases resolve to `redstone-stage1.dtb` and
+`edgenos-redstone-stage1.bin`, that the rootfs overlay contains the capture and
+`switchd-init` scripts, that `switchd.service` uses the common init path, and
+that `redstone-stage1.bcm` still exposes 52 front-panel port mappings. If `dtc`
+is installed, the script also compiles the Redstone DTS skeleton.
+
 ## Build Verification
 
 On WSL/Ubuntu, install the PowerPC toolchain:
