@@ -4,6 +4,8 @@
 
 TARGET_DIR="$1"
 EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+[ -f "$REPO_ROOT/scripts/board-env.sh" ] && . "$REPO_ROOT/scripts/board-env.sh"
 
 # Set root password to 'as5610'
 HASH='$6$52x8izoNf.9aB3Vd$azJoPieNNwYutepMslp9J.32/wB0pGCdd5lxeiz9J8jhoBdqwllvIvNIvyGYnCWfYuVZ4LBP9970NCzaymfsI/'

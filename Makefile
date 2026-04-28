@@ -4,6 +4,8 @@
 TOPDIR    := $(shell pwd)
 CROSS     := powerpc-linux-gnu-
 ARCH      := powerpc
+EDGENOS_BOARD ?= as5610-52x
+export EDGENOS_BOARD
 
 # Kernel
 KVER      := 5.10.224
@@ -47,6 +49,7 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  make toolchain && make image"
+	@echo "  EDGENOS_BOARD=redstone make image"
 
 # ── Toolchain ──────────────────────────────────────────────────────
 
@@ -127,7 +130,7 @@ image: fit
 	@echo "==> Building ONIE installer"
 	@$(TOPDIR)/scripts/build-installer.sh image
 	@echo ""
-	@echo "==> ONIE installer ready: $(IMGDIR)/edgenos-as5610-52x.bin"
+	@echo "==> ONIE installer ready under $(IMGDIR)"
 
 # ── Clean ──────────────────────────────────────────────────────────
 

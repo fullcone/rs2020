@@ -18,6 +18,7 @@ KSRC="/build/linux-${KVER}"
 JESSIE_MIRROR="http://archive.debian.org/debian"
 JOBS=$(nproc)
 EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
+. "$SRCDIR/scripts/board-env.sh"
 
 log() { echo "==> $*"; }
 
@@ -51,12 +52,14 @@ build_kernel() {
         rm /build/linux-${KVER}.tar.xz
     fi
 
-    # Install DTS
-    cp "$SRCDIR/kernel/dts/as5610-52x.dts" \
-       "$KSRC/arch/powerpc/boot/dts/as5610-52x.dts"
-    grep -q "as5610-52x" "$KSRC/arch/powerpc/boot/dts/Makefile" || \
-        echo 'dtb-$(CONFIG_PPC_85xx) += as5610-52x.dtb' >> \
-        "$KSRC/arch/powerpc/boot/dts/Makefile"
+    # Install selected DTS.
+    local DTS_SRC="$SRCDIR/$EDGENOS_DTS_SOURCE"
+    local DTS_DST="$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dts"
+    [ -f "$DTS_SRC" ] || { echo "ERROR: selected DTS not found: $DTS_SRC"; exit 1; }
+    cp "$DTS_SRC" "$DTS_DST"
+    grep -q "${EDGENOS_DTS_BASENAME}.dtb" "$KSRC/arch/powerpc/boot/dts/Makefile" || \
+        echo "dtb-\$(CONFIG_PPC_85xx) += ${EDGENOS_DTS_BASENAME}.dtb" >> \
+            "$KSRC/arch/powerpc/boot/dts/Makefile"
 
     # Apply kernel patches
     for p in "$SRCDIR/kernel/patches/"*.patch; do
@@ -65,15 +68,16 @@ build_kernel() {
         (cd "$KSRC" && patch -p1 < "$p") || true
     done
 
-    cp "$SRCDIR/config/kernel/as5610_defconfig" "$KSRC/.config"
+    cp "$SRCDIR/$EDGENOS_KERNEL_DEFCONFIG" "$KSRC/.config"
     make -C "$KSRC" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- olddefconfig
     make -C "$KSRC" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- -j${JOBS} uImage dtbs modules
 
     mkdir -p "$OUTDIR/kernel"
     cp "$KSRC/arch/powerpc/boot/uImage" "$OUTDIR/kernel/"
-    cp "$KSRC/arch/powerpc/boot/dts/as5610-52x.dtb" "$OUTDIR/kernel/"
+    cp "$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dtb" "$OUTDIR/kernel/"
 
     log "Kernel: $OUTDIR/kernel/uImage"
+    log "DTB: $OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb"
 }
 
 # ── Build initramfs ──────────────────────────────────────────
@@ -272,13 +276,14 @@ build_fit() {
     dumpimage -T kernel -p 0 -o "$FITDIR/kernel.gz" "$OUTDIR/kernel/uImage" || \
         dd if="$OUTDIR/kernel/uImage" of="$FITDIR/kernel.gz" bs=64 skip=1 2>/dev/null
 
-    cp "$OUTDIR/kernel/as5610-52x.dtb" "$FITDIR/as5610_52x.dtb"
+    local FIT_DTB_FILE="${EDGENOS_DTS_BASENAME}.dtb"
+    cp "$OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb" "$FITDIR/$FIT_DTB_FILE"
     cp "$OUTDIR/images/initramfs.cpio.gz" "$FITDIR/"
 
-    cat > "$FITDIR/nos.its" <<'ITS'
+    cat > "$FITDIR/nos.its" <<ITS
 /dts-v1/;
 / {
-    description = "EdgeNOS for AS5610-52X";
+    description = "${EDGENOS_FIT_DESCRIPTION}";
     #address-cells = <1>;
     images {
         kernel {
@@ -292,9 +297,9 @@ build_fit() {
             entry = <0x00000000>;
             hash { algo = "crc32"; };
         };
-        accton_as5610_52x_dtb {
-            description = "AS5610-52X device tree";
-            data = /incbin/("as5610_52x.dtb");
+        ${EDGENOS_FIT_DTB_NODE} {
+            description = "${EDGENOS_DTS_BASENAME} device tree";
+            data = /incbin/("${FIT_DTB_FILE}");
             type = "flat_dt";
             arch = "powerpc";
             compression = "none";
@@ -313,11 +318,11 @@ build_fit() {
         };
     };
     configurations {
-        default = "accton_as5610_52x";
-        accton_as5610_52x {
-            description = "EdgeNOS AS5610-52X";
+        default = "${EDGENOS_FIT_CONFIG}";
+        ${EDGENOS_FIT_CONFIG} {
+            description = "${EDGENOS_FIT_DESCRIPTION}";
             kernel = "kernel";
-            fdt = "accton_as5610_52x_dtb";
+            fdt = "${EDGENOS_FIT_DTB_NODE}";
             ramdisk = "initramfs";
         };
     };
@@ -338,12 +343,13 @@ build_installer() {
     cp "$OUTDIR/images/rootfs.sqsh" "$TMPDIR/"
     (cd "$TMPDIR" && tar cf payload.tar uImage-powerpc.itb rootfs.sqsh)
 
-    cp "$SRCDIR/installer/install.sh" "$OUTDIR/images/edgenos-as5610-52x.bin"
-    cat "$TMPDIR/payload.tar" >> "$OUTDIR/images/edgenos-as5610-52x.bin"
-    chmod +x "$OUTDIR/images/edgenos-as5610-52x.bin"
+    local INSTALLER_IMAGE="$OUTDIR/images/$EDGENOS_IMAGE_NAME"
+    cp "$SRCDIR/installer/install.sh" "$INSTALLER_IMAGE"
+    cat "$TMPDIR/payload.tar" >> "$INSTALLER_IMAGE"
+    chmod +x "$INSTALLER_IMAGE"
     rm -rf "$TMPDIR"
 
-    log "ONIE installer: $OUTDIR/images/edgenos-as5610-52x.bin ($(du -sh "$OUTDIR/images/edgenos-as5610-52x.bin" | cut -f1))"
+    log "ONIE installer: $INSTALLER_IMAGE ($(du -sh "$INSTALLER_IMAGE" | cut -f1))"
 }
 
 # ── Main ─────────────────────────────────────────────────────
@@ -362,4 +368,4 @@ log "============================================"
 log ""
 ls -lh "$OUTDIR/images/"
 log ""
-log "Install: onie-nos-install http://<server>/edgenos-as5610-52x.bin"
+log "Install: onie-nos-install http://<server>/$EDGENOS_IMAGE_NAME"

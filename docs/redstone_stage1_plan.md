@@ -26,6 +26,27 @@ To build a rootfs that selects it at boot:
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble
 ```
 
+To build Redstone-named kernel and installer artifacts:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-kernel.sh download
+EDGENOS_BOARD=redstone ./scripts/build-kernel.sh build
+EDGENOS_BOARD=redstone ./scripts/build-installer.sh fit
+EDGENOS_BOARD=redstone ./scripts/build-installer.sh image
+```
+
+Expected Redstone stage-1 outputs:
+
+- `output/kernel/redstone-stage1.dtb`
+- `output/images/edgenos-redstone-stage1.bin`
+
+The Redstone DTB currently comes from `kernel/dts/as5610-52x.dts` as a
+compatibility placeholder. It is renamed to `redstone-stage1.dtb` so the build
+surface is Redstone-specific, but it is not yet a hardware-validated Redstone
+DTS. The FIT config name intentionally stays `accton_as5610_52x` because the
+current installer and U-Boot boot command still select
+`bootm ...#accton_as5610_52x`.
+
 To select it on an already-running image:
 
 ```sh
@@ -95,7 +116,9 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 
 ### Stage 1: Minimal Data Path
 
-- Build kernel/rootfs with Redstone DTS and Redstone switchd config.
+- Build kernel/rootfs with Redstone board selection and Redstone switchd config.
+- Keep the Redstone DTS marked as a compatibility placeholder until hardware
+  validation proves the board wiring.
 - Load BDE and detect BCM56846.
 - Start switchd with `redstone-stage1.bcm`.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.

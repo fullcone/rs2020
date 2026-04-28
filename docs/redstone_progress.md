@@ -49,3 +49,30 @@ Next checkpoint:
 - Add Redstone kernel/DTS build selection without asserting unverified board
   wiring. The first useful output should be a Redstone-named image that still
   clearly marks the DTS as pending hardware validation.
+
+### Stage-1 Redstone Build Artifacts
+
+Completed:
+
+- Added shared board metadata in `scripts/board-env.sh`.
+- Kept `as5610-52x` as the default build target.
+- Added `redstone`, `rs2020`, and `r0678` build aliases that generate:
+  - `output/kernel/redstone-stage1.dtb`
+  - `output/images/edgenos-redstone-stage1.bin`
+- Kept the FIT config selector as `accton_as5610_52x` so the current installer
+  U-Boot command remains compatible.
+- Documented that `redstone-stage1.dtb` still uses the AS5610 DTS source as a
+  compatibility placeholder until Redstone hardware validation replaces it.
+
+Verified:
+
+- `bash -n` passes for the changed build scripts.
+- `sh -n` passes for `scripts/board-env.sh`.
+- `EDGENOS_BOARD=redstone` resolves to `redstone-stage1.dtb` and
+  `edgenos-redstone-stage1.bin`.
+- `git diff --check` passes.
+
+Next checkpoint:
+
+- Add a first-pass Redstone hardware inventory table for DTS work: I2C muxes,
+  EEPROMs, CPLD/GPIO, fans, PSU, optics presence, and management Ethernet.

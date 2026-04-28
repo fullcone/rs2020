@@ -8,6 +8,7 @@ BRSRC="$TOPDIR/build/buildroot-$BRVER"
 OUTDIR="$TOPDIR/output"
 JOBS=$(nproc)
 EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
+. "$TOPDIR/scripts/board-env.sh"
 
 download() {
     if [ -d "$BRSRC" ]; then

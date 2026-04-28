@@ -1,4 +1,5 @@
 .gitattributes text eol=lf
+Makefile text eol=lf
 *.sh text eol=lf
 scripts/* text eol=lf
 config/rootfs/post-build.sh text eol=lf
