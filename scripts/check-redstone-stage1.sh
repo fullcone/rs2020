@@ -92,6 +92,7 @@ check_file "$EDGENOS_KERNEL_DEFCONFIG"
 check_file "config/bcm/redstone-stage1.bcm"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
+check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
 check_file "scripts/build-rootfs.sh"
 check_file "scripts/build-kernel.sh"
@@ -100,6 +101,12 @@ check_file "scripts/build-all.sh"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
+check_grep 'BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y' "config/rootfs/buildroot_defconfig" \
+    "rootfs defconfig selects uClibc for PowerPC SPE"
+check_grep 'BR2_INIT_BUSYBOX=y' "config/rootfs/buildroot_defconfig" \
+    "rootfs defconfig selects BusyBox init"
+check_grep 'switchd-init start' "config/rootfs/overlay/etc/init.d/S20edgenos" \
+    "BusyBox init starts switchd through switchd-init"
 check_grep 'start-foreground' "config/rootfs/overlay/etc/systemd/system/switchd.service" \
     "switchd service uses switchd-init foreground path"
 check_grep 'config/rootfs/overlay' "scripts/build-rootfs.sh" \
@@ -122,6 +129,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-installer.sh \
         scripts/build-all.sh \
         config/rootfs/post-build.sh \
+        config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/switchd-init
     do
@@ -162,6 +170,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-stage1-capture is tracked executable"
     else
         fail "redstone-stage1-capture git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/etc/init.d/S20edgenos |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "S20edgenos is tracked executable"
+    else
+        fail "S20edgenos git mode is ${mode:-missing}, expected 100755"
     fi
 else
     warn "git unavailable; skipped executable-mode check"

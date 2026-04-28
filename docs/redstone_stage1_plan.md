@@ -122,7 +122,7 @@ On WSL/Ubuntu, install the PowerPC toolchain and kernel host build tools:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu make flex bison bc device-tree-compiler u-boot-tools
+sudo apt-get install -y gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu make flex bison bc device-tree-compiler u-boot-tools cpio unzip squashfs-tools
 ```
 
 Clone OpenMDK into the expected local path:
@@ -156,6 +156,39 @@ That build produces `output/kernel/uImage`,
 build script refreshes `olddefconfig` before compiling so an interrupted or
 stale `.config` cannot force an interactive `syncconfig` prompt during the real
 build.
+
+The Redstone rootfs path has been verified with Buildroot 2023.02.9 on WSL.
+Buildroot is extracted under `${XDG_CACHE_HOME:-$HOME/.cache}/edgenos/buildroot`
+by default, or under `EDGENOS_BUILDROOT_WORKDIR` when that variable is set. Keep
+that work tree on a Linux filesystem, not `/mnt/c`, because Buildroot rejects
+case-insensitive source directories and inherited WSL paths with spaces can also
+break its host-tool checks.
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh download
+EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh build
+EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble
+```
+
+The current Redstone stage-1 rootfs intentionally uses:
+
+- `BR2_powerpc_8548=y`
+- `BR2_powerpc_SPE=y`
+- `BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y`
+- `BR2_INIT_BUSYBOX=y`
+
+Buildroot 2023.02 does not offer glibc for `BR2_powerpc_SPE`, and systemd
+depends on glibc in that release. For stage 1, Redstone therefore boots through
+BusyBox init. `/etc/init.d/S20edgenos` starts `platform-init.sh` and then runs
+`switchd-init start`, so the same Redstone board-selection logic is used on the
+minimal rootfs. The systemd unit files remain in the overlay for a future
+non-SPE or non-Buildroot path, but they are not active in this rootfs profile.
+
+Verified Redstone rootfs outputs:
+
+- `output/rootfs/rootfs.tar`
+- `output/rootfs/rootfs.squashfs`
+- `output/images/rootfs.sqsh`
 
 ## SDK Direction
 

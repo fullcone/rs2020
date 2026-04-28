@@ -279,3 +279,49 @@ Next checkpoint:
   Redstone kernel outputs.
 - Decide whether the full image build should use a Linux root/debootstrap path
   or a Buildroot-only path that avoids Docker on this Windows host.
+
+### Stage-3 Redstone Rootfs Build
+
+Completed:
+
+- Moved the default Buildroot source/work tree to
+  `${XDG_CACHE_HOME:-$HOME/.cache}/edgenos/buildroot`, with
+  `EDGENOS_BUILDROOT_WORKDIR` available for overrides.
+- Kept downloaded Buildroot tarballs under the repo-local ignored `build/`
+  cache, while extracting the active source tree onto a Linux filesystem.
+- Made the Redstone rootfs defconfig explicit for the P2020/e500v2 SPE path:
+  `BR2_powerpc_8548`, `BR2_powerpc_SPE`, `uClibc`, and BusyBox init.
+- Added `/etc/init.d/S20edgenos` so the BusyBox init rootfs starts
+  `platform-init.sh` and `switchd-init start`.
+- Kept systemd service enablement conditional in the post-build hook so the
+  same overlay can still carry future systemd units.
+- Built and assembled the Redstone rootfs artifacts:
+  - `output/rootfs/rootfs.tar`
+  - `output/rootfs/rootfs.squashfs`
+  - `output/images/rootfs.sqsh`
+
+Verified:
+
+- `EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh build`
+- `EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `output/rootfs/staging/etc/edgenos/board` contains `redstone`.
+- `output/rootfs/staging/etc/init.d/S20edgenos` is executable.
+- `output/rootfs/staging/usr/sbin/redstone-stage1-capture` is executable.
+- `output/rootfs/staging/etc/switchd/redstone-stage1.bcm` exists.
+- Buildroot final `.config` contains `BR2_powerpc_8548`,
+  `BR2_powerpc_SPE`, `BR2_TOOLCHAIN_BUILDROOT_UCLIBC`, and
+  `BR2_INIT_BUSYBOX`.
+- Artifact sizes from this WSL build:
+  - `output/rootfs/rootfs.tar`: 36M
+  - `output/rootfs/rootfs.squashfs`: 6.5M
+  - `output/images/rootfs.sqsh`: 11M
+- `wsl sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+- `git ls-files -o --exclude-standard`
+
+Next checkpoint:
+
+- Build or package a Redstone installer image that pairs the verified
+  Redstone kernel outputs with the assembled Redstone rootfs.
+- Boot the image on hardware, confirm BCM56846 PCIe enumeration, start BDE and
+  `switchd`, then run `redstone-stage1-capture`.

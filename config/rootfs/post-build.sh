@@ -22,30 +22,38 @@ if [ -f "${TARGET_DIR}/etc/ssh/sshd_config" ]; then
         echo "PermitRootLogin yes" >> "${TARGET_DIR}/etc/ssh/sshd_config"
 fi
 
-# Enable systemd services
+# Enable BusyBox init script when present.
+[ -f "${TARGET_DIR}/etc/init.d/S20edgenos" ] && \
+    chmod 755 "${TARGET_DIR}/etc/init.d/S20edgenos"
+
+# Enable systemd services only when the selected Buildroot init system provides
+# systemd units. Redstone stage-1 uses BusyBox init because glibc is unavailable
+# with the e500v2 SPE ABI.
 SYSD="${TARGET_DIR}/etc/systemd/system"
-WANTS="${SYSD}/multi-user.target.wants"
-mkdir -p "$WANTS"
+if [ -d "${TARGET_DIR}/usr/lib/systemd/system" ]; then
+    WANTS="${SYSD}/multi-user.target.wants"
+    mkdir -p "$WANTS"
 
-# Enable sshd
-[ -f "${TARGET_DIR}/usr/lib/systemd/system/sshd.service" ] && \
-    ln -sf /usr/lib/systemd/system/sshd.service "$WANTS/sshd.service" 2>/dev/null
+    # Enable sshd
+    [ -f "${TARGET_DIR}/usr/lib/systemd/system/sshd.service" ] && \
+        ln -sf /usr/lib/systemd/system/sshd.service "$WANTS/sshd.service" 2>/dev/null
 
-# Enable SSH keygen
-[ -f "${SYSD}/sshd-keygen.service" ] && \
-    ln -sf /etc/systemd/system/sshd-keygen.service "$WANTS/sshd-keygen.service" 2>/dev/null
+    # Enable SSH keygen
+    [ -f "${SYSD}/sshd-keygen.service" ] && \
+        ln -sf /etc/systemd/system/sshd-keygen.service "$WANTS/sshd-keygen.service" 2>/dev/null
 
-# Enable systemd-networkd for DHCP
-ln -sf /usr/lib/systemd/system/systemd-networkd.service "$WANTS/systemd-networkd.service" 2>/dev/null
-ln -sf /usr/lib/systemd/system/systemd-resolved.service "$WANTS/systemd-resolved.service" 2>/dev/null
+    # Enable systemd-networkd for DHCP
+    ln -sf /usr/lib/systemd/system/systemd-networkd.service "$WANTS/systemd-networkd.service" 2>/dev/null
+    ln -sf /usr/lib/systemd/system/systemd-resolved.service "$WANTS/systemd-resolved.service" 2>/dev/null
 
-# Enable platform-init and switchd
-[ -f "${SYSD}/platform-init.service" ] && \
-    ln -sf /etc/systemd/system/platform-init.service "$WANTS/platform-init.service" 2>/dev/null
-[ -f "${SYSD}/switchd.service" ] && \
-    ln -sf /etc/systemd/system/switchd.service "$WANTS/switchd.service" 2>/dev/null
-[ -f "${SYSD}/thermal-mgmt.service" ] && \
-    ln -sf /etc/systemd/system/thermal-mgmt.service "$WANTS/thermal-mgmt.service" 2>/dev/null
+    # Enable platform-init and switchd
+    [ -f "${SYSD}/platform-init.service" ] && \
+        ln -sf /etc/systemd/system/platform-init.service "$WANTS/platform-init.service" 2>/dev/null
+    [ -f "${SYSD}/switchd.service" ] && \
+        ln -sf /etc/systemd/system/switchd.service "$WANTS/switchd.service" 2>/dev/null
+    [ -f "${SYSD}/thermal-mgmt.service" ] && \
+        ln -sf /etc/systemd/system/thermal-mgmt.service "$WANTS/thermal-mgmt.service" 2>/dev/null
+fi
 
 # Set hostname
 echo "edgenos" > "${TARGET_DIR}/etc/hostname"
