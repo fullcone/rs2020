@@ -108,8 +108,10 @@ The recommended first bench sequence is:
    redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"
    ```
 
-6. Return the validation bundle or evidence directory, plus the full serial
-   console log, before changing DTS, platform drivers, or switchd behavior.
+6. Return the validation bundle or evidence directory, the printed
+   `/var/log/redstone-stage1/bench-run-*` evidence directory, and the full
+   serial console log before changing DTS, platform drivers, or switchd
+   behavior.
 7. Consider ONIE install, NAND restore, or any permanent U-Boot `saveenv` step
    only after external boot and the returned evidence prove the required stage-1
    hardware path.
@@ -654,9 +656,15 @@ Stage-1 acceptance requires a real front-panel target and peer, using
 placeholders such as `REDSTONE_IFACE=swpN`,
 `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`, then
 running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
-The bench runner preserves the validator output, parses the returned
+The bench runner preserves the validator output, writes a matching
+`/var/log/redstone-stage1/bench-run-*` directory, parses the returned
 `Validation bundle:` or `Evidence directory:` line, and prints the exact
 `host-tools/analyze-redstone-handoff-capture.sh` command to run on the host.
+The bench-run directory contains original arguments and `REDSTONE_*`
+environment, a copy of the validation console output, plus pre-run,
+prepared-link, post-validation, BDE/PCI, switchd, network, and focused dmesg
+snapshots. Return that directory with the validation bundle and serial log so
+the next DTS/platform/switchd change can use one hardware run's full evidence.
 The package also includes
 `bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md` and
 `host-tools/prepare-redstone-bench-note.sh`; run the helper for each bench run
@@ -712,8 +720,8 @@ smoke evidence exists on Redstone hardware.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.
 - Assign test IPs and pass one ping through the ASIC.
 - Run `redstone-stage1-bench-run --iface <swpN> --local-cidr <local-cidr> --peer <peer-ip>`.
-- Keep the printed strict validation bundle with the hardware test notes for
-  follow-up DTS and platform work.
+- Keep the printed strict validation bundle and matching `bench-run-*`
+  directory with the hardware test notes for follow-up DTS and platform work.
 - Complete the packaged bench result template so the accept/reject decision is
   explicit for that hardware run, and store the completed note outside the
   verified handoff package.

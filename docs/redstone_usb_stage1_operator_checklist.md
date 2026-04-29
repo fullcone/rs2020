@@ -79,8 +79,11 @@ cat /etc/edgenos/board
 redstone-stage1-bench-run --capture-only
 ```
 
-Return the printed evidence directory or validation bundle path, and the full
-serial console log. Capture-only output is inventory evidence only.
+Return the printed evidence directory or validation bundle path, the printed
+bench-run evidence directory under `/var/log/redstone-stage1/bench-run-*`, and
+the full serial console log. Capture-only output is inventory evidence only.
+Keep `bench-run.log` and `validate-console.log` with the returned bundle so the
+next code change can follow the exact failure point.
 
 ## Strict One-Port Validation
 
@@ -95,13 +98,17 @@ REDSTONE_PEER=192.0.2.2
 redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"
 ```
 
-Return the printed validation bundle or evidence directory, plus the full
-serial log.
+Return the printed validation bundle or evidence directory, the printed
+bench-run evidence directory under `/var/log/redstone-stage1/bench-run-*`, and
+the full serial log. The bench-run directory contains pre-run, prepared-link,
+post-validation, BDE/PCI, switchd, network, and focused dmesg snapshots for
+debugging one hardware run after the board is powered down.
 
 ## Host Analysis
 
-After copying back the strict validation bundle or evidence directory, unpack
-the Redstone handoff package and run:
+After copying back the strict validation bundle or evidence directory and the
+matching bench-run evidence directory, unpack the Redstone handoff package and
+run:
 
 ```sh
 ./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR
@@ -125,5 +132,5 @@ Abort the run and return logs if any of these occur:
 - Ping to the configured peer fails.
 
 Do not perform a persistent install to fix any of the above. Return the serial
-log and generated evidence so the next code change can be based on the real
-failure point.
+log, generated validation evidence, and the matching `bench-run-*` evidence
+directory so the next code change can be based on the real failure point.

@@ -1625,3 +1625,42 @@ Next checkpoint:
 - Regenerate `output/images/redstone-usb-stage1-boot-capture.img`, verify it,
   write only the selected external USB stick, then boot Redstone and return the
   serial log plus capture or validation bundle.
+
+### Stage-3 Bench Runner Diagnostic Snapshots
+
+Completed:
+
+- Extended `redstone-stage1-bench-run` so every non-help run creates a matching
+  `/var/log/redstone-stage1/bench-run-*` evidence directory, or uses
+  `REDSTONE_BENCH_DIR` when set for controlled test runs.
+- The bench-run directory records original arguments, `REDSTONE_*` environment,
+  `bench-run.log`, `validate-console.log`, and pre-run/prepared/post snapshots.
+- Snapshots capture system metadata, command availability, interface state,
+  routes, BDE device nodes, loaded BDE modules, PCI vendor/device/driver state,
+  switchd status, process list, and focused dmesg lines.
+- Capture-only and strict one-port validation now print both the validation
+  bundle/evidence path and the bench-run evidence path to return from hardware.
+- Updated the USB operator checklist and stage plan so the serial log,
+  validation bundle, and matching `bench-run-*` directory are all required
+  return artifacts for one real hardware run.
+- Extended source preflight so the bench-run log path, validation console copy,
+  and diagnostic snapshot phases remain covered.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run scripts/check-redstone-stage1.sh`
+- `wsl sh -c 'PATH="$PWD/config/rootfs/overlay/usr/sbin:$PATH" sh config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run --help'`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- WSL capture-only smoke run with `REDSTONE_BENCH_DIR`, `REDSTONE_VALIDATE_DIR`,
+  and `REDSTONE_CAPTURE_DIR` pointed at `/tmp` printed the validation bundle,
+  bench-run evidence directory, `bench-run.log`, and `validate-console.log`.
+- The same smoke run produced non-empty pre/post system, network, BDE/PCI,
+  switchd, command, focused dmesg, bench-run, and validation-console files.
+
+Next checkpoint:
+
+- Regenerate and verify the non-destructive USB stage-1 image after this
+  diagnostic update, then use the operator checklist on Redstone hardware and
+  return the serial log, validation bundle, and matching `bench-run-*`
+  directory.

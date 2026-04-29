@@ -270,6 +270,9 @@ check_grep 'redstone-stage1-bench-run --capture-only' \
 check_grep 'redstone-stage1-bench-run --iface' \
     "docs/redstone_usb_stage1_operator_checklist.md" \
     "operator checklist includes strict one-port validation command"
+check_grep 'bench-run-[*]' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist asks operators to return bench-run diagnostic snapshots"
 check_grep 'PATH_TO_VALIDATION_BUNDLE_OR_DIR' \
     "docs/redstone_usb_stage1_operator_checklist.md" \
     "operator checklist includes host analysis command"
@@ -550,6 +553,30 @@ check_grep 'analyze-redstone-handoff-capture\.sh' \
 check_grep 'REDSTONE_BENCH_VALIDATE_LOG' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner exposes validation log override for diagnostics"
+check_grep 'REDSTONE_BENCH_DIR' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner exposes bench evidence directory override"
+check_grep 'capture_bench_snapshot[[:space:]]+pre' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner captures pre-run diagnostic snapshot"
+check_grep 'capture_bench_snapshot[[:space:]]+prepared' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner captures prepared-interface diagnostic snapshot"
+check_grep 'capture_bench_snapshot[[:space:]]+post' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner captures post-validation diagnostic snapshot"
+check_grep 'Return bench run evidence directory to the host' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner prints the host-transfer bench evidence path"
+check_grep 'validate-console[.]log' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner preserves validator console output"
+check_grep 'phase}_bde_pci' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner snapshots BDE and PCI state"
+check_grep 'dmesg_focus' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner snapshots focused kernel diagnostics"
 check_grep '--local-cidr' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner supports local CIDR setup"
