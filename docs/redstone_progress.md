@@ -970,3 +970,38 @@ Next checkpoint:
   `redstone-stage1-validate --capture`, analyze the returned tarball with the
   bundled host analyzer, and only then consider the reset-risk-gated OpenBCM
   init probe `--exec` path.
+
+### Stage-3 Redstone Strict Validation Gate
+
+Completed:
+
+- Tightened `redstone-stage1-validate --strict` so it is an acceptance gate
+  rather than a loose smoke test.
+- Strict mode now requires an explicit `--iface swpN` front-panel target and
+  `--peer IP` before any hardware checks run.
+- Strict mode rejects non-front-panel targets such as `eth0`, so the stage-1
+  acceptance command cannot accidentally prove host networking instead of a
+  Redstone `swp` link.
+- Extended source preflight so the strict target requirements stay covered.
+- Updated the stage-1 plan to document the difference between smoke validation
+  and strict acceptance validation.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-validate`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- Missing `--iface` with `--strict` exits 2 and reports
+  `strict requires --iface swpN`.
+- Non-swp `--iface eth0` with `--strict` exits 2 and reports
+  `strict --iface must be a swpN front-panel interface`.
+- Missing `--peer` with `--strict --iface swp1` exits 2 and reports
+  `strict requires --peer IP`.
+- `--strict --iface swp1 --peer 192.0.2.2` passes argument validation and
+  proceeds to hardware checks instead of exiting 2.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Run the strict validator on Redstone hardware with the real bench interface
+  and peer, then analyze the evidence bundle before attempting the reset-risk
+  gated OpenBCM init probe `--exec` path.

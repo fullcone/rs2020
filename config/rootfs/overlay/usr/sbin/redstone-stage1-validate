@@ -18,7 +18,7 @@ usage() {
     echo "  --iface IFACE   front-panel Linux interface expected to have link"
     echo "  --peer IP       peer IP to ping after link validation"
     echo "  --ping-count N  ping packet count, default 3"
-    echo "  --strict        exit nonzero if any required check fails"
+    echo "  --strict        require --iface swpN and --peer IP; exit nonzero if any required check fails"
     echo "  --capture       run redstone-stage1-capture after validation"
 }
 
@@ -78,6 +78,30 @@ case "$PEER" in
     exit 2
     ;;
 esac
+
+if [ "$STRICT" = "1" ]; then
+    if [ -z "$IFACE" ]; then
+        echo "redstone-stage1-validate: --strict requires --iface swpN" >&2
+        exit 2
+    fi
+
+    iface_num=${IFACE#swp}
+    if [ "$iface_num" = "$IFACE" ] || [ -z "$iface_num" ]; then
+        echo "redstone-stage1-validate: --strict --iface must be a swpN front-panel interface: $IFACE" >&2
+        exit 2
+    fi
+    case "$iface_num" in
+    *[!0-9]*)
+        echo "redstone-stage1-validate: --strict --iface must be a swpN front-panel interface: $IFACE" >&2
+        exit 2
+        ;;
+    esac
+
+    if [ -z "$PEER" ]; then
+        echo "redstone-stage1-validate: --strict requires --peer IP" >&2
+        exit 2
+    fi
+fi
 
 if ! mkdir -p "$BASE_DIR" 2>/dev/null; then
     BASE_DIR=/tmp/redstone-stage1

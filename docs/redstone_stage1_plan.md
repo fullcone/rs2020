@@ -105,7 +105,7 @@ acceptance check for the narrow stage-1 target. It records evidence under
 - `/dev/linux-kernel-bde` and `/dev/linux-user-bde`.
 - BCM56846 PCIe presence via `lspci` or sysfs device ID `14e4:b846`.
 - `switchd` status and created `swp` interfaces.
-- one front-panel link, plus optional ping reachability.
+- one front-panel link, plus ping reachability when a peer is provided.
 
 For a first smoke test:
 
@@ -114,8 +114,9 @@ redstone-stage1-validate
 ```
 
 For the stage-1 acceptance run, pass the interface and peer that are connected
-on the bench. `--strict` makes the command fail nonzero if any required check
-fails:
+on the bench. `--strict` is intentionally stricter than the smoke test: it
+requires an explicit `--iface swpN` front-panel target and `--peer IP`, then
+fails nonzero if any required check fails:
 
 ```sh
 redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict

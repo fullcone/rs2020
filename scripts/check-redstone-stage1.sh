@@ -228,6 +228,15 @@ check_grep 'redstone-openbcm-init-probe --dry-run' \
 check_grep 'redstone-openbcm-init-probe --dry-run' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "validator records OpenBCM init probe dry-run evidence"
+check_grep 'strict requires --iface swpN' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator strict mode requires explicit front-panel interface"
+check_grep 'strict requires --peer IP' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator strict mode requires ping peer"
+check_grep 'strict --iface must be a swpN front-panel interface' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator strict mode rejects non-swp interface targets"
 check_grep 'REQUIRE_OPENBCM_INIT_PROBE' "scripts/check-redstone-image.sh" \
     "image checker can enforce OpenBCM init probe packaging"
 
