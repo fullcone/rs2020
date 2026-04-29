@@ -138,6 +138,12 @@ without mounting the image or writing to any USB device. `sha256sum` and
 `md5sum` are mandatory for this gate; if either checksum utility is missing, the
 verifier fails instead of approving an unchecked image.
 
+The operator-facing first-run sequence lives in
+`docs/redstone_usb_stage1_operator_checklist.md`. The USB image copies that file
+into the ext2 data partition as
+`/docs/redstone_usb_stage1_operator_checklist.md`; use it as the bench command
+checklist and return it with the serial log and evidence bundle.
+
 Writing that raw image to a USB stick overwrites the selected USB stick. On the
 Windows host, the existing guarded writer can be pointed at the generated image
 after opening PowerShell as Administrator and selecting the exact USB disk name

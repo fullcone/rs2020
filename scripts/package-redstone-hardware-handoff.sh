@@ -151,6 +151,11 @@ before any Windows guarded-write step. sha256sum and md5sum are required; if
 either checksum utility is missing, verification fails instead of approving an
 unchecked image.
 
+The source tree and the USB image ext2 data partition include
+docs/redstone_usb_stage1_operator_checklist.md. Use that checklist as the
+bench-facing command sequence for the non-destructive USB run. It is not
+persistent install approval.
+
 Use temporary U-Boot commands first and do not run saveenv until manual external
 boot succeeds:
 

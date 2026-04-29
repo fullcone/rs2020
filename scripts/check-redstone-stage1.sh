@@ -135,6 +135,7 @@ check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 check_file "docs/redstone_bench_result_template.md"
 check_file "docs/redstone_stage1_plan.md"
 check_file "docs/redstone_progress.md"
+check_file "docs/redstone_usb_stage1_operator_checklist.md"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -239,6 +240,42 @@ check_grep 'boot-files\.txt' \
 check_grep 'data-files\.txt' \
     "scripts/verify-redstone-usb-stage1-image.sh" \
     "Redstone USB stage-1 image verifier checks data inventory"
+check_grep 'redstone_usb_stage1_operator_checklist\.md' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 image carries the operator checklist"
+check_grep 'docs/redstone_usb_stage1_operator_checklist\.md' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier requires operator checklist in data inventory"
+check_grep 'redstone_usb_stage1_operator_checklist\.md' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook points to the operator checklist"
+check_grep 'write_fanxiang_uboot_fat_image\.ps1' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist uses guarded Windows USB writer"
+check_grep 'redstone-usb-stage1-verify' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist requires read-only USB image verification"
+check_grep 'bootm 1000000#accton_as5610_52x' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist uses temporary FIT boot command"
+check_grep 'Do not run `saveenv`' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist blocks saveenv"
+check_grep 'Do not run `onie-nos-install`' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist blocks ONIE install during stage-1 capture"
+check_grep 'redstone-stage1-bench-run --capture-only' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist includes capture-only command"
+check_grep 'redstone-stage1-bench-run --iface' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist includes strict one-port validation command"
+check_grep 'PATH_TO_VALIDATION_BUNDLE_OR_DIR' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist includes host analysis command"
+check_grep '14e4:b846' \
+    "docs/redstone_usb_stage1_operator_checklist.md" \
+    "operator checklist names exact BCM56846 PCI ID evidence"
 check_grep 'Optional ONIE Install' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook keeps ONIE install optional after external boot proof"

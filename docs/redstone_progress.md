@@ -1603,3 +1603,25 @@ Verified:
 - `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passed
   with `0 warning(s)`.
 - `git diff --check`
+
+### Stage-3 Redstone USB Stage-1 Operator Checklist
+
+Completed:
+
+- Added `docs/redstone_usb_stage1_operator_checklist.md` as the bench-facing
+  first-run sequence for the non-destructive USB stage-1 boot/capture image.
+- The checklist explicitly blocks `saveenv`, `onie-nos-install`, internal flash
+  writes, and persistent U-Boot edits while stage 1 is being proven.
+- The checklist records the host build/verify flow, guarded Windows USB write,
+  temporary FIT U-Boot command, capture-only run, strict one-port validation
+  command, host analysis command, and abort conditions.
+- The USB stage-1 image now copies the checklist into the ext2 data partition
+  as `/docs/redstone_usb_stage1_operator_checklist.md`.
+- The raw-image verifier and source preflight now require that checklist in the
+  generated image inventory.
+
+Next checkpoint:
+
+- Regenerate `output/images/redstone-usb-stage1-boot-capture.img`, verify it,
+  write only the selected external USB stick, then boot Redstone and return the
+  serial log plus capture or validation bundle.

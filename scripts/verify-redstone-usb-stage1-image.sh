@@ -217,6 +217,7 @@ for entry in \
     ./host-tools/verify-redstone-hardware-handoff.sh \
     ./docs/redstone_stage1_plan.md \
     ./docs/redstone_progress.md \
+    ./docs/redstone_usb_stage1_operator_checklist.md \
     ./USB_STAGE1_README.txt \
     ./MANIFEST.txt
 do

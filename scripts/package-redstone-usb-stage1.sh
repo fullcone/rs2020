@@ -243,6 +243,9 @@ After boot:
   cat /etc/edgenos/board
   redstone-stage1-bench-run --capture-only
 
+Full operator checklist:
+  /docs/redstone_usb_stage1_operator_checklist.md on the ext2 data partition.
+
 Strict one-port validation after the bench link is connected:
   REDSTONE_IFACE=swpN
   REDSTONE_LOCAL_CIDR=192.0.2.1/24
@@ -341,6 +344,8 @@ populate_data_partition() {
         "$DATA_MNT/host-tools/verify-redstone-hardware-handoff.sh"
     cp "$TOPDIR/docs/redstone_stage1_plan.md" "$DATA_MNT/docs/redstone_stage1_plan.md"
     cp "$TOPDIR/docs/redstone_progress.md" "$DATA_MNT/docs/redstone_progress.md"
+    cp "$TOPDIR/docs/redstone_usb_stage1_operator_checklist.md" \
+        "$DATA_MNT/docs/redstone_usb_stage1_operator_checklist.md"
     write_readme "$DATA_MNT"
     write_manifest "$DATA_MNT" "$DATA_MNT/MANIFEST.txt"
 }
