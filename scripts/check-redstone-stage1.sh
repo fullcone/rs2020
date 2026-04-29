@@ -104,6 +104,7 @@ check_file "scripts/check-redstone-image.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
 check_file "scripts/prepare-openbcm.sh"
 check_file "scripts/build-openbcm-bde.sh"
+check_file "scripts/redstone-openbcm-bde-smoke.sh"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -121,6 +122,8 @@ check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'bundle' "scripts/build-openbcm-bde.sh" \
     "OpenBCM BDE helper can bundle hardware-load artifacts"
+check_grep 'redstone-openbcm-bde-smoke\.sh' "scripts/build-openbcm-bde.sh" \
+    "OpenBCM BDE bundle includes the hardware smoke helper"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then
@@ -141,6 +144,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/analyze-redstone-stage1-evidence.sh \
         scripts/prepare-openbcm.sh \
         scripts/build-openbcm-bde.sh \
+        scripts/redstone-openbcm-bde-smoke.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -220,6 +224,15 @@ if command -v git >/dev/null 2>&1; then
         ok "build-openbcm-bde.sh is tracked executable"
     else
         fail "build-openbcm-bde.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/redstone-openbcm-bde-smoke.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-openbcm-bde-smoke.sh is tracked executable"
+    else
+        fail "redstone-openbcm-bde-smoke.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

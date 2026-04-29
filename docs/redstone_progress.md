@@ -592,3 +592,39 @@ Next checkpoint:
   `linux-user-bde.ko`.
 - Capture `/dev/linux-*-bde`, `dmesg`, and `lspci -nn` evidence showing
   `14e4:b846` before starting any OpenBCM userland SDK init work.
+
+### Stage-3 OpenBCM BDE Hardware Smoke Helper
+
+Completed:
+
+- Added `scripts/redstone-openbcm-bde-smoke.sh`, a device-side smoke helper for
+  the OpenBCM BDE bundle.
+- The helper loads `linux-kernel-bde.ko` with `dma_size=4`, then
+  `linux-user-bde.ko`, checks `/dev/linux-*-bde`, captures focused module and
+  `dmesg` output, and verifies BCM56846 as `14e4:b846` through `lspci` or PCI
+  sysfs.
+- The helper refuses to treat already loaded same-named BDE modules as OpenBCM
+  proof unless `--reload-existing` is passed explicitly.
+- Updated `scripts/build-openbcm-bde.sh bundle` so `output/openbcm-bde/`
+  includes `redstone-openbcm-bde-smoke.sh` and records it in the manifest.
+- Extended Redstone source preflight so the smoke helper must be present,
+  shell-valid, copied by the bundle helper, and tracked executable.
+- Updated the OpenBCM decision note and stage plan to make the hardware smoke
+  command the next Redstone bench checkpoint.
+
+Verified:
+
+- `wsl sh -n scripts/redstone-openbcm-bde-smoke.sh`
+- `wsl sh -n scripts/build-openbcm-bde.sh`
+- `wsl sh scripts/build-openbcm-bde.sh bundle`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Copy `output/openbcm-bde/` to the Redstone bench system.
+- Run `./redstone-openbcm-bde-smoke.sh --strict` before platform BDE modules
+  are loaded, or stop `switchd` and run
+  `./redstone-openbcm-bde-smoke.sh --reload-existing --strict` on a controlled
+  bench system.
+- Use the smoke evidence directory as the input for the next OpenBCM userland
+  SDK init increment.

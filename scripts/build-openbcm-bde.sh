@@ -28,7 +28,7 @@ Commands:
   kernel     Build linux-kernel-bde.ko for Redstone Linux 5.10
   user       Build linux-user-bde.ko for Redstone Linux 5.10
   all        Build both BDE modules, kernel first
-  bundle     Copy built BDE modules into a hardware-load bundle
+  bundle     Copy built BDE modules and smoke helper into a hardware-load bundle
   print-env  Print the resolved build paths
   clean      Remove generated OpenBCM BDE build outputs, bundle, and target file
 
@@ -367,14 +367,18 @@ manifest_module() {
 bundle_bde() {
     kernel_module="$OPENBCM_BDE_OUT/linux-kernel-bde.ko"
     user_module="$OPENBCM_BDE_OUT/linux-user-bde.ko"
+    smoke_script="$TOPDIR/scripts/redstone-openbcm-bde-smoke.sh"
     manifest="$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde.manifest"
 
     require_file "OpenBCM kernel BDE module exists" "$kernel_module"
     require_file "OpenBCM user BDE module exists" "$user_module"
+    require_file "OpenBCM BDE smoke helper exists" "$smoke_script"
 
     mkdir -p "$OPENBCM_BDE_BUNDLE"
     cp "$kernel_module" "$OPENBCM_BDE_BUNDLE/"
     cp "$user_module" "$OPENBCM_BDE_BUNDLE/"
+    cp "$smoke_script" "$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde-smoke.sh"
+    chmod +x "$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde-smoke.sh"
 
     {
         printf 'redstone_openbcm_bde_bundle=1\n'
@@ -387,9 +391,16 @@ bundle_bde() {
         printf 'arch=%s\n' "$ARCH"
         printf 'cross_compile=%s\n' "$CROSS_COMPILE"
         printf 'load_order=linux-kernel-bde.ko linux-user-bde.ko\n'
-        printf 'hardware_smoke=insmod ./linux-kernel-bde.ko dma_size=4; insmod ./linux-user-bde.ko; ls -l /dev/linux-*-bde; lspci -nn | grep -i "14e4:b846"\n'
+        printf 'hardware_smoke=./redstone-openbcm-bde-smoke.sh --strict\n'
         manifest_module "$OPENBCM_BDE_BUNDLE/linux-kernel-bde.ko"
         manifest_module "$OPENBCM_BDE_BUNDLE/linux-user-bde.ko"
+        printf '\n[tool redstone-openbcm-bde-smoke.sh]\n'
+        printf 'path=%s\n' "$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde-smoke.sh"
+        printf 'bytes=%s\n' "$(wc -c < "$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde-smoke.sh" | tr -d ' ')"
+        if command -v sha256sum >/dev/null 2>&1; then
+            printf 'sha256='
+            sha256sum "$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde-smoke.sh" | awk '{print $1}'
+        fi
     } > "$manifest"
 
     ok "bundled OpenBCM BDE modules under $OPENBCM_BDE_BUNDLE"

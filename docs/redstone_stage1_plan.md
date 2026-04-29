@@ -344,16 +344,21 @@ copies the BDE sources into ignored temporary Kbuild module directories under
 `build/openbcm/redstone-bde/`. The expected outputs are
 `build/openbcm/redstone-bde/linux-kernel-bde.ko` and
 `build/openbcm/redstone-bde/linux-user-bde.ko`. The bundle target copies those
-modules into `output/openbcm-bde/` with `redstone-openbcm-bde.manifest`, which
-records the OpenBCM head, Redstone kernel release, module metadata, and the
-first hardware smoke-test load order:
+modules into `output/openbcm-bde/` with `redstone-openbcm-bde-smoke.sh` and
+`redstone-openbcm-bde.manifest`, which records the OpenBCM head, Redstone
+kernel release, module metadata, and the hardware smoke-test command:
 
 ```sh
-insmod ./linux-kernel-bde.ko dma_size=4
-insmod ./linux-user-bde.ko
-ls -l /dev/linux-*-bde
-lspci -nn | grep -i '14e4:b846'
+./redstone-openbcm-bde-smoke.sh --strict
 ```
+
+The smoke helper writes a timestamped evidence directory under
+`/var/log/redstone-stage1/`, checks the BDE character devices, captures focused
+module and `dmesg` output, and verifies BCM56846 as `14e4:b846` through
+`lspci` or PCI sysfs. If same-named BDE modules are already loaded from the
+default stage-1 image, the helper fails by default; stop `switchd` and pass
+`--reload-existing` when intentionally replacing the in-image BDE modules with
+the OpenBCM bundle on a bench system.
 
 This is a build and packaging proof only; hardware loading, BCM56846
 enumeration through BDE, and any SDK-managed switching/offload still require
@@ -399,7 +404,8 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
   and PowerPC32 big-endian before relying on it for production hardware
   programming.
 - Keep OpenBCM BDE hardware-smoke bundles under `output/openbcm-bde/` until the
-  modules have been loaded on Redstone and BCM56846 enumeration is captured.
+  smoke helper has loaded the bundle modules on Redstone and BCM56846
+  enumeration is captured.
 - Do not claim L3/ACL/ECMP hardware offload until SDK APIs are integrated and
   verified on hardware.
 

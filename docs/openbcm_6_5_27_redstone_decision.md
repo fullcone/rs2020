@@ -63,13 +63,33 @@ The bundle is written to `output/openbcm-bde/` by default and contains:
 
 - `linux-kernel-bde.ko`
 - `linux-user-bde.ko`
+- `redstone-openbcm-bde-smoke.sh`
 - `redstone-openbcm-bde.manifest`
 
 The manifest records the OpenBCM tree head, target name, Redstone kernel
-release, module sizes, optional hashes, and the first hardware smoke-test load
-order. This bundle is still a lab artifact; it is not installed into the
-default stage-1 image until Redstone hardware proves the OpenBCM BDE modules can
-load and enumerate BCM56846.
+release, module sizes, optional hashes, and the first hardware smoke-test
+command. The smoke helper loads the bundle modules in order, checks
+`/dev/linux-*-bde`, captures focused `dmesg`, and verifies BCM56846 as
+`14e4:b846` through `lspci` or PCI sysfs.
+
+Run the helper from the bundle directory on a bench Redstone system:
+
+```sh
+./redstone-openbcm-bde-smoke.sh --strict
+```
+
+If the default stage-1 image has already loaded its in-image BDE modules, stop
+`switchd` and run the helper with explicit replacement:
+
+```sh
+switchd-init stop
+./redstone-openbcm-bde-smoke.sh --reload-existing --strict
+```
+
+Without `--reload-existing`, the helper fails instead of treating already
+loaded same-named BDE modules as OpenBCM proof. This bundle is still a lab
+artifact; it is not installed into the default stage-1 image until Redstone
+hardware proves the OpenBCM BDE modules can load and enumerate BCM56846.
 
 This probe has been built locally with `powerpc-linux-gnu-gcc` against the
 Redstone Linux 5.10.224 tree. It proves only that the public OpenBCM BDE code
@@ -123,7 +143,7 @@ Before saying the Redstone fork has hardware offload through OpenBCM 6.5.27:
 
 1. Build BDE kernel modules for Linux 5.10 and PowerPC32 big-endian.
 2. Bundle the built BDE modules with their manifest for hardware smoke testing.
-3. Load BDE on Redstone and enumerate BCM56846.
+3. Run the bundle smoke helper on Redstone and enumerate BCM56846.
 4. Run a minimal userland SDK init path.
 5. Bring up one front-panel port using SDK-managed PHY programming.
 6. Add and verify one L2 entry or VLAN operation.
