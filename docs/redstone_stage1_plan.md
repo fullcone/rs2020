@@ -323,6 +323,29 @@ The default seed is pinned to OpenBCM commit
 that the source baseline has expected BCM56846, Trident, Linux BDE, L3, and FP
 source evidence. It does not prove a Redstone hardware offload path.
 
+After the Redstone Linux 5.10.224 kernel tree has been built, compile the
+OpenBCM Linux BDE probe modules:
+
+```sh
+./scripts/build-openbcm-bde.sh check
+./scripts/build-openbcm-bde.sh all
+```
+
+or through the top-level build target:
+
+```sh
+make openbcm-bde
+```
+
+The helper writes an ignored generated target file under
+`build/openbcm/OpenBCM/sdk-6.5.27/make/Makefile.linux-redstone-5_10`, then
+copies the BDE sources into ignored temporary Kbuild module directories under
+`build/openbcm/redstone-bde/`. The expected outputs are
+`build/openbcm/redstone-bde/linux-kernel-bde.ko` and
+`build/openbcm/redstone-bde/linux-user-bde.ko`. This is a build proof only;
+hardware loading, BCM56846 enumeration through BDE, and any SDK-managed
+switching/offload still require Redstone hardware validation.
+
 The original Redstone firmware evidence points to Broadcom XGS Robo SDK 5.10.2.
 That makes SDK 5.10.x the best compatibility reference for board facts, PHY
 setup expectations, and regression triage. If an authorized SDK 5.10.x tree is

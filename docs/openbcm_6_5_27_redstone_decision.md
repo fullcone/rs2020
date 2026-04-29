@@ -26,6 +26,33 @@ code. The default source seed is pinned to OpenBCM commit
 but refreshes should be explicit commits because the SDK source seed is part of
 the proof trail.
 
+## BDE Build Probe
+
+The first Redstone OpenBCM build proof is the Linux BDE module pair, built
+against the generated Linux 5.10.224 Redstone kernel tree with a PowerPC
+big-endian cross toolchain:
+
+```sh
+./scripts/build-openbcm-bde.sh check
+./scripts/build-openbcm-bde.sh all
+```
+
+The helper generates an ignored OpenBCM target file,
+`build/openbcm/OpenBCM/sdk-6.5.27/make/Makefile.linux-redstone-5_10`, then
+copies the BDE sources into ignored temporary Kbuild module directories under
+`build/openbcm/redstone-bde/`. This avoids the legacy OpenBCM SDK-side
+precompile path and lets the Redstone Linux kernel build system compile the
+module objects directly. The expected probe outputs are:
+
+- `build/openbcm/redstone-bde/linux-kernel-bde.ko`
+- `build/openbcm/redstone-bde/linux-user-bde.ko`
+
+This probe has been built locally with `powerpc-linux-gnu-gcc` against the
+Redstone Linux 5.10.224 tree. It proves only that the public OpenBCM BDE code
+can be compiled for the current Redstone Linux 5.10/PPC32 target. It does not
+prove that the modules load on Redstone hardware, that BCM56846 is reachable
+through the BDE device nodes, or that SDK-managed switching/offload is working.
+
 ## Why 6.5.27
 
 The local OpenBCM 6.5.27 tree has the pieces a Redstone SDK proof needs:

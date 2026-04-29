@@ -530,3 +530,34 @@ Next checkpoint:
   5.10 and PowerPC32 big-endian.
 - Do not claim L3/ACL/ECMP offload until OpenBCM userland and BDE have run on
   Redstone hardware.
+
+### Stage-3 OpenBCM BDE Build Probe
+
+Completed:
+
+- Added `scripts/build-openbcm-bde.sh` to generate a Redstone OpenBCM target
+  file under the ignored source seed, copy BDE sources into temporary Kbuild
+  module directories, and compile Linux BDE modules against the Redstone Linux
+  5.10.224 build tree.
+- Wired `make openbcm-bde-check` and `make openbcm-bde` into the top-level
+  build system.
+- Extended the Redstone source preflight so the OpenBCM BDE build helper must
+  be present, shell-valid, and tracked executable.
+- Documented that this is a build probe only, not a hardware offload claim.
+
+Verified:
+
+- `wsl sh -n scripts/build-openbcm-bde.sh`
+- `wsl sh scripts/build-openbcm-bde.sh check`
+- `wsl sh scripts/build-openbcm-bde.sh all`
+- Built `build/openbcm/redstone-bde/linux-kernel-bde.ko`.
+- Built `build/openbcm/redstone-bde/linux-user-bde.ko`.
+- The local build emitted OpenBCM common-symbol modpost warnings for
+  `___strtok` and `nodevices`; those warnings did not block module output.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Load `linux-kernel-bde.ko` and `linux-user-bde.ko` on Redstone hardware.
+- Confirm BCM56846 appears through BDE device nodes before starting any
+  OpenBCM userland SDK init work.
