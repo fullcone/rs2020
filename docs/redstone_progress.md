@@ -415,3 +415,34 @@ Next checkpoint:
   retimer modules load from `/lib/modules/extra`.
 - Confirm BCM56846 appears through BDE, then start `switchd` with
   `/etc/switchd/redstone-stage1.bcm`.
+
+### Stage-1 Hardware Validation Entrypoint
+
+Completed:
+
+- Added `redstone-stage1-validate` to the rootfs overlay for first-boot
+  hardware acceptance checks.
+- The validator records evidence under `/var/log/redstone-stage1/validate-*`
+  and checks board selection, Redstone switchd config, packaged modules,
+  loaded BDE modules, BDE device nodes, BCM56846 PCIe ID `14e4:b846`,
+  `switchd` status, `swp` interfaces, front-panel link, and optional ping.
+- Added `--strict` for acceptance gating and `--capture` to chain the larger
+  `redstone-stage1-capture` evidence bundle.
+- Extended source preflight and generated-image checks so the validation
+  entrypoint must be present and executable.
+
+Verified:
+
+- `sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-validate`
+- `config/rootfs/overlay/usr/sbin/redstone-stage1-validate --help`
+- `EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh`
+- `EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `EDGENOS_BOARD=redstone ./scripts/check-redstone-image.sh`
+- `EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
+
+Next checkpoint:
+
+- On hardware, run
+  `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`.
+- If that passes, rerun with `--capture` and attach the validation directory
+  plus capture tarball to the next DTS/platform-driver increment.

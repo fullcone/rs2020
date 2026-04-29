@@ -93,6 +93,41 @@ kind of live hardware output. The capture script follows `/sys/class` symlinks
 when collecting EEPROM, CPLD, and hwmon evidence, because those class entries
 normally point into real device directories.
 
+## First-Boot Validation
+
+The rootfs also includes `redstone-stage1-validate`, a non-destructive
+acceptance check for the narrow stage-1 target. It records evidence under
+`/var/log/redstone-stage1/validate-*` and checks:
+
+- Redstone board selection.
+- `redstone-stage1.bcm` presence and 52-port map coverage.
+- packaged and loaded BDE modules.
+- `/dev/linux-kernel-bde` and `/dev/linux-user-bde`.
+- BCM56846 PCIe presence via `lspci` or sysfs device ID `14e4:b846`.
+- `switchd` status and created `swp` interfaces.
+- one front-panel link, plus optional ping reachability.
+
+For a first smoke test:
+
+```sh
+redstone-stage1-validate
+```
+
+For the stage-1 acceptance run, pass the interface and peer that are connected
+on the bench. `--strict` makes the command fail nonzero if any required check
+fails:
+
+```sh
+redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict
+```
+
+Use `--capture` when the same run should also produce the larger
+`redstone-stage1-capture` tarball:
+
+```sh
+redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict --capture
+```
+
 ## Source Preflight
 
 Before spending time on a full Redstone rootfs or installer build, run the
@@ -103,10 +138,11 @@ EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh
 ```
 
 This verifies that the Redstone aliases resolve to `redstone-stage1.dtb` and
-`edgenos-redstone-stage1.bin`, that the rootfs overlay contains the capture and
-`switchd-init` scripts, that `switchd.service` uses the common init path, and
-that `redstone-stage1.bcm` still exposes 52 front-panel port mappings. If `dtc`
-is installed, the script also compiles the Redstone DTS skeleton.
+`edgenos-redstone-stage1.bin`, that the rootfs overlay contains the capture,
+validation, and `switchd-init` scripts, that `switchd.service` uses the common
+init path, and that `redstone-stage1.bcm` still exposes 52 front-panel port
+mappings. If `dtc` is installed, the script also compiles the Redstone DTS
+skeleton.
 
 The kernel source download and extraction path is generated under `build/` and
 is intentionally ignored by git. To seed the Linux 5.10 source tree and install
@@ -263,6 +299,7 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 - Start switchd with `redstone-stage1.bcm`.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.
 - Assign test IPs and pass one ping through the ASIC.
+- Run `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`.
 - Run `redstone-stage1-capture` and keep the tarball with the hardware test
   notes for follow-up DTS and platform work.
 

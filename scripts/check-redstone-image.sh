@@ -31,6 +31,7 @@ check_exec etc/init.d/S20edgenos
 check_exec usr/sbin/platform-init.sh
 check_exec usr/sbin/switchd-init
 check_exec usr/sbin/redstone-stage1-capture
+check_exec usr/sbin/redstone-stage1-validate
 check_exec usr/sbin/switchd
 
 check_file etc/switchd/redstone-stage1.bcm
@@ -43,4 +44,4 @@ check_module accton_as5610_52x_cpld.ko
 check_module retimer_class.ko
 check_module ds100df410.ko
 
-echo "PASS: Redstone generated image staging contains switchd, BDE, platform modules, and board config"
+echo "PASS: Redstone generated image staging contains switchd, BDE, platform modules, validation tools, and board config"

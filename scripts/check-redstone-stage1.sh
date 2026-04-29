@@ -91,6 +91,7 @@ check_file "$EDGENOS_DTS_SOURCE"
 check_file "$EDGENOS_KERNEL_DEFCONFIG"
 check_file "config/bcm/redstone-stage1.bcm"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
+check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
 check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
@@ -135,6 +136,7 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
+        config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/switchd-init
     do
         if sh -n "$TOPDIR/$script"; then
@@ -192,6 +194,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-stage1-capture is tracked executable"
     else
         fail "redstone-stage1-capture git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-stage1-validate |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-stage1-validate is tracked executable"
+    else
+        fail "redstone-stage1-validate git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \
