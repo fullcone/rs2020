@@ -1470,3 +1470,25 @@ Next checkpoint:
 
 - Run either capture-only or strict one-port validation on real Redstone
   hardware and return the generated validation bundle plus console log.
+
+### Stage-3 First Hardware Boot Policy
+
+Completed:
+
+- Documented that the first Redstone hardware run must not start by flashing
+  internal flash, NAND, NOR, or saved U-Boot environment.
+- Captured the local R0678 USB recovery evidence in the stage plan: Redstone
+  U-Boot reads boot files from a FAT first USB partition, Linux mounts the
+  second partition as `/cf_card`, and `ext2load` is not available.
+- Clarified that the existing General UDisk 4G recovery image is an old-system
+  recovery artifact, while `edgenos-redstone-stage1.bin` is an ONIE-style
+  installer payload and not a raw USB disk image.
+- Updated the generated hardware handoff runbook so operators see the
+  non-destructive external boot policy before any optional ONIE install
+  command.
+
+Next checkpoint:
+
+- Build a separate non-destructive Redstone USB stage-1 boot and capture image
+  when kernel, DTB, and rootfs files are ready for the U-Boot FAT plus Linux
+  rootfs partition layout.

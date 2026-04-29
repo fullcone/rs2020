@@ -131,6 +131,8 @@ check_file "scripts/build-openbcm-init-probe.sh"
 check_file "scripts/install-openbcm-init-probe.sh"
 check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 check_file "docs/redstone_bench_result_template.md"
+check_file "docs/redstone_stage1_plan.md"
+check_file "docs/redstone_progress.md"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -187,6 +189,18 @@ check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-imag
 check_grep 'redstone-stage1-hardware-handoff\.tar\.gz' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package writes a stable tarball name"
+check_grep 'First Hardware Boot Policy' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook starts with a non-destructive first-boot policy"
+check_grep 'Do not overwrite internal flash' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook blocks first-run internal flash writes"
+check_grep 'not a raw USB disk image' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook distinguishes ONIE payload from raw USB images"
+check_grep 'Optional ONIE Install' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook keeps ONIE install optional after external boot proof"
 check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package verifies packed rootfs.sqsh"
@@ -238,6 +252,18 @@ check_grep 'Stage-1 accepted: yes/no' \
 check_grep 'Strict validation bundle or directory' \
     "docs/redstone_bench_result_template.md" \
     "bench result template records strict validation evidence"
+check_grep 'First Hardware Run Order' \
+    "docs/redstone_stage1_plan.md" \
+    "stage plan documents first hardware run order"
+check_grep 'redstone_usb_uboot_fat_general4g\.img' \
+    "docs/redstone_stage1_plan.md" \
+    "stage plan references the known-good R0678 recovery USB artifact"
+check_grep 'edgenos-redstone-stage1\.bin.*ONIE-style installer payload' \
+    "docs/redstone_stage1_plan.md" \
+    "stage plan distinguishes the EdgeNOS ONIE payload from raw USB images"
+check_grep 'A Redstone USB stage-1 package is a separate deliverable' \
+    "docs/redstone_stage1_plan.md" \
+    "stage plan keeps the future USB stage-1 package as a separate non-destructive deliverable"
 check_grep 'verify-redstone-hardware-handoff\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the handoff verifier"

@@ -40,6 +40,86 @@ Expected Redstone stage-1 outputs:
 - `output/kernel/redstone-stage1.dtb`
 - `output/images/edgenos-redstone-stage1.bin`
 
+## First Hardware Run Order
+
+Do not start Redstone stage 1 by overwriting internal flash, NAND, or U-Boot
+environment. The first hardware run must preserve the existing boot path until
+the serial console, U-Boot prompt, backup hashes, and a known-good recovery USB
+path are confirmed.
+
+The local R0678 recovery evidence has already established a non-destructive USB
+boot mechanism on the original Redstone U-Boot:
+
+- U-Boot reads boot files only from USB partition 1.
+- USB partition 1 must be FAT. The verified recovery image uses FAT16 type
+  `0x06`.
+- Linux then mounts USB partition 2 as the `/cf_card` filesystem.
+- `ext2load` is not available in this U-Boot, so kernel, DTB, and ramdisk files
+  must be on the FAT partition.
+
+That verified recovery image is a separate old-system recovery artifact,
+currently `C:\other_project\R0678\redstone_usb_uboot_fat_general4g.img`. It is
+not the Redstone EdgeNOS stage-1 image. Likewise,
+`output/images/edgenos-redstone-stage1.bin` is an ONIE-style installer payload,
+not a raw USB disk image that can be written directly with `dd` and booted by
+the Redstone U-Boot.
+
+The recommended first bench sequence is:
+
+1. Keep a known-good General UDisk 4G recovery USB available before touching
+   internal storage.
+2. From the Redstone U-Boot prompt, verify USB visibility without saving the
+   environment:
+
+   ```text
+   usb stop
+   usb reset
+   usb storage
+   fatls usb 0:1 /
+   ```
+
+3. Boot only with temporary U-Boot commands until the bench path is proven:
+
+   ```text
+   usb stop
+   usb reset
+   setenv bootargs root=/dev/ram rw console=ttyS0,115200 ramdisk_size=3000000 cache-sram-size=0x10000
+   fatload usb 0:1 1000000 uImage
+   fatload usb 0:1 c00000 p2020rdb.dtb
+   fatload usb 0:1 2000000 rootfs.ext2.gz.uboot
+   bootm 1000000 2000000 c00000
+   ```
+
+4. After the system is up, run capture-only diagnostics first:
+
+   ```sh
+   cat /etc/edgenos/board
+   redstone-stage1-bench-run --capture-only
+   ```
+
+5. Run strict one-port validation only after the correct front-panel interface
+   and peer IP are connected on the bench:
+
+   ```sh
+   REDSTONE_IFACE=swpN
+   REDSTONE_LOCAL_CIDR=192.0.2.1/24
+   REDSTONE_PEER=192.0.2.2
+
+   redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"
+   ```
+
+6. Return the validation bundle or evidence directory, plus the full serial
+   console log, before changing DTS, platform drivers, or switchd behavior.
+7. Consider ONIE install, NAND restore, or any permanent U-Boot `saveenv` step
+   only after external boot and the returned evidence prove the required stage-1
+   hardware path.
+
+A Redstone USB stage-1 package is a separate deliverable from the ONIE installer
+payload. The first such package should be a non-destructive USB boot and
+capture image, not an auto-flashing package. It can later reuse the verified
+FAT boot partition plus Linux rootfs partition layout, but it must not write
+internal flash until a deliberate install stage is added and reviewed.
+
 The Redstone DTB now comes from `kernel/dts/redstone-stage1.dts`, a stage-1
 skeleton derived from the extracted original Redstone `p2020rdb.dtb` facts. The
 build surface is Redstone-specific, but the DTS is not yet hardware-validated.

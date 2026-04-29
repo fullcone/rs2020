@@ -116,10 +116,47 @@ prove L3 routing, ACL, ECMP, or full hardware offload.
 - host-tools/prepare-redstone-bench-note.sh
 - bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md
 
-## ONIE Install
+## First Hardware Boot Policy
 
-Copy images/$EDGENOS_IMAGE_NAME to the ONIE install host, then run on the
-switch:
+Do not overwrite internal flash, NAND, NOR, or saved U-Boot environment during
+the first Redstone stage-1 hardware run. First prove the serial console,
+temporary external boot path, BCM56846 PCIe evidence, one front-panel link, and
+one peer ping. Keep the known-good R0678 recovery USB available before changing
+anything persistent.
+
+This package contains images/$EDGENOS_IMAGE_NAME. That file is an ONIE-style
+installer payload, not a raw USB disk image. It should not be written directly
+to a USB stick for the Redstone U-Boot 2009.11 path. The existing R0678
+General UDisk 4G recovery image is an old-system USB recovery artifact, not the
+Redstone EdgeNOS stage-1 image.
+
+Use temporary U-Boot commands first and do not run saveenv until manual external
+boot succeeds:
+
+usb stop
+usb reset
+usb storage
+fatls usb 0:1 /
+
+Temporary USB boot command shape for the verified R0678 recovery layout:
+
+usb stop
+usb reset
+setenv bootargs root=/dev/ram rw console=ttyS0,115200 ramdisk_size=3000000 cache-sram-size=0x10000
+fatload usb 0:1 1000000 uImage
+fatload usb 0:1 c00000 p2020rdb.dtb
+fatload usb 0:1 2000000 rootfs.ext2.gz.uboot
+bootm 1000000 2000000 c00000
+
+After the system boots, collect capture-only diagnostics and return the printed
+bundle or evidence path plus the full serial console log before attempting any
+persistent install.
+
+## Optional ONIE Install
+
+Use this only if the hardware is intentionally booted into ONIE and the bench
+operator has decided to perform a persistent install after the external boot
+capture proves the stage-1 path:
 
 onie-nos-install http://SERVER/$EDGENOS_IMAGE_NAME
 
