@@ -829,3 +829,28 @@ Next checkpoint:
   same forced image check in the release path.
 - On hardware, run `redstone-stage1-validate --capture` and keep the dry-run
   evidence before attempting the reset-risk-gated `--exec` path.
+
+### Stage-3 Redstone OpenBCM Init Probe Output Fix
+
+Completed:
+
+- Replaced the probe's literal `\n` output sequences with real newline escapes
+  so `--help`, `--dry-run`, `--exec`, warnings, and failures remain readable and
+  line-oriented.
+- Rebuilt the probe bundle and reassembled the Redstone rootfs staging image so
+  `/usr/sbin/redstone-openbcm-init-probe` carries the refreshed output strings.
+
+Verified:
+
+- `rg -n "\\\\n" asic/openbcm-init/redstone-openbcm-init-probe.c` returned no
+  literal backslash-n output strings.
+- `wsl sh -n scripts/build-openbcm-init-probe.sh`
+- `wsl sh -n scripts/install-openbcm-init-probe.sh`
+- `wsl sh scripts/build-openbcm-init-probe.sh build`
+- `wsl sh scripts/build-openbcm-init-probe.sh bundle`
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `strings output/openbcm-init/redstone-openbcm-init-probe | grep -F "\\n"`
+  returned no literal backslash-n strings in the built probe.
+- `git diff --check`

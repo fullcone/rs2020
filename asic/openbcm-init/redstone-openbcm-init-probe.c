@@ -43,11 +43,11 @@ struct options {
 static void usage(const char *prog)
 {
     fprintf(stderr,
-            "usage: %s [--dry-run|--exec] [--demo PATH] [--config PATH]\\n"
-            "          [--pci-root PATH] [--dev-root PATH] [--no-lspci]\\n"
-            "          [--i-accept-hardware-reset-risk]\\n"
-            "\\n"
-            "Default mode is --dry-run. --exec requires the explicit reset-risk flag.\\n",
+            "usage: %s [--dry-run|--exec] [--demo PATH] [--config PATH]\n"
+            "          [--pci-root PATH] [--dev-root PATH] [--no-lspci]\n"
+            "          [--i-accept-hardware-reset-risk]\n"
+            "\n"
+            "Default mode is --dry-run. --exec requires the explicit reset-risk flag.\n",
             prog);
 }
 
@@ -117,26 +117,26 @@ static int check_bde_node(const struct options *opts, const char *name)
     struct stat st;
 
     if (!copy_path(path, sizeof(path), opts->dev_root, name)) {
-        fprintf(stderr, "FAIL: BDE node path is too long for %s\\n", name);
+        fprintf(stderr, "FAIL: BDE node path is too long for %s\n", name);
         return 1;
     }
 
     if (stat(path, &st) != 0) {
-        fprintf(stderr, "FAIL: missing %s: %s\\n", path, strerror(errno));
+        fprintf(stderr, "FAIL: missing %s: %s\n", path, strerror(errno));
         return 1;
     }
 
     if (!S_ISCHR(st.st_mode)) {
-        fprintf(stderr, "FAIL: %s exists but is not a character device\\n", path);
+        fprintf(stderr, "FAIL: %s exists but is not a character device\n", path);
         return 1;
     }
 
     if (access(path, R_OK | W_OK) != 0) {
-        fprintf(stderr, "FAIL: %s is not readable and writable: %s\\n", path, strerror(errno));
+        fprintf(stderr, "FAIL: %s is not readable and writable: %s\n", path, strerror(errno));
         return 1;
     }
 
-    printf("PASS: BDE node present: %s\\n", path);
+    printf("PASS: BDE node present: %s\n", path);
     return 0;
 }
 
@@ -146,7 +146,7 @@ static int check_sysfs_for_bcm56846(const struct options *opts)
     struct dirent *ent;
 
     if (!dir) {
-        fprintf(stderr, "WARN: cannot open PCI sysfs root %s: %s\\n",
+        fprintf(stderr, "WARN: cannot open PCI sysfs root %s: %s\n",
                 opts->pci_root, strerror(errno));
         return 0;
     }
@@ -174,7 +174,7 @@ static int check_sysfs_for_bcm56846(const struct options *opts)
             continue;
 
         if (strcmp(vendor, "0x14e4") == 0 && strcmp(device, "0xb846") == 0) {
-            printf("PASS: BCM56846 PCI ID found in sysfs: %s vendor=%s device=%s\\n",
+            printf("PASS: BCM56846 PCI ID found in sysfs: %s vendor=%s device=%s\n",
                    entry_root, vendor, device);
             closedir(dir);
             return 1;
@@ -191,7 +191,7 @@ static int check_lspci_for_bcm56846(void)
     char line[512];
 
     if (!fp) {
-        fprintf(stderr, "WARN: cannot run lspci -n: %s\\n", strerror(errno));
+        fprintf(stderr, "WARN: cannot run lspci -n: %s\n", strerror(errno));
         return 0;
     }
 
@@ -222,7 +222,7 @@ static int check_bcm56846_pci_id(const struct options *opts)
     if (opts->use_lspci && check_lspci_for_bcm56846())
         return 0;
 
-    fprintf(stderr, "FAIL: exact BCM56846 PCI ID 14e4:b846 was not found\\n");
+    fprintf(stderr, "FAIL: exact BCM56846 PCI ID 14e4:b846 was not found\n");
     return 1;
 }
 
@@ -257,7 +257,7 @@ static int parse_args(int argc, char **argv, struct options *opts)
             usage(argv[0]);
             exit(0);
         } else {
-            fprintf(stderr, "FAIL: unknown or incomplete argument: %s\\n", argv[i]);
+            fprintf(stderr, "FAIL: unknown or incomplete argument: %s\n", argv[i]);
             usage(argv[0]);
             return 1;
         }
@@ -270,41 +270,41 @@ static int run_gate_checks(const struct options *opts)
 {
     int failures = 0;
 
-    printf("Redstone OpenBCM init probe gate\\n");
-    printf("mode=%s\\n", opts->exec_mode ? "exec" : "dry-run");
-    printf("demo=%s\\n", opts->demo_path);
-    printf("config=%s\\n", opts->config_path);
-    printf("pci_root=%s\\n", opts->pci_root);
-    printf("dev_root=%s\\n", opts->dev_root);
+    printf("Redstone OpenBCM init probe gate\n");
+    printf("mode=%s\n", opts->exec_mode ? "exec" : "dry-run");
+    printf("demo=%s\n", opts->demo_path);
+    printf("config=%s\n", opts->config_path);
+    printf("pci_root=%s\n", opts->pci_root);
+    printf("dev_root=%s\n", opts->dev_root);
 
     failures += check_bde_node(opts, "linux-kernel-bde");
     failures += check_bde_node(opts, "linux-user-bde");
     failures += check_bcm56846_pci_id(opts);
 
     if (!path_is_readable_file(opts->config_path)) {
-        fprintf(stderr, "FAIL: BCM_CONFIG_FILE candidate is not readable: %s\\n",
+        fprintf(stderr, "FAIL: BCM_CONFIG_FILE candidate is not readable: %s\n",
                 opts->config_path);
         failures++;
     } else {
-        printf("PASS: BCM config is readable: %s\\n", opts->config_path);
+        printf("PASS: BCM config is readable: %s\n", opts->config_path);
     }
 
     if (!path_is_executable_file(opts->demo_path)) {
         if (opts->exec_mode) {
-            fprintf(stderr, "FAIL: OpenBCM demo init binary is not executable: %s\\n",
+            fprintf(stderr, "FAIL: OpenBCM demo init binary is not executable: %s\n",
                     opts->demo_path);
             failures++;
         } else {
-            fprintf(stderr, "WARN: OpenBCM demo init binary is not executable yet: %s\\n",
+            fprintf(stderr, "WARN: OpenBCM demo init binary is not executable yet: %s\n",
                     opts->demo_path);
         }
     } else {
-        printf("PASS: OpenBCM demo init binary is executable: %s\\n", opts->demo_path);
+        printf("PASS: OpenBCM demo init binary is executable: %s\n", opts->demo_path);
     }
 
     if (opts->exec_mode && !opts->accept_reset_risk) {
         fprintf(stderr,
-                "FAIL: --exec requires --i-accept-hardware-reset-risk\\n");
+                "FAIL: --exec requires --i-accept-hardware-reset-risk\n");
         failures++;
     }
 
@@ -322,27 +322,27 @@ int main(int argc, char **argv)
 
     failures = run_gate_checks(&opts);
     if (failures) {
-        fprintf(stderr, "blocked: %d required check(s) failed\\n", failures);
+        fprintf(stderr, "blocked: %d required check(s) failed\n", failures);
         return 1;
     }
 
     if (!opts.exec_mode) {
-        printf("dry-run complete: ASIC init was not executed and no offload was proven\\n");
+        printf("dry-run complete: ASIC init was not executed and no offload was proven\n");
         return 0;
     }
 
     if (setenv("BCM_CONFIG_FILE", opts.config_path, 1) != 0) {
-        fprintf(stderr, "FAIL: cannot set BCM_CONFIG_FILE: %s\\n", strerror(errno));
+        fprintf(stderr, "FAIL: cannot set BCM_CONFIG_FILE: %s\n", strerror(errno));
         return 1;
     }
 
-    printf("exec: starting OpenBCM demo init binary now\\n");
+    printf("exec: starting OpenBCM demo init binary now\n");
     fflush(stdout);
 
     exec_argv[0] = (char *)opts.demo_path;
     exec_argv[1] = NULL;
     execv(opts.demo_path, exec_argv);
 
-    fprintf(stderr, "FAIL: execv(%s) failed: %s\\n", opts.demo_path, strerror(errno));
+    fprintf(stderr, "FAIL: execv(%s) failed: %s\n", opts.demo_path, strerror(errno));
     return 1;
 }
