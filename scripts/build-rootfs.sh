@@ -51,7 +51,7 @@ download() {
     rm -rf "$TMPDIR"
 }
 
-build() {
+write_defconfig() {
     if [ ! -d "$BRSRC" ]; then
         echo "ERROR: Buildroot source not found. Run '$0 download' first."
         exit 1
@@ -65,6 +65,36 @@ build() {
         -e "s|^BR2_TARGET_GENERIC_ISSUE=.*|BR2_TARGET_GENERIC_ISSUE=\"EdgeNOS for $EDGENOS_BOARD_LABEL\"|" \
         "$TOPDIR/config/rootfs/buildroot_defconfig" \
         > "$BRSRC/configs/edgenos_defconfig"
+
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        local TMP_DEFCONFIG="$BRSRC/configs/edgenos_defconfig.redstone.$$"
+        awk '
+            /^BR2_powerpc_e500v2=y$/ {
+                print "BR2_powerpc_8548=y"
+                print "BR2_powerpc_SPE=y"
+                next
+            }
+            /^BR2_TOOLCHAIN_BUILDROOT_GLIBC=y$/ {
+                print "BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y"
+                next
+            }
+            /^BR2_INIT_SYSTEMD=y$/ {
+                print "BR2_INIT_BUSYBOX=y"
+                next
+            }
+            { print }
+        ' "$BRSRC/configs/edgenos_defconfig" > "$TMP_DEFCONFIG"
+        mv "$TMP_DEFCONFIG" "$BRSRC/configs/edgenos_defconfig"
+    fi
+}
+
+defconfig() {
+    write_defconfig
+    echo "==> Wrote Buildroot defconfig: $BRSRC/configs/edgenos_defconfig"
+}
+
+build() {
+    write_defconfig
 
     echo "==> Configuring Buildroot..."
     make -C "$BRSRC" edgenos_defconfig
@@ -153,10 +183,11 @@ assemble() {
 
 case "${1:-}" in
     download) download ;;
+    defconfig) defconfig ;;
     build)    build ;;
     assemble) assemble ;;
     *)
-        echo "Usage: $0 {download|build|assemble}"
+        echo "Usage: $0 {download|defconfig|build|assemble}"
         exit 1
         ;;
 esac

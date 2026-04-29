@@ -129,10 +129,24 @@ check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
-check_grep 'BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y' "config/rootfs/buildroot_defconfig" \
-    "rootfs defconfig selects uClibc for PowerPC SPE"
-check_grep 'BR2_INIT_BUSYBOX=y' "config/rootfs/buildroot_defconfig" \
-    "rootfs defconfig selects BusyBox init"
+check_grep 'BR2_powerpc_e500v2=y' "config/rootfs/buildroot_defconfig" \
+    "shared rootfs defconfig preserves AS5610 e500v2 CPU selection"
+check_grep 'BR2_TOOLCHAIN_BUILDROOT_GLIBC=y' "config/rootfs/buildroot_defconfig" \
+    "shared rootfs defconfig preserves AS5610 glibc"
+check_grep 'BR2_INIT_SYSTEMD=y' "config/rootfs/buildroot_defconfig" \
+    "shared rootfs defconfig preserves AS5610 systemd"
+check_grep 'if \[ "\$EDGENOS_BOARD" = "redstone" \]' "scripts/build-rootfs.sh" \
+    "build-rootfs gates Redstone rootfs defconfig overrides on selected board"
+check_grep 'BR2_powerpc_8548=y' "scripts/build-rootfs.sh" \
+    "build-rootfs selects Redstone P2020/e500v2 SPE CPU in generated defconfig"
+check_grep 'BR2_powerpc_SPE=y' "scripts/build-rootfs.sh" \
+    "build-rootfs selects Redstone SPE ABI in generated defconfig"
+check_grep 'BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y' "scripts/build-rootfs.sh" \
+    "build-rootfs selects Redstone uClibc in generated defconfig"
+check_grep 'BR2_INIT_BUSYBOX=y' "scripts/build-rootfs.sh" \
+    "build-rootfs selects Redstone BusyBox init in generated defconfig"
+check_grep 'defconfig\)' "scripts/build-rootfs.sh" \
+    "build-rootfs can generate defconfig without running a full Buildroot build"
 check_grep 'switchd-init start' "config/rootfs/overlay/etc/init.d/S20edgenos" \
     "BusyBox init starts switchd through switchd-init"
 check_grep 'start-foreground' "config/rootfs/overlay/etc/systemd/system/switchd.service" \

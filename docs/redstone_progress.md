@@ -1075,3 +1075,35 @@ Next checkpoint:
   then run the strict acceptance command from `RUNBOOK.md` on Redstone hardware.
 - Feed the returned capture tarball to the bundled strict evidence analyzer
   before considering the reset-risk-gated OpenBCM init probe `--exec` path.
+
+### Stage-3 AS5610 Rootfs Default Preservation
+
+Completed:
+
+- Restored the checked-in Buildroot defconfig to the AS5610 e500v2, glibc, and
+  systemd defaults.
+- Moved Redstone P2020/SPE, uClibc, and BusyBox init selection into the
+  generated Buildroot defconfig path gated by `EDGENOS_BOARD=redstone`.
+- Added a `build-rootfs.sh defconfig` dry generation target so board-specific
+  defconfig output can be inspected without launching a full Buildroot build.
+- Updated the Redstone preflight and stage-1 plan to verify both the preserved
+  AS5610 shared defaults and the Redstone generated overrides.
+
+Verified:
+
+- `wsl bash -n scripts/build-rootfs.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=as5610-52x ./scripts/build-rootfs.sh defconfig`
+- Generated AS5610 Buildroot defconfig contains `BR2_powerpc_e500v2=y`,
+  `BR2_TOOLCHAIN_BUILDROOT_GLIBC=y`, and `BR2_INIT_SYSTEMD=y`.
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh defconfig`
+- Generated Redstone Buildroot defconfig contains `BR2_powerpc_8548=y`,
+  `BR2_powerpc_SPE=y`, `BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y`, and
+  `BR2_INIT_BUSYBOX=y`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Request review on the PR again, then continue the next Redstone handoff
+  host-analysis wrapper step.

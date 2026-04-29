@@ -242,6 +242,26 @@ that work tree on a Linux filesystem, not `/mnt/c`, because Buildroot rejects
 case-insensitive source directories and inherited WSL paths with spaces can also
 break its host-tool checks.
 
+The checked-in `config/rootfs/buildroot_defconfig` remains the AS5610 default:
+e500v2 CPU selection, Buildroot glibc, and systemd. `build-rootfs.sh` derives
+the generated Buildroot `edgenos_defconfig` from that shared file for every
+board, then applies the Redstone-only rootfs profile when
+`EDGENOS_BOARD=redstone` is selected:
+
+- `BR2_powerpc_8548=y`
+- `BR2_powerpc_SPE=y`
+- `BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y`
+- `BR2_INIT_BUSYBOX=y`
+
+This keeps the default AS5610 build on its systemd unit activation path while
+letting Redstone use the uClibc/SPE profile needed for the P2020 stage-1 rootfs.
+To inspect the generated board defconfig without running a full Buildroot
+compile:
+
+```sh
+EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh defconfig
+```
+
 ```sh
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh download
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh build
@@ -255,13 +275,6 @@ pieces that will go into `rootfs.sqsh`:
 EDGENOS_BOARD=redstone ./scripts/check-redstone-image.sh
 REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh --squashfs output/images/rootfs.sqsh
 ```
-
-The current Redstone stage-1 rootfs intentionally uses:
-
-- `BR2_powerpc_8548=y`
-- `BR2_powerpc_SPE=y`
-- `BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y`
-- `BR2_INIT_BUSYBOX=y`
 
 Buildroot 2023.02 does not offer glibc for `BR2_powerpc_SPE`, and systemd
 depends on glibc in that release. For stage 1, Redstone therefore boots through

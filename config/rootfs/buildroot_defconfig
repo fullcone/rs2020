@@ -3,14 +3,11 @@
 
 # Architecture
 BR2_powerpc=y
-BR2_powerpc_8548=y
-BR2_powerpc_SPE=y
+BR2_powerpc_e500v2=y
 
 # Toolchain - use Buildroot's internal toolchain (avoids distro toolchain issues)
-# Buildroot 2023.02 glibc does not support BR2_powerpc_SPE, so Redstone uses
-# the uClibc SPE ABI toolchain for the stage-1 rootfs.
 BR2_TOOLCHAIN_BUILDROOT=y
-BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y
+BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
 BR2_GCC_VERSION_12_X=y
 BR2_TOOLCHAIN_BUILDROOT_CXX=y
 
@@ -20,7 +17,7 @@ BR2_TARGET_GENERIC_ISSUE="EdgeNOS for AS5610-52X"
 BR2_TARGET_GENERIC_GETTY_PORT="ttyS0"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
 BR2_ROOTFS_OVERLAY="/build/config/rootfs/overlay"
-BR2_INIT_BUSYBOX=y
+BR2_INIT_SYSTEMD=y
 BR2_ROOTFS_POST_BUILD_SCRIPT="/build/config/rootfs/post-build.sh"
 
 # Filesystem
