@@ -934,3 +934,39 @@ Next checkpoint:
 - On hardware, run `redstone-stage1-validate --capture`, analyze the returned
   tarball, and only then consider the reset-risk-gated OpenBCM init probe
   `--exec` path.
+
+### Stage-3 Redstone Hardware Handoff Package
+
+Completed:
+
+- Added `scripts/package-redstone-hardware-handoff.sh` and the top-level
+  `make redstone-handoff` target.
+- The package verifies the packed Redstone `rootfs.sqsh` with
+  `REQUIRE_OPENBCM_INIT_PROBE=1` before copying handoff files.
+- The handoff directory collects the ONIE installer image, packed rootfs, DTB,
+  OpenBCM BDE modules and smoke helper, OpenBCM init probe bundle, and the
+  host-side stage-1 evidence analyzer under `output/redstone-handoff/`.
+- The package writes `RUNBOOK.md`, `MANIFEST.txt`, and
+  `output/redstone-stage1-hardware-handoff.tar.gz`.
+- Extended stage-1 preflight and the stage-1 plan so the hardware handoff
+  package remains tracked by source checks and docs.
+
+Verified:
+
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone make redstone-handoff`
+- `wsl sh -c "tar tzf output/redstone-stage1-hardware-handoff.tar.gz | head -n 40"`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+- `git diff --cached --check`
+
+Next checkpoint:
+
+- Transfer `output/redstone-stage1-hardware-handoff.tar.gz` to the ONIE/test
+  host, or copy `output/redstone-handoff/images/edgenos-redstone-stage1.bin`
+  directly to the ONIE install host.
+- On Redstone hardware, install the image, run
+  `redstone-stage1-validate --capture`, analyze the returned tarball with the
+  bundled host analyzer, and only then consider the reset-risk-gated OpenBCM
+  init probe `--exec` path.

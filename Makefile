@@ -31,7 +31,7 @@ PLATFORM_MODS := platform/cpld platform/retimer
         switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
         openbcm-bde-bundle openbcm-bde-smoke-analyze \
         openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
-        openbcm-init-probe-bundle help
+        openbcm-init-probe-bundle redstone-handoff help
 
 all: image
 
@@ -53,6 +53,7 @@ help:
 	@echo "  openbcm-init-probe-check - Check Redstone OpenBCM init probe prerequisites"
 	@echo "  openbcm-init-probe - Build Redstone OpenBCM init probe gate"
 	@echo "  openbcm-init-probe-bundle - Bundle Redstone OpenBCM init probe gate"
+	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -148,6 +149,10 @@ openbcm-init-probe: openbcm-userland-check
 openbcm-init-probe-bundle: openbcm-init-probe
 	@echo "==> Bundling Redstone OpenBCM init probe gate"
 	@$(TOPDIR)/scripts/build-openbcm-init-probe.sh bundle
+
+redstone-handoff:
+	@echo "==> Packaging Redstone stage-1 hardware handoff bundle"
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-hardware-handoff.sh
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

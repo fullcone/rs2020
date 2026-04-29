@@ -446,6 +446,30 @@ That makes SDK 5.10.x the best compatibility reference for board facts, PHY
 setup expectations, and regression triage. If an authorized SDK 5.10.x tree is
 available, it remains the lowest-risk way to compare Redstone-specific behavior.
 
+## Hardware Handoff Package
+
+Once the Redstone installer, packed rootfs, DTB, OpenBCM BDE bundle, and
+OpenBCM init probe bundle exist, build the bench handoff set with:
+
+```sh
+EDGENOS_BOARD=redstone make redstone-handoff
+```
+
+The target writes `output/redstone-handoff/` and
+`output/redstone-stage1-hardware-handoff.tar.gz`. The package includes the
+ONIE installer image, `rootfs.sqsh`, Redstone DTB, OpenBCM BDE modules and
+smoke helper, OpenBCM init probe bundle, the host-side stage-1 evidence
+analyzer, `RUNBOOK.md`, and `MANIFEST.txt` with sizes and SHA-256 hashes.
+
+The package script forces the packed-rootfs image check with
+`REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
+rootfs does not contain the Redstone OpenBCM init probe and manifest.
+
+This is handoff material for the stage-1 bench run only. It still does not
+prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`
+path remains reset-risk-gated and should only run after strict OpenBCM BDE
+smoke evidence exists on Redstone hardware.
+
 ## Stage Plan
 
 ### Stage 1: Minimal Data Path
