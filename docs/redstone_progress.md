@@ -750,3 +750,43 @@ Next checkpoint:
   showing BDE load plus BCM56846 `14e4:b846` enumeration.
 - Use analyzed BDE smoke evidence as the prerequisite for the first minimal
   Redstone SDK-managed init probe.
+
+### Stage-3 Redstone OpenBCM Init Probe Gate
+
+Completed:
+
+- Added `asic/openbcm-init/redstone-openbcm-init-probe.c`, a target-side
+  wrapper for gating the OpenBCM demo init binary behind Redstone-specific
+  checks. It does not implement or copy Broadcom SDK logic.
+- The probe defaults to `--dry-run`, checks both BDE device nodes, requires
+  exact BCM56846 PCI ID `14e4:b846`, validates the Redstone BCM config path,
+  and refuses `--exec` unless `--i-accept-hardware-reset-risk` is present.
+- Added `scripts/build-openbcm-init-probe.sh` with `check`, `build`, `bundle`,
+  `print-env`, and `clean` commands.
+- Wired `make openbcm-init-probe-check`, `make openbcm-init-probe`, and
+  `make openbcm-init-probe-bundle` into the top-level build system.
+- Extended Redstone source preflight so the init probe source, build helper,
+  Makefile targets, exact PCI ID gate, reset-risk gate, and `BCM_CONFIG_FILE`
+  handoff are tracked.
+
+Verified:
+
+- `wsl sh -n scripts/build-openbcm-init-probe.sh`
+- `wsl sh scripts/build-openbcm-init-probe.sh check`
+- `wsl sh scripts/build-openbcm-init-probe.sh build`
+- `wsl make openbcm-init-probe`
+- `wsl make openbcm-init-probe-bundle`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Package or build the OpenBCM demo init binary that the wrapper executes,
+  then deploy it with `redstone-stage1.bcm` and the BDE smoke bundle on the
+  Redstone bench system.
+- Run `./redstone-openbcm-init-probe --dry-run` first. Only run
+  `./redstone-openbcm-init-probe --exec --i-accept-hardware-reset-risk` after
+  strict BDE smoke evidence exists and the reset risk is accepted for the
+  bench session.
+- Treat a successful init probe as the start of the L2/VLAN/one-port link-up
+  path, not as proof of L3/ACL/ECMP offload.

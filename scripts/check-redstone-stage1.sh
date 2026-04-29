@@ -119,6 +119,8 @@ check_file "scripts/prepare-openbcm.sh"
 check_file "scripts/build-openbcm-bde.sh"
 check_file "scripts/redstone-openbcm-bde-smoke.sh"
 check_file "scripts/check-openbcm-userland-init.sh"
+check_file "scripts/build-openbcm-init-probe.sh"
+check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -146,6 +148,8 @@ check_grep 'openbcm-userland-check' "Makefile" \
     "Makefile exposes OpenBCM userland init source check"
 check_grep 'openbcm-bde-smoke-analyze' "Makefile" \
     "Makefile exposes OpenBCM BDE smoke evidence analyzer"
+check_grep 'openbcm-init-probe' "Makefile" \
+    "Makefile exposes Redstone OpenBCM init probe gate targets"
 check_grep 'loaded OpenBCM linux-kernel-bde.*ko from bundle' \
     "scripts/analyze-redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke analyzer requires kernel bundle-load proof"
@@ -163,6 +167,13 @@ check_grep 'bcm_attach' "scripts/check-openbcm-userland-init.sh" \
     "OpenBCM userland init preflight checks SDK attach path"
 check_grep 'bcm_l2_addr_add' "scripts/check-openbcm-userland-init.sh" \
     "OpenBCM userland init preflight checks L2 API path"
+check_grep '14e4:b846' "asic/openbcm-init/redstone-openbcm-init-probe.c" \
+    "OpenBCM init probe gates exact BCM56846 PCI ID"
+check_grep 'i-accept-hardware-reset-risk' \
+    "asic/openbcm-init/redstone-openbcm-init-probe.c" \
+    "OpenBCM init probe requires explicit hardware reset risk acknowledgement"
+check_grep 'BCM_CONFIG_FILE' "asic/openbcm-init/redstone-openbcm-init-probe.c" \
+    "OpenBCM init probe sets BCM_CONFIG_FILE before demo init execution"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then
@@ -186,6 +197,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-openbcm-bde.sh \
         scripts/redstone-openbcm-bde-smoke.sh \
         scripts/check-openbcm-userland-init.sh \
+        scripts/build-openbcm-init-probe.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -292,6 +304,15 @@ if command -v git >/dev/null 2>&1; then
         ok "check-openbcm-userland-init.sh is tracked executable"
     else
         fail "check-openbcm-userland-init.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/build-openbcm-init-probe.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "build-openbcm-init-probe.sh is tracked executable"
+    else
+        fail "build-openbcm-init-probe.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

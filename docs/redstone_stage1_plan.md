@@ -395,6 +395,23 @@ including `systems/bde/linux/user/kernel/linux-user-bde.c`, the user BDE
 APIs. It is a source/API preflight only; it does not load hardware or prove
 offload.
 
+The Redstone-specific init probe wrapper can be built before bench hardware is
+available:
+
+```sh
+./scripts/build-openbcm-init-probe.sh check
+./scripts/build-openbcm-init-probe.sh build
+make openbcm-init-probe
+make openbcm-init-probe-bundle
+```
+
+This wrapper is a safety gate around the OpenBCM demo init binary. Its default
+`--dry-run` path checks the BDE device nodes, exact BCM56846 PCI ID
+`14e4:b846`, and Redstone BCM config readability. Its `--exec` path remains
+blocked unless `--i-accept-hardware-reset-risk` is passed on a bench system
+after strict BDE smoke evidence exists. It does not implement SDK init logic
+or prove switching/offload by itself.
+
 The original Redstone firmware evidence points to Broadcom XGS Robo SDK 5.10.2.
 That makes SDK 5.10.x the best compatibility reference for board facts, PHY
 setup expectations, and regression triage. If an authorized SDK 5.10.x tree is
@@ -437,8 +454,9 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 - Keep OpenBCM BDE hardware-smoke bundles under `output/openbcm-bde/` until the
   smoke helper has loaded the bundle modules on Redstone and BCM56846
   enumeration is captured.
-- Pass the OpenBCM userland init source preflight, then implement the minimal
-  Redstone SDK init tool only after the hardware BDE smoke evidence exists.
+- Pass the OpenBCM userland init source preflight and build the Redstone init
+  probe gate, but only run its `--exec` path after hardware BDE smoke evidence
+  exists and reset-risk acceptance is explicit for that bench session.
 - Do not claim L3/ACL/ECMP hardware offload until SDK APIs are integrated and
   verified on hardware.
 

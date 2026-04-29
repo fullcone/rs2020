@@ -129,6 +129,38 @@ SDK-managed data-path probe.
 This is still a source-tree check. It does not load the BDE modules, initialize
 BCM56846, program PHYs, or prove hardware offload.
 
+## Redstone Init Probe Gate
+
+The next source-side artifact is a Redstone wrapper around the OpenBCM demo
+init binary:
+
+```sh
+./scripts/build-openbcm-init-probe.sh check
+./scripts/build-openbcm-init-probe.sh build
+make openbcm-init-probe
+make openbcm-init-probe-bundle
+```
+
+The wrapper builds to `output/openbcm-init/redstone-openbcm-init-probe` and is
+intentionally conservative. On target, start with:
+
+```sh
+./redstone-openbcm-init-probe --dry-run
+```
+
+The dry run checks the BDE device nodes, exact BCM56846 PCI ID `14e4:b846`,
+and `BCM_CONFIG_FILE` readability. It does not initialize the ASIC. The actual
+execution path is:
+
+```sh
+./redstone-openbcm-init-probe --exec --i-accept-hardware-reset-risk
+```
+
+Run that only after strict OpenBCM BDE smoke evidence exists on the Redstone
+bench system. The wrapper sets `BCM_CONFIG_FILE` and execs the OpenBCM demo
+init binary, but it is not itself a Broadcom SDK implementation and does not
+prove L2, L3, ACL, ECMP, or hardware offload.
+
 ## Why 6.5.27
 
 The local OpenBCM 6.5.27 tree has the pieces a Redstone SDK proof needs:
@@ -177,7 +209,8 @@ Before saying the Redstone fork has hardware offload through OpenBCM 6.5.27:
 2. Bundle the built BDE modules with their manifest for hardware smoke testing.
 3. Run the bundle smoke helper on Redstone and enumerate BCM56846.
 4. Pass the userland init source preflight against the pinned OpenBCM tree.
-5. Build and run a minimal Redstone userland SDK init path.
+5. Build the Redstone init probe gate, then run its `--exec` path only after
+   strict BDE smoke evidence and explicit reset-risk acceptance.
 6. Bring up one front-panel port using SDK-managed PHY programming.
 7. Add and verify one L2 entry or VLAN operation.
 8. Only then proceed to L3 route, ACL/FP, and ECMP tests.
