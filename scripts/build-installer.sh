@@ -131,7 +131,10 @@ build_image() {
 
     if [ "$EDGENOS_BOARD" = "redstone" ]; then
         echo "  Checking Redstone rootfs.sqsh contents..."
-        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+        # Keep the optional OpenBCM init probe out of the default image build
+        # gate. Release/handoff jobs can still require it by exporting
+        # REQUIRE_OPENBCM_INIT_PROBE=1.
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-0}" \
             "$TOPDIR/scripts/check-redstone-image.sh" --squashfs "$ROOTFS"
     fi
 

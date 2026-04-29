@@ -76,6 +76,7 @@ safe_prepare_outdir() {
 
     rm -rf "$out_real"
     mkdir -p \
+        "$out_real/bench-results" \
         "$out_real/images" \
         "$out_real/openbcm-bde" \
         "$out_real/openbcm-init" \
@@ -111,6 +112,7 @@ prove L3 routing, ACL, ECMP, or full hardware offload.
 - host-tools/analyze-redstone-stage1-evidence.sh
 - host-tools/analyze-redstone-handoff-capture.sh
 - host-tools/verify-redstone-hardware-handoff.sh
+- bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md
 
 ## ONIE Install
 
@@ -141,6 +143,13 @@ Use the validation bundle or evidence directory printed by the strict validation
 run:
 
 ./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR
+
+## Bench Result Note
+
+Create one completed result note per hardware run and keep it with the returned
+validation bundle and console log:
+
+cp bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md bench-results/"\$(date -u +%Y%m%dT%H%M%SZ)-stage1.md"
 
 ## Optional OpenBCM BDE Smoke
 
@@ -201,6 +210,7 @@ package() {
     require_file "$TOPDIR/scripts/analyze-redstone-stage1-evidence.sh"
     require_file "$TOPDIR/scripts/analyze-redstone-handoff-capture.sh"
     require_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh"
+    require_file "$TOPDIR/docs/redstone_bench_result_template.md"
 
     REQUIRE_OPENBCM_INIT_PROBE=1 \
         "$TOPDIR/scripts/check-redstone-image.sh" --squashfs "$IMAGE_DIR/rootfs.sqsh"
@@ -222,6 +232,8 @@ package() {
         "$OUTDIR/host-tools/analyze-redstone-handoff-capture.sh"
     copy_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh" \
         "$OUTDIR/host-tools/verify-redstone-hardware-handoff.sh"
+    copy_file "$TOPDIR/docs/redstone_bench_result_template.md" \
+        "$OUTDIR/bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md"
 
     git_head=unknown
     if command -v git >/dev/null 2>&1; then

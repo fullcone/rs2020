@@ -300,11 +300,10 @@ EDGENOS_BOARD=redstone ./scripts/build-installer.sh image
 ```
 
 For Redstone, `build-installer.sh image` checks `output/images/rootfs.sqsh`
-before creating the ONIE payload tarball. That release path defaults
-`REQUIRE_OPENBCM_INIT_PROBE` to `1`, so a missing
-`/usr/sbin/redstone-openbcm-init-probe` or a missing manifest with
-`sdk_baseline=openbcm-6.5.27` blocks packaging instead of producing a weak
-installer image.
+before creating the ONIE payload tarball. The normal image build keeps the
+OpenBCM init probe optional so `EDGENOS_BOARD=redstone make image` is not
+blocked by missing optional probe artifacts. Release or handoff gates that need
+the probe must run with `REQUIRE_OPENBCM_INIT_PROBE=1`.
 
 `initramfs-build.sh` compiles `initramfs/nos-init.c` as a freestanding
 PowerPC raw-syscall init because that source defines `_start` directly and does
@@ -447,11 +446,12 @@ REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh
 REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh --squashfs output/images/rootfs.sqsh
 ```
 
-`build-installer.sh image` and the `build-all.sh` installer path use that same
-packed-rootfs check for Redstone before packaging. `build-all.sh` also installs
-the Redstone OpenBCM init probe into the rootfs staging tree before squashfs
-packing, so the generated `rootfs.sqsh` is checked rather than only the
-pre-pack staging directory.
+`build-installer.sh image` uses the same packed-rootfs Redstone image check
+before packaging, but leaves the init probe optional unless
+`REQUIRE_OPENBCM_INIT_PROBE=1` is explicitly exported. `build-all.sh` also
+installs the Redstone OpenBCM init probe into the rootfs staging tree before
+squashfs packing, so its generated `rootfs.sqsh` is checked rather than only
+the pre-pack staging directory.
 
 The first-boot capture and validation tools record the probe's `--dry-run`
 output. They do not run `--exec`; that remains a manual bench step after BDE
@@ -476,7 +476,8 @@ The target writes `output/redstone-handoff/` and
 ONIE installer image, `rootfs.sqsh`, Redstone DTB, OpenBCM BDE modules and
 smoke helper, OpenBCM init probe bundle, the host-side stage-1 evidence
 analyzer, the combined host handoff/capture analyzer, the host-side handoff
-verifier, `RUNBOOK.md`, and `MANIFEST.txt` with sizes and SHA-256 hashes.
+verifier, the bench result template under `bench-results/`, `RUNBOOK.md`, and
+`MANIFEST.txt` with sizes and SHA-256 hashes.
 
 The package script forces the packed-rootfs image check with
 `REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
@@ -488,6 +489,10 @@ Stage-1 acceptance requires a real front-panel target and peer, using
 placeholders such as `REDSTONE_IFACE=swpN`,
 `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`, then
 running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
+The package also includes
+`bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md`; copy it for each bench run
+and keep the completed note beside the returned strict validation bundle and
+console log.
 Before using an unpacked handoff directory on the bench host, run
 `./host-tools/verify-redstone-hardware-handoff.sh .` from the package root, or
 verify the tarball from the source tree with:
@@ -536,6 +541,8 @@ smoke evidence exists on Redstone hardware.
 - Run `redstone-stage1-bench-run --iface <swpN> --local-cidr <local-cidr> --peer <peer-ip>`.
 - Keep the printed strict validation bundle with the hardware test notes for
   follow-up DTS and platform work.
+- Complete the packaged bench result template so the accept/reject decision is
+  explicit for that hardware run.
 
 ### Stage 2: Platform Inventory
 

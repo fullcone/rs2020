@@ -1135,6 +1135,51 @@ Next checkpoint:
 - Request another PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
 
+### Stage-3 Handoff Bench Result Template and Image Probe Gate
+
+Completed:
+
+- Addressed the PR P1 finding by keeping `scripts/build-installer.sh image`
+  from requiring the optional OpenBCM init probe unless
+  `REQUIRE_OPENBCM_INIT_PROBE=1` is explicitly exported.
+- Addressed the PR P2 finding by requiring
+  `host-tools/analyze-redstone-handoff-capture.sh` in generated handoff
+  verification.
+- Added `docs/redstone_bench_result_template.md` and packaged it under
+  `bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md` so each hardware run has
+  an explicit stage-1 accept/reject note.
+- Extended source preflight so the default image probe gate, combined analyzer
+  packaging, verifier requirements, and bench template content remain checked.
+
+Verified:
+
+- `wsl sh -n scripts/build-installer.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh -n scripts/verify-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  passed with `52 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  passed with `53 pass, 0 warning(s), 0 failure(s)`.
+- `git diff --check`
+
+Note:
+
+- The first package attempt failed against stale local
+  `output/images/rootfs.sqsh` content that did not yet contain
+  `redstone-stage1-bench-run`. Reassembling rootfs and rebuilding the
+  installer resolved the generated-output mismatch.
+
+Next checkpoint:
+
+- Commit and request another PR review, then continue with the next Redstone
+  stage-1 prep item.
+
 ### Stage-3 Handoff Analyzer Trust Boundary
 
 Completed:

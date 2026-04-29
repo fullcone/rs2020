@@ -173,7 +173,9 @@ check_required_files() {
     require_file openbcm-init/redstone-openbcm-init-probe
     require_file openbcm-init/redstone-openbcm-init-probe.manifest
     require_file host-tools/analyze-redstone-stage1-evidence.sh
+    require_file host-tools/analyze-redstone-handoff-capture.sh
     require_file host-tools/verify-redstone-hardware-handoff.sh
+    require_file bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md
 }
 
 check_manifest_entries() {

@@ -128,6 +128,7 @@ check_file "scripts/check-openbcm-userland-init.sh"
 check_file "scripts/build-openbcm-init-probe.sh"
 check_file "scripts/install-openbcm-init-probe.sh"
 check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
+check_file "docs/redstone_bench_result_template.md"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -172,6 +173,12 @@ check_grep 'redstone-stage1-bench-run' "scripts/check-redstone-image.sh" \
 check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
     "scripts/build-installer.sh" \
     "build-installer checks Redstone rootfs.sqsh before packaging"
+check_grep 'REQUIRE_OPENBCM_INIT_PROBE="\$\{REQUIRE_OPENBCM_INIT_PROBE:-0\}"' \
+    "scripts/build-installer.sh" \
+    "build-installer keeps OpenBCM init probe optional by default"
+check_no_regex 'REQUIRE_OPENBCM_INIT_PROBE="\$\{REQUIRE_OPENBCM_INIT_PROBE:-1\}"' \
+    "scripts/build-installer.sh" \
+    "build-installer does not force OpenBCM init probe in default image builds"
 check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
     "scripts/build-all.sh" \
     "build-all checks Redstone rootfs.sqsh before packaging"
@@ -187,9 +194,24 @@ check_grep 'verify-redstone-hardware-handoff\.sh' \
 check_grep 'analyze-redstone-handoff-capture\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles combined host capture analyzer"
+check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff package bundles the bench result template"
+check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
+    "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier requires the bench result template"
+check_grep 'host-tools/analyze-redstone-handoff-capture\.sh' \
+    "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier requires the combined host capture analyzer"
 check_grep 'analyze-redstone-handoff-capture\.sh[[:space:]]+[.][[:space:]]+PATH_TO_VALIDATION_BUNDLE_OR_DIR' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook verifies handoff and validation bundle through one host command"
+check_grep 'Stage-1 accepted: yes/no' \
+    "docs/redstone_bench_result_template.md" \
+    "bench result template records the stage-1 acceptance decision"
+check_grep 'Strict validation bundle or directory' \
+    "docs/redstone_bench_result_template.md" \
+    "bench result template records strict validation evidence"
 check_grep 'verify-redstone-hardware-handoff\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the handoff verifier"
