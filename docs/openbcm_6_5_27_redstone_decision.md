@@ -97,6 +97,24 @@ can be compiled for the current Redstone Linux 5.10/PPC32 target. It does not
 prove that the modules load on Redstone hardware, that BCM56846 is reachable
 through the BDE device nodes, or that SDK-managed switching/offload is working.
 
+## Userland Init Source Preflight
+
+After the source seed and BDE build proof, the next non-hardware check is the
+userland SDK init source/API preflight:
+
+```sh
+./scripts/check-openbcm-userland-init.sh
+make openbcm-userland-check
+```
+
+This checks the pinned OpenBCM tree for BCM56846 SOC coverage, Linux BDE
+user/kernel entry points, the OpenNSA demo init path from `bde_create` to
+`linux_bde_create`, `soc_attach` or `bcm_attach`, and `bcm_init`, plus public
+L2, VLAN, and port APIs needed for the first SDK-managed data-path probe.
+
+This is still a source-tree check. It does not load the BDE modules, initialize
+BCM56846, program PHYs, or prove hardware offload.
+
 ## Why 6.5.27
 
 The local OpenBCM 6.5.27 tree has the pieces a Redstone SDK proof needs:
@@ -144,7 +162,8 @@ Before saying the Redstone fork has hardware offload through OpenBCM 6.5.27:
 1. Build BDE kernel modules for Linux 5.10 and PowerPC32 big-endian.
 2. Bundle the built BDE modules with their manifest for hardware smoke testing.
 3. Run the bundle smoke helper on Redstone and enumerate BCM56846.
-4. Run a minimal userland SDK init path.
-5. Bring up one front-panel port using SDK-managed PHY programming.
-6. Add and verify one L2 entry or VLAN operation.
-7. Only then proceed to L3 route, ACL/FP, and ECMP tests.
+4. Pass the userland init source preflight against the pinned OpenBCM tree.
+5. Build and run a minimal Redstone userland SDK init path.
+6. Bring up one front-panel port using SDK-managed PHY programming.
+7. Add and verify one L2 entry or VLAN operation.
+8. Only then proceed to L3 route, ACL/FP, and ECMP tests.

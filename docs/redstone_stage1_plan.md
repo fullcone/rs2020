@@ -365,6 +365,20 @@ This is a build and packaging proof only; hardware loading, BCM56846
 enumeration through BDE, and any SDK-managed switching/offload still require
 Redstone hardware validation.
 
+Before writing a Redstone-specific OpenBCM init tool, verify that the pinned
+public SDK tree still exposes the expected userland init path and first L2/VLAN
+APIs:
+
+```sh
+./scripts/check-openbcm-userland-init.sh
+make openbcm-userland-check
+```
+
+This checks BCM56846 SOC coverage, Linux BDE user/kernel entry points, the
+OpenNSA demo `linux_bde_create` to `soc_attach` or `bcm_attach` to `bcm_init`
+path, and public L2, VLAN, and port APIs. It is a source/API preflight only;
+it does not load hardware or prove offload.
+
 The original Redstone firmware evidence points to Broadcom XGS Robo SDK 5.10.2.
 That makes SDK 5.10.x the best compatibility reference for board facts, PHY
 setup expectations, and regression triage. If an authorized SDK 5.10.x tree is
@@ -407,6 +421,8 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 - Keep OpenBCM BDE hardware-smoke bundles under `output/openbcm-bde/` until the
   smoke helper has loaded the bundle modules on Redstone and BCM56846
   enumeration is captured.
+- Pass the OpenBCM userland init source preflight, then implement the minimal
+  Redstone SDK init tool only after the hardware BDE smoke evidence exists.
 - Do not claim L3/ACL/ECMP hardware offload until SDK APIs are integrated and
   verified on hardware.
 

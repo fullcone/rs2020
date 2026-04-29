@@ -117,6 +117,7 @@ check_file "scripts/analyze-redstone-stage1-evidence.sh"
 check_file "scripts/prepare-openbcm.sh"
 check_file "scripts/build-openbcm-bde.sh"
 check_file "scripts/redstone-openbcm-bde-smoke.sh"
+check_file "scripts/check-openbcm-userland-init.sh"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -140,6 +141,14 @@ check_grep '14e4:b846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper requires exact BCM56846 PCI ID"
 check_no_fixed '14e4.*(b846|56846)|b846|56846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper avoids vendorless lspci matches"
+check_grep 'openbcm-userland-check' "Makefile" \
+    "Makefile exposes OpenBCM userland init source check"
+check_grep 'BCM56846_DEVICE_ID' "scripts/check-openbcm-userland-init.sh" \
+    "OpenBCM userland init preflight checks BCM56846 source coverage"
+check_grep 'bcm_attach' "scripts/check-openbcm-userland-init.sh" \
+    "OpenBCM userland init preflight checks SDK attach path"
+check_grep 'bcm_l2_addr_add' "scripts/check-openbcm-userland-init.sh" \
+    "OpenBCM userland init preflight checks L2 API path"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then
@@ -161,6 +170,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/prepare-openbcm.sh \
         scripts/build-openbcm-bde.sh \
         scripts/redstone-openbcm-bde-smoke.sh \
+        scripts/check-openbcm-userland-init.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -249,6 +259,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-openbcm-bde-smoke.sh is tracked executable"
     else
         fail "redstone-openbcm-bde-smoke.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/check-openbcm-userland-init.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "check-openbcm-userland-init.sh is tracked executable"
+    else
+        fail "check-openbcm-userland-init.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

@@ -647,3 +647,41 @@ Verified:
   the `lspci` BCM56846 detection path.
 - Temporary `lspci` fixture with `[14e4:b846]` satisfied the exact BCM56846
   detection path.
+
+Next checkpoint:
+
+- Run the OpenBCM BDE smoke helper on Redstone hardware and keep the evidence
+  showing BDE load plus BCM56846 `14e4:b846` enumeration.
+- Use that evidence as the prerequisite for any SDK-managed userland init or
+  offload claim.
+
+### Stage-3 OpenBCM Userland Init Source Preflight
+
+Completed:
+
+- Added `scripts/check-openbcm-userland-init.sh` to verify that the pinned
+  OpenBCM 6.5.27 tree exposes BCM56846 SOC coverage, Linux BDE user/kernel
+  entry points, and the OpenNSA demo `linux_bde_create` to `soc_attach` or
+  `bcm_attach` to `bcm_init` path.
+- The preflight also checks the public L2, VLAN, and port APIs needed for the
+  next minimal SDK-managed data-path probe.
+- Wired `make openbcm-userland-check` into the top-level build system.
+- Extended Redstone source preflight so the userland init source check must be
+  present, shell-valid, executable, and visible from the Makefile.
+- Updated the OpenBCM decision note and stage plan to place this preflight
+  before a Redstone-specific SDK init tool.
+
+Verified:
+
+- `wsl sh -n scripts/check-openbcm-userland-init.sh`
+- `wsl sh scripts/check-openbcm-userland-init.sh`
+- `wsl make openbcm-userland-check`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Run the OpenBCM BDE hardware smoke helper on Redstone and keep the evidence
+  showing BDE load plus BCM56846 `14e4:b846` enumeration.
+- Implement the minimal Redstone OpenBCM init tool only after that hardware
+  BDE smoke evidence exists.
