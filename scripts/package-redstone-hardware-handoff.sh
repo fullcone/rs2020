@@ -122,7 +122,7 @@ onie-nos-install http://SERVER/$EDGENOS_IMAGE_NAME
 ## First Boot Capture
 
 cat /etc/edgenos/board
-redstone-stage1-validate --capture
+redstone-stage1-bench-run --capture-only
 
 The capture above writes an evidence directory and, when tar is available, a
 validation bundle. It is useful for inventory and smoke triage, but it is not stage-1 acceptance.
@@ -133,9 +133,7 @@ REDSTONE_IFACE=swpN
 REDSTONE_LOCAL_CIDR=192.0.2.1/24
 REDSTONE_PEER=192.0.2.2
 
-ip link set "\$REDSTONE_IFACE" up
-ip addr add "\$REDSTONE_LOCAL_CIDR" dev "\$REDSTONE_IFACE"
-redstone-stage1-validate --iface "\$REDSTONE_IFACE" --peer "\$REDSTONE_PEER" --strict --capture
+redstone-stage1-bench-run --iface "\$REDSTONE_IFACE" --local-cidr "\$REDSTONE_LOCAL_CIDR" --peer "\$REDSTONE_PEER"
 
 ## Host Analysis
 

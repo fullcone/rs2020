@@ -1,0 +1,192 @@
+#!/bin/sh
+# Guided Redstone stage-1 bench acceptance runner.
+
+set -eu
+
+IFACE=${REDSTONE_IFACE:-}
+LOCAL_CIDR=${REDSTONE_LOCAL_CIDR:-}
+PEER=${REDSTONE_PEER:-}
+PING_COUNT=${REDSTONE_PING_COUNT:-3}
+CAPTURE_ONLY=0
+SKIP_LOCAL_IP=0
+BDE_SMOKE=0
+
+usage() {
+    cat <<EOF
+Usage:
+  redstone-stage1-bench-run --capture-only
+  redstone-stage1-bench-run --iface swpN --local-cidr 192.0.2.1/24 --peer 192.0.2.2 [options]
+
+Options:
+  --iface IFACE        Front-panel interface to test, for example swp1.
+  --local-cidr CIDR   Optional local test IP/CIDR to add before validation.
+  --peer IP           Bench peer IP to ping through the ASIC.
+  --ping-count N      Ping count for strict validation. Default: 3.
+  --skip-local-ip     Do not add the local CIDR even if one is provided.
+  --bde-smoke         Run the optional OpenBCM BDE smoke helper after validation.
+  --capture-only      Run inventory capture only; this is not acceptance.
+  -h, --help          Show this help.
+
+Environment:
+  REDSTONE_IFACE, REDSTONE_LOCAL_CIDR, REDSTONE_PEER, REDSTONE_PING_COUNT
+EOF
+}
+
+fail() {
+    echo "redstone-stage1-bench-run: $*" >&2
+    exit 2
+}
+
+is_uint() {
+    case "$1" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+find_bde_smoke() {
+    for candidate in \
+        "$(command -v redstone-openbcm-bde-smoke.sh 2>/dev/null || true)" \
+        /opt/openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./redstone-openbcm-bde-smoke.sh
+    do
+        [ -n "$candidate" ] || continue
+        [ -x "$candidate" ] || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+    return 1
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --iface)
+            [ $# -ge 2 ] || fail "--iface requires a value"
+            IFACE=$2
+            shift 2
+            ;;
+        --iface=*)
+            IFACE=${1#--iface=}
+            shift
+            ;;
+        --local-cidr)
+            [ $# -ge 2 ] || fail "--local-cidr requires a value"
+            LOCAL_CIDR=$2
+            shift 2
+            ;;
+        --local-cidr=*)
+            LOCAL_CIDR=${1#--local-cidr=}
+            shift
+            ;;
+        --peer)
+            [ $# -ge 2 ] || fail "--peer requires a value"
+            PEER=$2
+            shift 2
+            ;;
+        --peer=*)
+            PEER=${1#--peer=}
+            shift
+            ;;
+        --ping-count)
+            [ $# -ge 2 ] || fail "--ping-count requires a value"
+            PING_COUNT=$2
+            shift 2
+            ;;
+        --ping-count=*)
+            PING_COUNT=${1#--ping-count=}
+            shift
+            ;;
+        --skip-local-ip)
+            SKIP_LOCAL_IP=1
+            shift
+            ;;
+        --bde-smoke)
+            BDE_SMOKE=1
+            shift
+            ;;
+        --capture-only)
+            CAPTURE_ONLY=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            fail "unknown argument: $1"
+            ;;
+    esac
+done
+
+command -v redstone-stage1-validate >/dev/null 2>&1 || \
+    fail "redstone-stage1-validate not found"
+
+if [ "$CAPTURE_ONLY" = "1" ]; then
+    echo "Redstone stage-1 inventory capture only; this is not acceptance."
+    redstone-stage1-validate --capture
+    exit $?
+fi
+
+[ -n "$IFACE" ] || fail "strict acceptance requires --iface or REDSTONE_IFACE"
+[ -n "$PEER" ] || fail "strict acceptance requires --peer or REDSTONE_PEER"
+
+case "$IFACE" in
+    swp[0-9]*)
+        ;;
+    *)
+        fail "--iface must be a swpN front-panel interface"
+        ;;
+esac
+
+is_uint "$PING_COUNT" || fail "--ping-count must be a positive integer"
+[ "$PING_COUNT" -gt 0 ] || fail "--ping-count must be a positive integer"
+
+command -v ip >/dev/null 2>&1 || fail "ip command not found"
+
+echo "Redstone stage-1 strict bench acceptance"
+if [ -f /etc/edgenos/board ]; then
+    echo "Board: $(cat /etc/edgenos/board)"
+fi
+echo "Interface: $IFACE"
+echo "Peer: $PEER"
+echo "Ping count: $PING_COUNT"
+
+ip link set "$IFACE" up || fail "failed to bring $IFACE up"
+
+if [ "$SKIP_LOCAL_IP" = "1" ]; then
+    echo "Local IP setup skipped by request."
+elif [ -n "$LOCAL_CIDR" ]; then
+    if ip addr show dev "$IFACE" 2>/dev/null | grep -Fq "$LOCAL_CIDR"; then
+        echo "Local CIDR already present on $IFACE: $LOCAL_CIDR"
+    else
+        ip addr add "$LOCAL_CIDR" dev "$IFACE" || \
+            fail "failed to add $LOCAL_CIDR to $IFACE"
+        echo "Added local CIDR to $IFACE: $LOCAL_CIDR"
+    fi
+else
+    echo "No local CIDR provided; assuming $IFACE already has the bench IP."
+fi
+
+set +e
+redstone-stage1-validate --iface "$IFACE" --peer "$PEER" --ping-count "$PING_COUNT" --strict --capture
+VALIDATE_RC=$?
+set -e
+
+if [ "$VALIDATE_RC" -ne 0 ]; then
+    exit "$VALIDATE_RC"
+fi
+
+if [ "$BDE_SMOKE" = "1" ]; then
+    if SMOKE_HELPER=$(find_bde_smoke); then
+        "$SMOKE_HELPER" --strict --capture
+    else
+        fail "--bde-smoke requested but redstone-openbcm-bde-smoke.sh was not found"
+    fi
+fi
+
+exit 0

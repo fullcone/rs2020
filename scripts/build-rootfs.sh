@@ -158,7 +158,9 @@ assemble() {
         etc/init.d/S20edgenos \
         usr/sbin/platform-init.sh \
         usr/sbin/switchd-init \
-        usr/sbin/redstone-stage1-capture
+        usr/sbin/redstone-stage1-capture \
+        usr/sbin/redstone-stage1-validate \
+        usr/sbin/redstone-stage1-bench-run
     do
         [ -f "$STAGING/$script" ] && chmod 755 "$STAGING/$script"
     done

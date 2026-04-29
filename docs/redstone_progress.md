@@ -1199,3 +1199,31 @@ Next checkpoint:
 
 - Request another PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Rootfs Bench Runner
+
+Completed:
+
+- Added `redstone-stage1-bench-run` as the rootfs-side Redstone bench entry
+  point for inventory-only capture and strict one-port acceptance.
+- The runner brings the selected `swpN` link up, optionally adds the bench
+  CIDR, runs `redstone-stage1-validate --strict --capture`, and can run the
+  optional OpenBCM BDE smoke helper without invoking the reset-risk init probe.
+- Updated image checks, rootfs assembly, generated handoff runbooks, and the
+  stage plan so the bench flow uses the runner instead of manual command
+  sequences.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh -c 'PATH="$PWD/config/rootfs/overlay/usr/sbin:$PATH" sh config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run --help'`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `git diff --check`
+
+Next checkpoint:
+
+- Request another PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.

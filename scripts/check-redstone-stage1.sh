@@ -106,6 +106,7 @@ check_file "$EDGENOS_KERNEL_DEFCONFIG"
 check_file "config/bcm/redstone-stage1.bcm"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
+check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
 check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
@@ -156,6 +157,8 @@ check_grep 'config/rootfs/overlay' "scripts/build-rootfs.sh" \
     "build-rootfs applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
     "build-rootfs installs optional Redstone OpenBCM init probe"
+check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone bench runner executable mode"
 check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
     "Buildroot post-build installs optional Redstone OpenBCM init probe"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
@@ -164,6 +167,8 @@ check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \
     "build-all installs required Redstone OpenBCM init probe before squashfs packing"
 check_grep '--squashfs' "scripts/check-redstone-image.sh" \
     "image checker can verify packed rootfs.sqsh contents"
+check_grep 'redstone-stage1-bench-run' "scripts/check-redstone-image.sh" \
+    "image checker requires the Redstone bench runner"
 check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
     "scripts/build-installer.sh" \
     "build-installer checks Redstone rootfs.sqsh before packaging"
@@ -203,7 +208,7 @@ check_grep 'sh "[$]ANALYZE_TOOL" --strict' \
 check_no_regex 'HANDOFF_ROOT|host-tools/verify-redstone-hardware-handoff\.sh|host-tools/analyze-redstone-stage1-evidence\.sh|tar[[:space:]]+-xzf.*HANDOFF' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer avoids executing tools from handoff payloads"
-check_grep 'redstone-stage1-validate --capture' \
+check_grep 'redstone-stage1-bench-run --capture-only' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"
 check_grep 'Validation bundle:' \
@@ -227,9 +232,12 @@ check_grep 'REDSTONE_IFACE=swpN' \
 check_grep 'REDSTONE_PEER=192\.0\.2\.2' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook declares strict peer placeholder"
-check_grep '--iface "\\[$]REDSTONE_IFACE" --peer "\\[$]REDSTONE_PEER" --strict --capture' \
+check_grep 'redstone-stage1-bench-run --iface' \
     "scripts/package-redstone-hardware-handoff.sh" \
-    "Redstone handoff runbook uses strict iface and peer acceptance command"
+    "Redstone handoff runbook uses the bench runner for strict acceptance"
+check_grep '--local-cidr "\\[$]REDSTONE_LOCAL_CIDR"' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook has the bench runner configure the local CIDR"
 check_grep 'redstone-openbcm-bde-smoke\.sh --strict --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes BDE smoke capture"
@@ -309,6 +317,18 @@ check_grep 'strict requires --peer IP' \
 check_grep 'strict --iface must be a swpN front-panel interface' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "validator strict mode rejects non-swp interface targets"
+check_grep 'redstone-stage1-validate --iface "[$]IFACE" --peer "[$]PEER" --ping-count "[$]PING_COUNT" --strict --capture' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner invokes strict validation with capture"
+check_grep '--local-cidr' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner supports local CIDR setup"
+check_grep 'redstone-openbcm-bde-smoke\.sh' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner can locate the optional OpenBCM BDE smoke helper"
+check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner does not invoke reset-risk init probe exec path"
 check_grep 'REQUIRE_OPENBCM_INIT_PROBE' "scripts/check-redstone-image.sh" \
     "image checker can enforce OpenBCM init probe packaging"
 
@@ -343,6 +363,7 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
+        config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
         config/rootfs/overlay/usr/sbin/switchd-init
     do
         if sh -n "$TOPDIR/$script"; then
@@ -508,6 +529,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-stage1-validate is tracked executable"
     else
         fail "redstone-stage1-validate git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-stage1-bench-run is tracked executable"
+    else
+        fail "redstone-stage1-bench-run git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

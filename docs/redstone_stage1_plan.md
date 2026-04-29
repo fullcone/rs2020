@@ -483,11 +483,11 @@ The package script forces the packed-rootfs image check with
 rootfs does not contain the Redstone OpenBCM init probe and manifest.
 
 The generated `RUNBOOK.md` separates first-boot smoke capture from acceptance:
-`redstone-stage1-validate --capture` is inventory evidence only. Stage-1
-acceptance requires a real front-panel target and peer, using placeholders such
-as `REDSTONE_IFACE=swpN`, `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and
-`REDSTONE_PEER=192.0.2.2`, then running
-`redstone-stage1-validate --iface "$REDSTONE_IFACE" --peer "$REDSTONE_PEER" --strict --capture`.
+`redstone-stage1-bench-run --capture-only` is inventory evidence only.
+Stage-1 acceptance requires a real front-panel target and peer, using
+placeholders such as `REDSTONE_IFACE=swpN`,
+`REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`, then
+running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
 Before using an unpacked handoff directory on the bench host, run
 `./host-tools/verify-redstone-hardware-handoff.sh .` from the package root, or
 verify the tarball from the source tree with:
@@ -533,9 +533,9 @@ smoke evidence exists on Redstone hardware.
 - Start switchd with `redstone-stage1.bcm`.
 - Verify one 10G SFP+ port or one 40G QSFP+ port links up.
 - Assign test IPs and pass one ping through the ASIC.
-- Run `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`.
-- Run `redstone-stage1-capture` and keep the tarball with the hardware test
-  notes for follow-up DTS and platform work.
+- Run `redstone-stage1-bench-run --iface <swpN> --local-cidr <local-cidr> --peer <peer-ip>`.
+- Keep the printed strict validation bundle with the hardware test notes for
+  follow-up DTS and platform work.
 
 ### Stage 2: Platform Inventory
 

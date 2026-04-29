@@ -89,6 +89,7 @@ check_exec usr/sbin/platform-init.sh
 check_exec usr/sbin/switchd-init
 check_exec usr/sbin/redstone-stage1-capture
 check_exec usr/sbin/redstone-stage1-validate
+check_exec usr/sbin/redstone-stage1-bench-run
 check_exec usr/sbin/switchd
 
 case "$REQUIRE_OPENBCM_INIT_PROBE" in
@@ -128,4 +129,4 @@ check_module accton_as5610_52x_cpld.ko
 check_module retimer_class.ko
 check_module ds100df410.ko
 
-echo "PASS: Redstone generated image contains switchd, BDE, platform modules, validation tools, and board config"
+echo "PASS: Redstone generated image contains switchd, BDE, platform modules, validation tools, bench runner, and board config"
