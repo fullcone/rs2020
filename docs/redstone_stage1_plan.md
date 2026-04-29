@@ -122,8 +122,9 @@ fails nonzero if any required check fails:
 redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict
 ```
 
-Use `--capture` when the same run should also produce the larger
-`redstone-stage1-capture` tarball:
+Use `--capture` when the same run should also embed the larger
+`redstone-stage1-capture` evidence and, when `tar` is available, print a
+host-transfer validation bundle:
 
 ```sh
 redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict --capture
@@ -131,12 +132,12 @@ redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict --capture
 
 ## Evidence Analysis
 
-After a hardware run, copy the validation directory or capture tarball back to
+After a hardware run, copy the validation directory or validation bundle back to
 the build host and run the evidence analyzer:
 
 ```sh
 ./scripts/analyze-redstone-stage1-evidence.sh /path/to/validate-20260429T000000Z
-./scripts/analyze-redstone-stage1-evidence.sh /path/to/20260429T000000Z.tar.gz
+./scripts/analyze-redstone-stage1-evidence.sh /path/to/validate-20260429T000000Z.tar.gz
 ```
 
 For an acceptance bundle, use `--strict`. Strict mode exits nonzero when
@@ -148,12 +149,13 @@ skipped ping:
 ```
 
 The analyzer is host-side only. It does not replace the live hardware run; it
-turns the collected `validate-*` directory or capture tarball into a repeatable
-PASS/WARN/FAIL checklist for board selection, BCM56846 PCIe enumeration, BDE
-modules and device nodes, `switchd`, `swp` interfaces, `swp*`-scoped link-up,
-and ping evidence. Capture-only link evidence must come from a `swp*` interface
-section or an `ip link` line for a `swp*` interface, so a management `eth*`
-interface cannot satisfy the front-panel link checkpoint.
+turns the collected `validate-*` directory or validation bundle into a
+repeatable PASS/WARN/FAIL checklist for board selection, BCM56846 PCIe
+enumeration, BDE modules and device nodes, `switchd`, `swp` interfaces,
+`swp*`-scoped link-up, and ping evidence. Embedded capture link evidence must
+come from a `swp*` interface section or an `ip link` line for a `swp*`
+interface, so a management `eth*` interface cannot satisfy the front-panel link
+checkpoint.
 
 ## Source Preflight
 
@@ -494,17 +496,17 @@ verify the tarball from the source tree with:
 make redstone-handoff-verify REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz
 ```
 
-After the Redstone hardware run returns a strict capture tarball, verify the
-handoff and analyze the capture together from the unpacked package:
+After the Redstone hardware run returns a strict validation bundle, verify the
+handoff and analyze the validation evidence together from the unpacked package:
 
 ```sh
-./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_CAPTURE_TARBALL
+./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR
 ```
 
 The same combined check is available from the source tree:
 
 ```sh
-make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=/path/to/capture.tar.gz
+make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=/path/to/validate-20260429T000000Z.tar.gz
 ```
 
 The combined check resolves its verifier and analyzer from the directory that
@@ -513,7 +515,7 @@ contains the wrapper: `host-tools/` in an unpacked handoff package, or
 `REDSTONE_HANDOFF_PATH` is input data only; it is never used as the source of
 executable host tools. The combined check verifies the handoff manifest and
 hashes first, then runs the strict stage-1 evidence analyzer against the
-returned capture.
+returned validation evidence.
 
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`

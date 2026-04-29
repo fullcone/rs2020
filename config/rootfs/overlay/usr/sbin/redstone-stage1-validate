@@ -154,6 +154,72 @@ have_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
+capture_evidence_path() {
+    [ -f "$OUT_DIR/capture.txt" ] || return 1
+    sed -n 's/^Redstone stage-1 capture written to //p' "$OUT_DIR/capture.txt" | tail -n 1
+}
+
+embed_capture_evidence() {
+    capture_path=$(capture_evidence_path || true)
+    embed_dir="$OUT_DIR/capture-evidence"
+
+    if [ -z "$capture_path" ]; then
+        warn "redstone-stage1-capture did not report an evidence path"
+        return
+    fi
+
+    if ! mkdir -p "$embed_dir"; then
+        warn "unable to create capture evidence directory: $embed_dir"
+        return
+    fi
+
+    case "$capture_path" in
+    *.tar.gz|*.tgz)
+        if ! have_cmd tar; then
+            warn "tar unavailable; capture tarball not embedded: $capture_path"
+            return
+        fi
+        if [ ! -f "$capture_path" ]; then
+            warn "capture tarball missing: $capture_path"
+            return
+        fi
+        cp -p "$capture_path" "$OUT_DIR/redstone-stage1-capture.tar.gz" 2>/dev/null || true
+        if tar -xzf "$capture_path" -C "$embed_dir" >> "$LOG" 2>&1; then
+            pass "capture evidence embedded: $capture_path"
+        else
+            warn "capture tarball could not be embedded: $capture_path"
+        fi
+        ;;
+    *)
+        if [ ! -d "$capture_path" ]; then
+            warn "capture evidence path missing: $capture_path"
+            return
+        fi
+        if cp -a "$capture_path/." "$embed_dir/" >> "$LOG" 2>&1; then
+            pass "capture evidence embedded: $capture_path"
+        else
+            warn "capture evidence directory could not be embedded: $capture_path"
+        fi
+        ;;
+    esac
+}
+
+package_validation_bundle() {
+    [ "$RUN_CAPTURE" = "1" ] || return
+
+    if ! have_cmd tar; then
+        emit "Validation bundle unavailable: tar command not found"
+        return
+    fi
+
+    bundle="$BASE_DIR/validate-$STAMP.tar.gz"
+    if (cd "$BASE_DIR" && tar czf "validate-$STAMP.tar.gz" "validate-$STAMP") >> "$LOG" 2>&1; then
+        emit "Validation bundle: $bundle"
+    else
+        emit "Validation bundle unavailable: packaging failed"
+    fi
+}
+
 check_required_file() {
     path=$1
     desc=$2
@@ -419,6 +485,7 @@ if [ "$RUN_CAPTURE" = "1" ]; then
     if have_cmd redstone-stage1-capture; then
         if capture_cmd capture 'redstone-stage1-capture'; then
             pass "redstone-stage1-capture completed"
+            embed_capture_evidence
         else
             warn "redstone-stage1-capture returned nonzero"
         fi
@@ -430,6 +497,7 @@ fi
 emit ""
 emit "Redstone stage-1 validation complete: $PASSES pass, $WARNINGS warning(s), $FAILURES failure(s)"
 emit "Evidence directory: $OUT_DIR"
+package_validation_bundle
 
 if [ "$STRICT" = "1" ] && [ "$FAILURES" -ne 0 ]; then
     exit 1

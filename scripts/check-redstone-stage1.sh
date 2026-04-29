@@ -182,9 +182,9 @@ check_grep 'verify-redstone-hardware-handoff\.sh' \
 check_grep 'analyze-redstone-handoff-capture\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles combined host capture analyzer"
-check_grep 'analyze-redstone-handoff-capture\.sh[[:space:]]+[.][[:space:]]+PATH_TO_CAPTURE_TARBALL' \
+check_grep 'analyze-redstone-handoff-capture\.sh[[:space:]]+[.][[:space:]]+PATH_TO_VALIDATION_BUNDLE_OR_DIR' \
     "scripts/package-redstone-hardware-handoff.sh" \
-    "Redstone handoff runbook verifies handoff and capture through one host command"
+    "Redstone handoff runbook verifies handoff and validation bundle through one host command"
 check_grep 'verify-redstone-hardware-handoff\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the handoff verifier"
@@ -206,6 +206,18 @@ check_no_regex 'HANDOFF_ROOT|host-tools/verify-redstone-hardware-handoff\.sh|hos
 check_grep 'redstone-stage1-validate --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"
+check_grep 'Validation bundle:' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator emits a host-transfer validation bundle path"
+check_grep 'capture-evidence' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator embeds capture evidence under its validation output"
+check_grep 'Redstone stage-1 capture written to' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator parses the capture evidence path for bundling"
+check_grep 'validation bundle' \
+    "Makefile" \
+    "Makefile documents validation bundle handoff analysis"
 check_grep 'not[[:space:]]+stage-1[[:space:]]+acceptance' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook marks smoke capture as non-acceptance"

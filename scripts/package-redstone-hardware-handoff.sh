@@ -124,7 +124,8 @@ onie-nos-install http://SERVER/$EDGENOS_IMAGE_NAME
 cat /etc/edgenos/board
 redstone-stage1-validate --capture
 
-The capture above is useful for inventory and smoke triage, but it is not stage-1 acceptance.
+The capture above writes an evidence directory and, when tar is available, a
+validation bundle. It is useful for inventory and smoke triage, but it is not stage-1 acceptance.
 Strict acceptance requires an explicit Redstone front-panel interface and an
 actual peer IP on the bench link:
 
@@ -138,7 +139,10 @@ redstone-stage1-validate --iface "\$REDSTONE_IFACE" --peer "\$REDSTONE_PEER" --s
 
 ## Host Analysis
 
-./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_CAPTURE_TARBALL
+Use the validation bundle or evidence directory printed by the strict validation
+run:
+
+./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR
 
 ## Optional OpenBCM BDE Smoke
 

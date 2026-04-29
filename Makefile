@@ -56,7 +56,7 @@ help:
 	@echo "  openbcm-init-probe-bundle - Bundle Redstone OpenBCM init probe gate"
 	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
 	@echo "  redstone-handoff-verify - Verify a Redstone hardware handoff bundle"
-	@echo "  redstone-handoff-analyze - Verify handoff and analyze strict Redstone capture"
+	@echo "  redstone-handoff-analyze - Verify handoff and analyze strict Redstone validation bundle"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -166,11 +166,11 @@ redstone-handoff-verify:
 
 redstone-handoff-analyze:
 	@[ -n "$(REDSTONE_HANDOFF_PATH)" ] || { \
-		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/capture-or-tarball" >&2; \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
 		exit 2; \
 	}
 	@[ -n "$(REDSTONE_CAPTURE_PATH)" ] || { \
-		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/capture-or-tarball" >&2; \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
 		exit 2; \
 	}
 	@$(TOPDIR)/scripts/analyze-redstone-handoff-capture.sh "$(REDSTONE_HANDOFF_PATH)" "$(REDSTONE_CAPTURE_PATH)"

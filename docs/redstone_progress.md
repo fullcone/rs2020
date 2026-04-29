@@ -1073,7 +1073,7 @@ Next checkpoint:
 - Transfer `output/redstone-stage1-hardware-handoff.tar.gz` to the bench host,
   run `./host-tools/verify-redstone-hardware-handoff.sh .` after unpacking,
   then run the strict acceptance command from `RUNBOOK.md` on Redstone hardware.
-- Feed the returned capture tarball to the bundled strict evidence analyzer
+- Feed the returned validation bundle to the bundled strict evidence analyzer
   before considering the reset-risk-gated OpenBCM init probe `--exec` path.
 
 ### Stage-3 AS5610 Rootfs Default Preservation
@@ -1116,7 +1116,7 @@ Completed:
   command path for package verification plus strict capture analysis.
 - Bundled the wrapper under `host-tools/` in the generated handoff package and
   made the generated `RUNBOOK.md` call it with
-  `./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_CAPTURE_TARBALL`.
+  `./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR`.
 - Added `make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=... REDSTONE_CAPTURE_PATH=...`.
 - Extended source preflight so the wrapper stays present, executable, bundled,
   and strict.
@@ -1160,6 +1160,40 @@ Verified:
   passed: handoff tarball verification reported `49 pass, 0 warning(s), 0 failure(s)`;
   strict capture analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
 - `git diff --check`
+
+Next checkpoint:
+
+- Request another PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.
+
+### Stage-3 Validation Bundle Handoff
+
+Completed:
+
+- Updated `redstone-stage1-validate --capture` so the strict validation run
+  embeds capture evidence under `capture-evidence/`, preserves the raw
+  `redstone-stage1-capture.tar.gz`, and emits a `Validation bundle: ...`
+  tarball path for host transfer.
+- Updated generated handoff runbooks, Makefile help, and Redstone source
+  preflight so strict host analysis uses the validation bundle or validation
+  evidence directory rather than a capture-only tarball.
+- Kept the existing `REDSTONE_CAPTURE_PATH` make variable name for
+  compatibility, but documented it as the validation bundle/evidence path.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-validate`
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- A synthetic `redstone-stage1-validate --capture` run emitted a validation
+  bundle containing `validate.log`, embedded `capture-evidence/.../capture.log`,
+  and `redstone-stage1-capture.tar.gz`.
+- `wsl sh scripts/analyze-redstone-handoff-capture.sh output/redstone-handoff output/redstone-validation-bundle-ok.tar.gz`
+  passed: handoff directory verification reported `48 pass, 0 warning(s), 0 failure(s)`;
+  strict validation-bundle analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
+- `wsl make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=output/redstone-validation-bundle-ok.tar.gz`
+  passed: handoff tarball verification reported `49 pass, 0 warning(s), 0 failure(s)`;
+  strict validation-bundle analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
 
 Next checkpoint:
 
