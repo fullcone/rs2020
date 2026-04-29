@@ -908,6 +908,25 @@ Verified:
 - `wsl env EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
 - `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
 
+### Stage-3 Redstone PCI Guard Review Fix
+
+Completed:
+
+- Fixed the Redstone source preflight guard so it uses a real ERE to reject
+  loose BCM56846 PCI matching expressions such as `14e4.*b846`,
+  `b846|56846`, or standalone `56846` matches in source checks.
+- Kept exact `14e4:b846` and exact sysfs `vendor=0x14e4 device=0xb846`
+  evidence paths allowed.
+
+Verified:
+
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- Targeted loose-regex fixtures for `grep -E '14e4.*(b846|56846)|b846|56846'`
+  and `has_text '14e4.*b846|b846|56846|BCM56846'` match the guard, while
+  exact `14e4:b846` fixture text does not.
+- `git diff --check`
+
 Next checkpoint:
 
 - Copy `output/images/edgenos-redstone-stage1.bin` to the ONIE install host
