@@ -491,8 +491,10 @@ placeholders such as `REDSTONE_IFACE=swpN`,
 running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
 The package also includes
 `bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md`; copy it for each bench run
-and keep the completed note beside the returned strict validation bundle and
-console log.
+to a results directory outside the verified handoff package, then keep the
+completed note beside the returned strict validation bundle and console log.
+Do not write per-run notes back into an unpacked handoff directory, because the
+manifest verifier rejects files that are not listed in `MANIFEST.txt`.
 Before using an unpacked handoff directory on the bench host, run
 `./host-tools/verify-redstone-hardware-handoff.sh .` from the package root, or
 verify the tarball from the source tree with:
@@ -542,7 +544,8 @@ smoke evidence exists on Redstone hardware.
 - Keep the printed strict validation bundle with the hardware test notes for
   follow-up DTS and platform work.
 - Complete the packaged bench result template so the accept/reject decision is
-  explicit for that hardware run.
+  explicit for that hardware run, and store the completed note outside the
+  verified handoff package.
 
 ### Stage 2: Platform Inventory
 

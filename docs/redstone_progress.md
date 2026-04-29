@@ -1272,3 +1272,33 @@ Next checkpoint:
 
 - Request another PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Bench Note Manifest Boundary
+
+Completed:
+
+- Addressed the PR P2 finding that per-run bench notes must not be written
+  into an unpacked handoff directory after `MANIFEST.txt` has been generated.
+- Updated the generated handoff runbook so completed bench notes go to
+  `${REDSTONE_RESULT_DIR:-../redstone-bench-results}` by default, outside the
+  verified handoff package.
+- Updated the stage plan and source preflight so the packaged template stays in
+  `bench-results/`, but per-run result notes are kept with returned validation
+  bundles and console logs outside the manifest-checked package.
+
+Verified:
+
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  reported `52 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  reported `53 pass, 0 warning(s), 0 failure(s)`.
+- `rg -n "REDSTONE_RESULT_DIR|Do not write per-run|REDSTONE-BENCH" output/redstone-handoff/RUNBOOK.md output/redstone-handoff/MANIFEST.txt`
+  confirmed the generated runbook writes completed notes outside the handoff
+  directory while the manifest still lists only the packaged template.
+
+Next checkpoint:
+
+- Commit, request PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.

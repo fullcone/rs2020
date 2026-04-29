@@ -197,6 +197,12 @@ check_grep 'analyze-redstone-handoff-capture\.sh' \
 check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles the bench result template"
+check_grep 'REDSTONE_RESULT_DIR' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook writes per-run bench notes outside the verified package"
+check_no_regex 'cp[[:space:]]+bench-results/REDSTONE-BENCH-RESULT-TEMPLATE[.]md[[:space:]]+bench-results/' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook does not add per-run notes into the verified package"
 check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
     "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier requires the bench result template"

@@ -146,10 +146,15 @@ run:
 
 ## Bench Result Note
 
-Create one completed result note per hardware run and keep it with the returned
-validation bundle and console log:
+Create one completed result note per hardware run outside this verified handoff
+directory and keep it with the returned validation bundle and console log:
 
-cp bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md bench-results/"\$(date -u +%Y%m%dT%H%M%SZ)-stage1.md"
+RESULT_DIR=\${REDSTONE_RESULT_DIR:-../redstone-bench-results}
+mkdir -p "\$RESULT_DIR"
+cp bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md "\$RESULT_DIR/\$(date -u +%Y%m%dT%H%M%SZ)-stage1.md"
+
+Do not write per-run notes into this handoff directory. The manifest verifier
+rejects files that are not listed in MANIFEST.txt.
 
 ## Optional OpenBCM BDE Smoke
 
