@@ -12,6 +12,10 @@ CAPTURE_ONLY=0
 SKIP_LOCAL_IP=0
 BDE_SMOKE=0
 BENCH_BASE_DIR=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+BENCH_BASE_DIR_EXPLICIT=0
+if [ "${REDSTONE_BENCH_DIR+x}" = x ] && [ -n "${REDSTONE_BENCH_DIR:-}" ]; then
+    BENCH_BASE_DIR_EXPLICIT=1
+fi
 BENCH_DIR=
 BENCH_LOG=
 VALIDATE_LOG=${REDSTONE_BENCH_VALIDATE_LOG:-/tmp/redstone-stage1-bench-run-validate.$$}
@@ -62,6 +66,9 @@ fail() {
 init_bench_log() {
     base=$BENCH_BASE_DIR
     if ! mkdir -p "$base" 2>/dev/null; then
+        if [ "$BENCH_BASE_DIR_EXPLICIT" -eq 1 ]; then
+            fail "failed to create explicit REDSTONE_BENCH_DIR: $base"
+        fi
         base=/tmp/redstone-stage1
         mkdir -p "$base" 2>/dev/null || fail "failed to create bench log directory"
     fi

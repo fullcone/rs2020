@@ -556,6 +556,12 @@ check_grep 'REDSTONE_BENCH_VALIDATE_LOG' \
 check_grep 'REDSTONE_BENCH_DIR' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner exposes bench evidence directory override"
+check_grep 'BENCH_BASE_DIR_EXPLICIT' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner tracks explicit bench evidence directory overrides"
+check_grep 'failed to create explicit REDSTONE_BENCH_DIR' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner fails fast when explicit bench evidence directory is unusable"
 check_grep 'capture_bench_snapshot[[:space:]]+pre' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner captures pre-run diagnostic snapshot"
@@ -586,6 +592,24 @@ check_grep 'redstone-openbcm-bde-smoke\.sh' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner does not invoke reset-risk init probe exec path"
+
+if command -v mktemp >/dev/null 2>&1; then
+    tmpdir=$(mktemp -d)
+    bad_bench_path=$tmpdir/not-a-directory
+    : > "$bad_bench_path"
+    if REDSTONE_BENCH_DIR="$bad_bench_path" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+            --capture-only > "$tmpdir/bench-run.out" 2>&1; then
+        fail "bench runner accepts unusable explicit REDSTONE_BENCH_DIR"
+    elif grep -q 'failed to create explicit REDSTONE_BENCH_DIR' "$tmpdir/bench-run.out"; then
+        ok "bench runner rejects unusable explicit REDSTONE_BENCH_DIR"
+    else
+        fail "bench runner rejection did not identify explicit REDSTONE_BENCH_DIR"
+    fi
+    rm -rf "$tmpdir"
+else
+    warn "mktemp unavailable; skipped explicit REDSTONE_BENCH_DIR regression check"
+fi
 check_grep 'REQUIRE_OPENBCM_INIT_PROBE' "scripts/check-redstone-image.sh" \
     "image checker can enforce OpenBCM init probe packaging"
 

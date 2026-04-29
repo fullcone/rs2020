@@ -1664,3 +1664,61 @@ Next checkpoint:
   diagnostic update, then use the operator checklist on Redstone hardware and
   return the serial log, validation bundle, and matching `bench-run-*`
   directory.
+
+### Stage-3 Bench Runner Explicit Directory Review Fix
+
+Completed:
+
+- Addressed the Codex review thread on explicit `REDSTONE_BENCH_DIR` handling.
+- `redstone-stage1-bench-run` now fails fast when a user-provided
+  `REDSTONE_BENCH_DIR` cannot be created, instead of silently writing evidence
+  under `/tmp/redstone-stage1`.
+- The default `/var/log/redstone-stage1` path still falls back to `/tmp` when it
+  is unavailable, so first-boot capture remains usable on minimal systems.
+- Added source preflight coverage for the explicit-directory failure path.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)` and includes the explicit
+  `REDSTONE_BENCH_DIR` regression check.
+- `git diff --check`
+
+### Stage-3 Regenerated USB Stage-1 Image With Bench Diagnostics
+
+Completed:
+
+- Regenerated the non-destructive Redstone USB stage-1 boot/capture raw image
+  after adding the bench-run diagnostic snapshot support and the explicit
+  `REDSTONE_BENCH_DIR` fail-fast review fix.
+- The regenerated image is
+  `output/images/redstone-usb-stage1-boot-capture.img`.
+- Current image sidecars:
+  - sha256:
+    `273032cfefdc84282a5c217ca5a1e00629a0755c847e2382bc67361b4dc04f9a`
+  - md5: `7ab57e533e3744d8aa9924aba7e56c26`
+- The verified data partition inventory includes the updated operator
+  checklist, progress log, handoff package, host analyzers, Redstone DTB, and
+  Redstone stage-1 ONIE payload.
+
+Verified:
+
+- `wsl env EDGENOS_BOARD=redstone sh scripts/build-rootfs.sh assemble`
+  rebuilt `output/images/rootfs.sqsh` with the updated rootfs overlay.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/build-installer.sh image`
+  rebuilt `output/images/edgenos-redstone-stage1.bin` and passed the Redstone
+  rootfs content check.
+- `wsl -u root env EDGENOS_BOARD=redstone sh scripts/package-redstone-usb-stage1.sh image`
+  regenerated the raw image and sidecars.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/verify-redstone-usb-stage1-image.sh`
+  passed with `39 pass, 0 warning(s), 0 failure(s)`.
+- `wsl env EDGENOS_BOARD=redstone make redstone-usb-stage1-verify`
+  passed with `39 pass, 0 warning(s), 0 failure(s)`.
+
+Next checkpoint:
+
+- Write only this verified raw image to the selected external USB stick, boot
+  Redstone through the temporary U-Boot FIT command from the operator checklist,
+  then return the serial log, validation bundle, and matching `bench-run-*`
+  directory.
