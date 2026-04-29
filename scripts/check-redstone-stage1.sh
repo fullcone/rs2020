@@ -191,9 +191,18 @@ check_grep 'verify-redstone-hardware-handoff\.sh' \
 check_grep 'analyze-redstone-stage1-evidence\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the stage-1 evidence analyzer"
+check_grep 'VERIFY_TOOL="\$SCRIPT_DIR/verify-redstone-hardware-handoff\.sh"' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer uses trusted adjacent verifier"
+check_grep 'ANALYZE_TOOL="\$SCRIPT_DIR/analyze-redstone-stage1-evidence\.sh"' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer uses trusted adjacent evidence analyzer"
 check_grep 'sh "[$]ANALYZE_TOOL" --strict' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer enforces strict capture analysis"
+check_no_regex 'HANDOFF_ROOT|host-tools/verify-redstone-hardware-handoff\.sh|host-tools/analyze-redstone-stage1-evidence\.sh|tar[[:space:]]+-xzf.*HANDOFF' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer avoids executing tools from handoff payloads"
 check_grep 'redstone-stage1-validate --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"

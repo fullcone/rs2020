@@ -507,8 +507,13 @@ The same combined check is available from the source tree:
 make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=/path/to/capture.tar.gz
 ```
 
-The combined check verifies the handoff manifest and hashes first, then runs
-the strict stage-1 evidence analyzer against the returned capture.
+The combined check resolves its verifier and analyzer from the directory that
+contains the wrapper: `host-tools/` in an unpacked handoff package, or
+`scripts/` in the source tree. A handoff tarball passed through
+`REDSTONE_HANDOFF_PATH` is input data only; it is never used as the source of
+executable host tools. The combined check verifies the handoff manifest and
+hashes first, then runs the strict stage-1 evidence analyzer against the
+returned capture.
 
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`

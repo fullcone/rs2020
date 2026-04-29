@@ -1134,3 +1134,34 @@ Next checkpoint:
 
 - Request another PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Handoff Analyzer Trust Boundary
+
+Completed:
+
+- Addressed the PR P1 review finding that a handoff tarball must not provide
+  executable host tools before its manifest and hashes are verified.
+- Updated `scripts/analyze-redstone-handoff-capture.sh` so it validates the
+  handoff path as data, then runs the adjacent trusted verifier and evidence
+  analyzer from the wrapper directory.
+- Extended Redstone source preflight to reject handoff-payload tool references,
+  handoff-root extraction state, and handoff tarball extraction in the combined
+  analyzer wrapper.
+
+Verified:
+
+- `wsl sh -n scripts/analyze-redstone-handoff-capture.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `wsl sh scripts/analyze-redstone-handoff-capture.sh output/redstone-handoff output/redstone-handoff-capture-ok.tar.gz`
+  passed: handoff directory verification reported `48 pass, 0 warning(s), 0 failure(s)`;
+  strict capture analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
+- `wsl make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=output/redstone-handoff-capture-ok.tar.gz`
+  passed: handoff tarball verification reported `49 pass, 0 warning(s), 0 failure(s)`;
+  strict capture analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
+- `git diff --check`
+
+Next checkpoint:
+
+- Request another PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.
