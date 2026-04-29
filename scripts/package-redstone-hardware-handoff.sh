@@ -111,6 +111,7 @@ prove L3 routing, ACL, ECMP, or full hardware offload.
 - openbcm-init/redstone-openbcm-init-probe.manifest
 - host-tools/analyze-redstone-stage1-evidence.sh
 - host-tools/analyze-redstone-handoff-capture.sh
+- host-tools/analyze-redstone-platform-inventory.sh
 - host-tools/verify-redstone-hardware-handoff.sh
 - host-tools/prepare-redstone-bench-note.sh
 - bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md
@@ -145,7 +146,8 @@ command below.
 ## Host Analysis
 
 Use the validation bundle or evidence directory printed by the strict validation
-run:
+run. This verifies the handoff, checks strict stage-1 acceptance evidence, and
+prints a Redstone DTS/platform inventory matrix for follow-up work:
 
 ./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_VALIDATION_BUNDLE_OR_DIR
 
@@ -218,6 +220,7 @@ package() {
     require_file "$INIT_DIR/redstone-openbcm-init-probe.manifest"
     require_file "$TOPDIR/scripts/analyze-redstone-stage1-evidence.sh"
     require_file "$TOPDIR/scripts/analyze-redstone-handoff-capture.sh"
+    require_file "$TOPDIR/scripts/analyze-redstone-platform-inventory.sh"
     require_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh"
     require_file "$TOPDIR/scripts/prepare-redstone-bench-note.sh"
     require_file "$TOPDIR/docs/redstone_bench_result_template.md"
@@ -240,6 +243,8 @@ package() {
         "$OUTDIR/host-tools/analyze-redstone-stage1-evidence.sh"
     copy_file "$TOPDIR/scripts/analyze-redstone-handoff-capture.sh" \
         "$OUTDIR/host-tools/analyze-redstone-handoff-capture.sh"
+    copy_file "$TOPDIR/scripts/analyze-redstone-platform-inventory.sh" \
+        "$OUTDIR/host-tools/analyze-redstone-platform-inventory.sh"
     copy_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh" \
         "$OUTDIR/host-tools/verify-redstone-hardware-handoff.sh"
     copy_file "$TOPDIR/scripts/prepare-redstone-bench-note.sh" \

@@ -1303,6 +1303,51 @@ Next checkpoint:
 - Commit, request PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
 
+### Stage-2 Platform Inventory Analyzer
+
+Completed:
+
+- Added `analyze-redstone-platform-inventory.sh` as a host-side advisory
+  classifier for returned Redstone validation/capture evidence.
+- The analyzer reports `OBSERVED`, `PENDING`, and `WARN` rows for board
+  identity, device-tree base, exact BCM56846 PCIe evidence, I2C, CPLD/sysfs,
+  hwmon/thermal, management Ethernet, front-panel netdev, optics, and
+  fans/PSU/LED hints.
+- Integrated the analyzer into the combined host capture analyzer, generated
+  handoff package, verifier, Makefile target, source preflight, stage plan, and
+  hardware inventory docs.
+- Kept promotion rules conservative: only exact `14e4:b846` or
+  vendor/device-pair PCI evidence becomes observed, and only `OBSERVED` rows
+  should feed DTS/platform-driver changes.
+
+Verified:
+
+- `wsl sh -n scripts/analyze-redstone-platform-inventory.sh`
+- Invalid input exits with an input-path error.
+- Synthetic evidence produced `7 observed, 4 pending, 0 warning(s)`.
+- `wsl sh -n scripts/analyze-redstone-platform-inventory.sh scripts/analyze-redstone-handoff-capture.sh scripts/package-redstone-hardware-handoff.sh scripts/verify-redstone-hardware-handoff.sh scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+  regenerated `output/redstone-handoff` and
+  `output/redstone-stage1-hardware-handoff.tar.gz`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  reported `58 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  reported `59 pass, 0 warning(s), 0 failure(s)`.
+- Synthetic `make redstone-platform-inventory-analyze` run produced
+  `7 observed, 4 pending, 0 warning(s)`.
+- `wsl sh scripts/analyze-redstone-handoff-capture.sh output/redstone-handoff output/redstone-validation-bundle-ok.tar.gz`
+  reported handoff verification `58 pass`, strict evidence `17 pass`, platform
+  inventory `4 observed, 7 pending, 0 warning(s)`, and final host-analysis
+  `PASS`.
+
+Next checkpoint:
+
+- Run the packaged combined analyzer against the first returned hardware
+  validation bundle, then promote only `OBSERVED` Redstone rows into
+  DTS/platform-driver changes.
+
 ### Stage-3 Bench Note Helper
 
 Completed:

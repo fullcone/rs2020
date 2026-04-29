@@ -92,3 +92,22 @@ i2cdetect -l
 does not run active I2C scans by default. Use
 `redstone-stage1-capture --scan-i2c` only on a bench system where active
 probing is acceptable.
+
+## Host Platform Inventory Analysis
+
+After returning a capture or validation bundle to the build host, generate the
+platform/DTS follow-up matrix:
+
+```sh
+./scripts/analyze-redstone-platform-inventory.sh /path/to/validate-20260429T000000Z.tar.gz
+```
+
+From an unpacked hardware handoff package, use the packaged copy:
+
+```sh
+./host-tools/analyze-redstone-platform-inventory.sh PATH_TO_VALIDATION_BUNDLE_OR_DIR
+```
+
+Treat OBSERVED rows as candidates for Redstone DTS or platform-driver work.
+Keep PENDING rows as unclaimed inventory until the next hardware capture proves
+the exact bus, GPIO, sysfs, or link behavior.

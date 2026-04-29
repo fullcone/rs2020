@@ -157,6 +157,18 @@ come from a `swp*` interface section or an `ip link` line for a `swp*`
 interface, so a management `eth*` interface cannot satisfy the front-panel link
 checkpoint.
 
+Use the platform inventory analyzer on the same returned evidence before
+starting DTS or board-driver edits:
+
+```sh
+./scripts/analyze-redstone-platform-inventory.sh /path/to/validate-20260429T000000Z.tar.gz
+```
+
+This second analyzer is advisory. It prints OBSERVED/PENDING rows for device
+tree base facts, BCM56846 PCIe evidence, I2C, CPLD, hwmon, management Ethernet,
+front-panel netdevs, optics, fans, PSU, and LEDs. Only OBSERVED rows should be
+promoted into Redstone DTS or platform-driver claims.
+
 ## Source Preflight
 
 Before spending time on a full Redstone rootfs or installer build, run the
@@ -169,7 +181,8 @@ EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh
 This verifies that the Redstone aliases resolve to `redstone-stage1.dtb` and
 `edgenos-redstone-stage1.bin`, that the rootfs overlay contains the capture,
 validation, and `switchd-init` scripts, that the host evidence analyzer is
-tracked and executable, that `switchd.service` uses the common init path, and
+tracked and executable, that the platform inventory analyzer is packaged, that
+`switchd.service` uses the common init path, and
 that `redstone-stage1.bcm` still exposes 52 front-panel port mappings. If `dtc`
 is installed, the script also compiles the Redstone DTS skeleton.
 
@@ -475,9 +488,10 @@ The target writes `output/redstone-handoff/` and
 `output/redstone-stage1-hardware-handoff.tar.gz`. The package includes the
 ONIE installer image, `rootfs.sqsh`, Redstone DTB, OpenBCM BDE modules and
 smoke helper, OpenBCM init probe bundle, the host-side stage-1 evidence
-analyzer, the combined host handoff/capture analyzer, the host-side handoff
-verifier, the bench result template under `bench-results/`, `RUNBOOK.md`, and
-`MANIFEST.txt` with sizes and SHA-256 hashes.
+analyzer, the combined host handoff/capture analyzer, the host-side platform
+inventory analyzer, the host-side handoff verifier, the bench result template
+under `bench-results/`, `RUNBOOK.md`, and `MANIFEST.txt` with sizes and SHA-256
+hashes.
 
 The package script forces the packed-rootfs image check with
 `REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
@@ -527,7 +541,8 @@ contains the wrapper: `host-tools/` in an unpacked handoff package, or
 `REDSTONE_HANDOFF_PATH` is input data only; it is never used as the source of
 executable host tools. The combined check verifies the handoff manifest and
 hashes first, then runs the strict stage-1 evidence analyzer against the
-returned validation evidence.
+returned validation evidence. It then runs the platform inventory analyzer so
+the same returned evidence produces a DTS/platform follow-up matrix.
 
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`
@@ -558,6 +573,8 @@ smoke evidence exists on Redstone hardware.
   PSU, and front-panel optical cages.
 - Start from the original `p2020rdb.dtb` facts recorded in
   `docs/redstone_hardware_inventory.md`.
+- Run `analyze-redstone-platform-inventory.sh` against the returned validation
+  bundle and promote only OBSERVED rows into DTS or driver work.
 - Map Redstone LED and transceiver-present behavior.
 - Keep these changes independent from Broadcom SDK integration.
 

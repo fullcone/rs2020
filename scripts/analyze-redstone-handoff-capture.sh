@@ -54,9 +54,11 @@ check_handoff_path "$HANDOFF_PATH"
 
 VERIFY_TOOL="$SCRIPT_DIR/verify-redstone-hardware-handoff.sh"
 ANALYZE_TOOL="$SCRIPT_DIR/analyze-redstone-stage1-evidence.sh"
+PLATFORM_TOOL="$SCRIPT_DIR/analyze-redstone-platform-inventory.sh"
 
 require_file "$VERIFY_TOOL"
 require_file "$ANALYZE_TOOL"
+require_file "$PLATFORM_TOOL"
 
 echo "==> Verifying Redstone hardware handoff package"
 sh "$VERIFY_TOOL" "$HANDOFF_PATH"
@@ -64,4 +66,7 @@ sh "$VERIFY_TOOL" "$HANDOFF_PATH"
 echo "==> Analyzing Redstone strict capture evidence"
 sh "$ANALYZE_TOOL" --strict "$CAPTURE_PATH"
 
-echo "PASS: Redstone handoff package and capture evidence passed host analysis"
+echo "==> Building Redstone DTS/platform inventory from capture evidence"
+sh "$PLATFORM_TOOL" "$CAPTURE_PATH"
+
+echo "PASS: Redstone handoff package, capture evidence, and platform inventory passed host analysis"

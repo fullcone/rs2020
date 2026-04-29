@@ -32,7 +32,7 @@ PLATFORM_MODS := platform/cpld platform/retimer
         openbcm-bde-bundle openbcm-bde-smoke-analyze \
         openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
         openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify \
-        redstone-handoff-analyze help
+        redstone-handoff-analyze redstone-platform-inventory-analyze help
 
 all: image
 
@@ -57,6 +57,7 @@ help:
 	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
 	@echo "  redstone-handoff-verify - Verify a Redstone hardware handoff bundle"
 	@echo "  redstone-handoff-analyze - Verify handoff and analyze strict Redstone validation bundle"
+	@echo "  redstone-platform-inventory-analyze - Build Redstone DTS/platform inventory from capture evidence"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -174,6 +175,13 @@ redstone-handoff-analyze:
 		exit 2; \
 	}
 	@$(TOPDIR)/scripts/analyze-redstone-handoff-capture.sh "$(REDSTONE_HANDOFF_PATH)" "$(REDSTONE_CAPTURE_PATH)"
+
+redstone-platform-inventory-analyze:
+	@[ -n "$(REDSTONE_CAPTURE_PATH)" ] || { \
+		echo "usage: make redstone-platform-inventory-analyze REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-platform-inventory.sh "$(REDSTONE_CAPTURE_PATH)"
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

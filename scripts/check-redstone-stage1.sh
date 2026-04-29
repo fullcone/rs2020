@@ -121,6 +121,7 @@ check_file "scripts/verify-redstone-hardware-handoff.sh"
 check_file "scripts/prepare-redstone-bench-note.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
 check_file "scripts/analyze-redstone-handoff-capture.sh"
+check_file "scripts/analyze-redstone-platform-inventory.sh"
 check_file "scripts/analyze-redstone-openbcm-bde-smoke.sh"
 check_file "scripts/prepare-openbcm.sh"
 check_file "scripts/build-openbcm-bde.sh"
@@ -195,6 +196,9 @@ check_grep 'verify-redstone-hardware-handoff\.sh' \
 check_grep 'analyze-redstone-handoff-capture\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles combined host capture analyzer"
+check_grep 'host-tools/analyze-redstone-platform-inventory\.sh' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff package bundles the platform inventory analyzer"
 check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles the bench result template"
@@ -219,6 +223,9 @@ check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
 check_grep 'host-tools/analyze-redstone-handoff-capture\.sh' \
     "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier requires the combined host capture analyzer"
+check_grep 'host-tools/analyze-redstone-platform-inventory\.sh' \
+    "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier requires the platform inventory analyzer"
 check_grep 'host-tools/prepare-redstone-bench-note\.sh' \
     "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier requires the bench note helper"
@@ -237,16 +244,25 @@ check_grep 'verify-redstone-hardware-handoff\.sh' \
 check_grep 'analyze-redstone-stage1-evidence\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the stage-1 evidence analyzer"
+check_grep 'analyze-redstone-platform-inventory\.sh' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer runs the platform inventory analyzer"
 check_grep 'VERIFY_TOOL="\$SCRIPT_DIR/verify-redstone-hardware-handoff\.sh"' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer uses trusted adjacent verifier"
 check_grep 'ANALYZE_TOOL="\$SCRIPT_DIR/analyze-redstone-stage1-evidence\.sh"' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer uses trusted adjacent evidence analyzer"
+check_grep 'PLATFORM_TOOL="\$SCRIPT_DIR/analyze-redstone-platform-inventory\.sh"' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer uses trusted adjacent platform analyzer"
 check_grep 'sh "[$]ANALYZE_TOOL" --strict' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer enforces strict capture analysis"
-check_no_regex 'HANDOFF_ROOT|host-tools/verify-redstone-hardware-handoff\.sh|host-tools/analyze-redstone-stage1-evidence\.sh|tar[[:space:]]+-xzf.*HANDOFF' \
+check_grep 'sh "[$]PLATFORM_TOOL"' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer runs platform inventory after strict analysis"
+check_no_regex 'HANDOFF_ROOT|host-tools/verify-redstone-hardware-handoff\.sh|host-tools/analyze-redstone-stage1-evidence\.sh|host-tools/analyze-redstone-platform-inventory\.sh|tar[[:space:]]+-xzf.*HANDOFF' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer avoids executing tools from handoff payloads"
 check_grep 'redstone-stage1-bench-run --capture-only' \
@@ -313,6 +329,8 @@ check_grep 'redstone-handoff-verify' "Makefile" \
     "Makefile exposes Redstone hardware handoff verification target"
 check_grep 'redstone-handoff-analyze' "Makefile" \
     "Makefile exposes combined Redstone handoff and capture analysis target"
+check_grep 'redstone-platform-inventory-analyze' "Makefile" \
+    "Makefile exposes Redstone platform inventory analysis target"
 check_grep 'manifest has [$]entry_count file entries' "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier checks manifest entries"
 check_grep 'sha256 mismatch' "scripts/verify-redstone-hardware-handoff.sh" \
@@ -406,6 +424,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/prepare-redstone-bench-note.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
         scripts/analyze-redstone-handoff-capture.sh \
+        scripts/analyze-redstone-platform-inventory.sh \
         scripts/analyze-redstone-openbcm-bde-smoke.sh \
         scripts/prepare-openbcm.sh \
         scripts/build-openbcm-bde.sh \
@@ -511,6 +530,15 @@ if command -v git >/dev/null 2>&1; then
         ok "analyze-redstone-handoff-capture.sh is tracked executable"
     else
         fail "analyze-redstone-handoff-capture.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/analyze-redstone-platform-inventory.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "analyze-redstone-platform-inventory.sh is tracked executable"
+    else
+        fail "analyze-redstone-platform-inventory.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \
