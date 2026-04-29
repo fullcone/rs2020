@@ -1541,3 +1541,41 @@ Next checkpoint:
 - Build `output/images/redstone-usb-stage1-boot-capture.img`, write it only to
   a selected external USB stick, then boot Redstone with temporary U-Boot
   commands and return the generated capture bundle plus serial log.
+
+### Stage-3 Redstone USB Stage-1 Image Verifier
+
+Completed:
+
+- Added `verify-redstone-usb-stage1-image.sh` as a host-side read-only verifier
+  for the generated non-destructive raw USB image.
+- Added `redstone-usb-stage1-verify` to the Makefile, plus source preflight
+  checks for the verifier script, target wiring, shell syntax, and executable
+  tracking.
+- Updated the stage plan and generated handoff runbook so the write flow is now:
+  prerequisite check, image build, read-only image verification, then external
+  USB guarded write.
+
+Verification scope:
+
+- Confirms `EDGENOS_BOARD=redstone` resolves the Redstone DTB and installer
+  payload names.
+- Checks the raw image size, `.sha256` and `.md5` sidecars, fdisk DOS/FAT16/ext2
+  partition summary, and both partition file-inventory sidecars.
+- Does not mount the image, write a USB device, run `saveenv`, run ONIE install,
+  or touch internal storage.
+
+Verified:
+
+- `wsl sh -n scripts/verify-redstone-usb-stage1-image.sh scripts/check-redstone-stage1.sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/verify-redstone-usb-stage1-image.sh`
+  passed with `38 pass, 0 warning(s), 0 failure(s)`.
+- `wsl env EDGENOS_BOARD=redstone make redstone-usb-stage1-verify` passed with
+  the same read-only image and sidecar checks.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passed
+  with `0 warning(s)`.
+
+Next checkpoint:
+
+- Run `EDGENOS_BOARD=redstone make redstone-usb-stage1-verify` before writing the
+  selected external USB stick, then collect the Redstone serial log and capture
+  bundle from first boot.

@@ -33,7 +33,8 @@ PLATFORM_MODS := platform/cpld platform/retimer
         openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
         openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify \
         redstone-handoff-analyze redstone-platform-inventory-analyze \
-        redstone-usb-stage1-check redstone-usb-stage1 help
+        redstone-usb-stage1-check redstone-usb-stage1 redstone-usb-stage1-verify \
+        help
 
 all: image
 
@@ -61,6 +62,7 @@ help:
 	@echo "  redstone-platform-inventory-analyze - Build Redstone DTS/platform inventory from capture evidence"
 	@echo "  redstone-usb-stage1-check - Check Redstone USB stage-1 image prerequisites"
 	@echo "  redstone-usb-stage1 - Build non-destructive Redstone USB stage-1 boot/capture image"
+	@echo "  redstone-usb-stage1-verify - Verify Redstone USB stage-1 image sidecars"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -192,6 +194,9 @@ redstone-usb-stage1-check:
 redstone-usb-stage1:
 	@echo "==> Building non-destructive Redstone USB stage-1 boot/capture image"
 	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-usb-stage1.sh image
+
+redstone-usb-stage1-verify:
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/verify-redstone-usb-stage1-image.sh
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

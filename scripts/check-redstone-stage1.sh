@@ -118,6 +118,7 @@ check_file "scripts/build-all.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
 check_file "scripts/package-redstone-usb-stage1.sh"
+check_file "scripts/verify-redstone-usb-stage1-image.sh"
 check_file "scripts/verify-redstone-hardware-handoff.sh"
 check_file "scripts/prepare-redstone-bench-note.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
@@ -220,6 +221,21 @@ check_grep 'fatload usb 0:1 1000000 uImage-powerpc\.itb' \
 check_grep 'bootm 1000000#\$FIT_CONFIG' \
     "scripts/package-redstone-usb-stage1.sh" \
     "Redstone USB stage-1 builder readme boots the selected FIT config"
+check_grep 'verify_hash sha256sum' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier checks sha256 sidecar"
+check_grep 'verify_hash md5sum' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier checks md5 sidecar"
+check_grep 'Disklabel type:' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier checks fdisk sidecar"
+check_grep 'boot-files\.txt' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier checks FAT inventory"
+check_grep 'data-files\.txt' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier checks data inventory"
 check_grep 'Optional ONIE Install' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook keeps ONIE install optional after external boot proof"
@@ -396,6 +412,8 @@ check_grep 'redstone-usb-stage1-check' "Makefile" \
     "Makefile exposes Redstone USB stage-1 prerequisite check target"
 check_grep 'redstone-usb-stage1' "Makefile" \
     "Makefile exposes Redstone USB stage-1 image target"
+check_grep 'redstone-usb-stage1-verify' "Makefile" \
+    "Makefile exposes Redstone USB stage-1 image verifier target"
 check_grep 'manifest has [$]entry_count file entries' "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier checks manifest entries"
 check_grep 'sha256 mismatch' "scripts/verify-redstone-hardware-handoff.sh" \
@@ -522,6 +540,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
         scripts/package-redstone-usb-stage1.sh \
+        scripts/verify-redstone-usb-stage1-image.sh \
         scripts/verify-redstone-hardware-handoff.sh \
         scripts/prepare-redstone-bench-note.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
@@ -605,6 +624,15 @@ if command -v git >/dev/null 2>&1; then
         ok "package-redstone-usb-stage1.sh is tracked executable"
     else
         fail "package-redstone-usb-stage1.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/verify-redstone-usb-stage1-image.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "verify-redstone-usb-stage1-image.sh is tracked executable"
+    else
+        fail "verify-redstone-usb-stage1-image.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

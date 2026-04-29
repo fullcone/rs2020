@@ -135,6 +135,7 @@ disk image from the source tree, run:
 
 EDGENOS_BOARD=redstone make redstone-usb-stage1-check
 sudo EDGENOS_BOARD=redstone make redstone-usb-stage1
+EDGENOS_BOARD=redstone make redstone-usb-stage1-verify
 
 The Makefile target invokes scripts/package-redstone-usb-stage1.sh, which can
 also be run directly from the tree. It writes
@@ -143,6 +144,10 @@ and data-file sidecars. The USB image uses the verified R0678 shape: partition 1
 is FAT16 type 0x06 label REDBOOT for U-Boot files; partition 2 is ext2 type
 0x83 label REDCF for capture material and handoff files. It is still external
 boot/capture media only and does not flash internal storage.
+
+The redstone-usb-stage1-verify target is host-side and read-only. It checks the
+raw image size, hash sidecars, fdisk sidecar, and FAT/data file inventories
+before any Windows guarded-write step.
 
 Use temporary U-Boot commands first and do not run saveenv until manual external
 boot succeeds:

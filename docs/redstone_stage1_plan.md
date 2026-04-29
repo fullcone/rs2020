@@ -120,6 +120,7 @@ payload. Build the non-destructive boot/capture raw disk image with:
 ```sh
 EDGENOS_BOARD=redstone make redstone-usb-stage1-check
 sudo EDGENOS_BOARD=redstone make redstone-usb-stage1
+EDGENOS_BOARD=redstone make redstone-usb-stage1-verify
 ```
 
 The target writes:
@@ -130,6 +131,10 @@ The target writes:
 - `output/images/redstone-usb-stage1-boot-capture.img.fdisk.txt`
 - `output/images/redstone-usb-stage1-boot-capture.img.boot-files.txt`
 - `output/images/redstone-usb-stage1-boot-capture.img.data-files.txt`
+
+The verifier is a host-side read-only gate. It checks the raw image size, hash
+sidecars, fdisk partition summary, and the FAT/data partition inventory sidecars
+without mounting the image or writing to any USB device.
 
 Writing that raw image to a USB stick overwrites the selected USB stick. On the
 Windows host, the existing guarded writer can be pointed at the generated image
