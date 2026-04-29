@@ -43,12 +43,12 @@ check_grep() {
     fi
 }
 
-check_no_fixed() {
-    needle=$1
+check_no_regex() {
+    pattern=$1
     rel=$2
     desc=$3
 
-    if grep -Fq "$needle" "$TOPDIR/$rel"; then
+    if grep -Eq "$pattern" "$TOPDIR/$rel"; then
         fail "$desc"
     else
         ok "$desc"
@@ -147,13 +147,18 @@ check_grep 'redstone-openbcm-bde-smoke\.sh' "scripts/build-openbcm-bde.sh" \
     "OpenBCM BDE bundle includes the hardware smoke helper"
 check_grep '14e4:b846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper requires exact BCM56846 PCI ID"
-check_no_fixed '14e4.*(b846|56846)|b846|56846' "scripts/redstone-openbcm-bde-smoke.sh" \
+check_no_regex '14e4\.\*\(b846\|56846\)\|b846\|56846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper avoids vendorless lspci matches"
 check_grep '14e4:b846' "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "Redstone validator checks exact BCM56846 PCI ID"
-check_no_fixed '14e4.*(b846|56846)|b846|56846' \
+check_no_regex '14e4\.\*\(b846\|56846\)\|b846\|56846' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "Redstone validator avoids vendorless lspci matches"
+check_grep 'has_exact_bcm56846_pci_evidence' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer requires exact BCM56846 PCI ID evidence"
+check_no_regex '14e4\.\*b846\|b846\|56846\|BCM56846' \
+    "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer avoids vendorless PCI ID text matches"
 check_grep 'openbcm-userland-check' "Makefile" \
     "Makefile exposes OpenBCM userland init source check"
 check_grep 'openbcm-bde-smoke-analyze' "Makefile" \

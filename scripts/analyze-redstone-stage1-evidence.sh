@@ -145,6 +145,24 @@ has_swp_link_up() {
     ' {} \; -print -quit 2>/dev/null | grep -q .
 }
 
+has_exact_bcm56846_pci_evidence() {
+    pci_file=$(first_file "$ROOT" pci_bcm56846.txt)
+
+    if [ -n "$pci_file" ] &&
+        { file_has_text "$pci_file" '(^|[^[:xdigit:]])14e4:b846([^[:xdigit:]]|$)' ||
+            file_has_text "$pci_file" 'vendor=0x14e4[[:space:]]+device=0xb846'; }; then
+        return 0
+    fi
+
+    if [ -n "${VALIDATE_LOG:-}" ] &&
+        { file_has_text "$VALIDATE_LOG" '^PASS: BCM56846 PCIe device detected by lspci as 14e4:b846$' ||
+            file_has_text "$VALIDATE_LOG" '^PASS: BCM56846 PCIe device detected in sysfs$'; }; then
+        return 0
+    fi
+
+    has_text '(^|[^[:xdigit:]])14e4:b846([^[:xdigit:]]|$)|vendor=0x14e4[[:space:]]+device=0xb846'
+}
+
 extract_if_needed() {
     case "$INPUT" in
     *.tar.gz|*.tgz)
@@ -281,10 +299,10 @@ else
     fail "BDE device-node evidence missing"
 fi
 
-if has_text '14e4.*b846|b846|56846|BCM56846'; then
-    pass "BCM56846 PCIe evidence found"
+if has_exact_bcm56846_pci_evidence; then
+    pass "exact BCM56846 PCIe evidence found"
 else
-    fail "BCM56846 PCIe evidence missing"
+    fail "exact BCM56846 PCIe evidence missing"
 fi
 
 if has_text 'switchd is running|switchd.*running via|PASS: switchd is running'; then

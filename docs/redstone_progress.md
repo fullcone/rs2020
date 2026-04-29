@@ -854,3 +854,30 @@ Verified:
 - `strings output/openbcm-init/redstone-openbcm-init-probe | grep -F "\\n"`
   returned no literal backslash-n strings in the built probe.
 - `git diff --check`
+
+### Stage-3 Redstone Review Gate Fixes
+
+Completed:
+
+- Honored optional OpenBCM init probe packaging by requiring the probe manifest
+  only when `REQUIRE_OPENBCM_INIT_PROBE=1`, while still validating it when an
+  optional manifest is present.
+- Tightened stage-1 evidence analysis so BCM56846 PCIe proof must be exact
+  `14e4:b846` or exact sysfs `vendor=0x14e4 device=0xb846` evidence.
+- Converted Redstone source preflight vendorless-ID guards to regex checks and
+  added analyzer coverage for the exact BCM56846 PCI proof gate.
+
+Verified:
+
+- `wsl sh -n scripts/check-redstone-image.sh`
+- `wsl sh -n scripts/analyze-redstone-stage1-evidence.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- Optional probe binary image check passes without a manifest when
+  `REQUIRE_OPENBCM_INIT_PROBE` is not set.
+- Negative evidence fixture with `[8086:b846] BCM56846 text only` fails exact
+  BCM56846 PCI proof.
+- Positive evidence fixture with `[14e4:b846] BCM56846` passes exact BCM56846
+  PCI proof.
+- `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`

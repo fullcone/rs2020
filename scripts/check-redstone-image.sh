@@ -47,13 +47,19 @@ case "$REQUIRE_OPENBCM_INIT_PROBE" in
         ;;
 esac
 
-if [ -e "$STAGING/usr/sbin/redstone-openbcm-init-probe" ] ||
-    [ "$REQUIRE_OPENBCM_INIT_PROBE" = "1" ]; then
+if [ "$REQUIRE_OPENBCM_INIT_PROBE" = "1" ]; then
     check_exec usr/sbin/redstone-openbcm-init-probe
     check_file usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest
     grep -qx "sdk_baseline=openbcm-6.5.27" \
         "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" || \
         fail "OpenBCM init probe manifest does not identify sdk_baseline=openbcm-6.5.27"
+elif [ -e "$STAGING/usr/sbin/redstone-openbcm-init-probe" ]; then
+    check_exec usr/sbin/redstone-openbcm-init-probe
+    if [ -f "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" ]; then
+        grep -qx "sdk_baseline=openbcm-6.5.27" \
+            "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" || \
+            fail "OpenBCM init probe manifest does not identify sdk_baseline=openbcm-6.5.27"
+    fi
 fi
 
 check_file etc/switchd/redstone-stage1.bcm
