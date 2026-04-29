@@ -138,6 +138,10 @@ REDSTONE_PEER=192.0.2.2
 
 redstone-stage1-bench-run --iface "\$REDSTONE_IFACE" --local-cidr "\$REDSTONE_LOCAL_CIDR" --peer "\$REDSTONE_PEER"
 
+The bench runner preserves the validator output and then prints the returned
+validation bundle or evidence directory path together with the host analysis
+command below.
+
 ## Host Analysis
 
 Use the validation bundle or evidence directory printed by the strict validation

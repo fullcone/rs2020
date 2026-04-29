@@ -358,9 +358,21 @@ check_grep 'strict requires --peer IP' \
 check_grep 'strict --iface must be a swpN front-panel interface' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "validator strict mode rejects non-swp interface targets"
-check_grep 'redstone-stage1-validate --iface "[$]IFACE" --peer "[$]PEER" --ping-count "[$]PING_COUNT" --strict --capture' \
+check_grep 'run_validate --iface "[$]IFACE" --peer "[$]PEER" --ping-count "[$]PING_COUNT" --strict --capture' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner invokes strict validation with capture"
+check_grep 'redstone-stage1-validate "[$]@"' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner routes validation through the live validator"
+check_grep 'Return validation bundle to the host' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner prints the host-transfer validation bundle path"
+check_grep 'analyze-redstone-handoff-capture\.sh' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner prints the combined host analysis command"
+check_grep 'REDSTONE_BENCH_VALIDATE_LOG' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+    "bench runner exposes validation log override for diagnostics"
 check_grep '--local-cidr' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner supports local CIDR setup"

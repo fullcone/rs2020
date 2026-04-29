@@ -10,6 +10,7 @@ PING_COUNT=${REDSTONE_PING_COUNT:-3}
 CAPTURE_ONLY=0
 SKIP_LOCAL_IP=0
 BDE_SMOKE=0
+VALIDATE_LOG=${REDSTONE_BENCH_VALIDATE_LOG:-/tmp/redstone-stage1-bench-run-validate.$$}
 
 usage() {
     cat <<EOF
@@ -29,6 +30,7 @@ Options:
 
 Environment:
   REDSTONE_IFACE, REDSTONE_LOCAL_CIDR, REDSTONE_PEER, REDSTONE_PING_COUNT
+  REDSTONE_BENCH_VALIDATE_LOG
 EOF
 }
 
@@ -61,6 +63,42 @@ find_bde_smoke() {
         return 0
     done
     return 1
+}
+
+print_host_analysis_hint() {
+    log=$1
+    evidence_dir=$(sed -n 's/^Evidence directory: //p' "$log" 2>/dev/null | tail -n 1)
+    validation_bundle=$(sed -n 's/^Validation bundle: //p' "$log" 2>/dev/null | tail -n 1)
+
+    if [ -n "$validation_bundle" ]; then
+        echo ""
+        echo "Return validation bundle to the host: $validation_bundle"
+        echo "Host analysis command:"
+        echo "./host-tools/analyze-redstone-handoff-capture.sh . $validation_bundle"
+    elif [ -n "$evidence_dir" ]; then
+        echo ""
+        echo "Return validation evidence directory to the host: $evidence_dir"
+        echo "Host analysis command:"
+        echo "./host-tools/analyze-redstone-handoff-capture.sh . $evidence_dir"
+    fi
+}
+
+run_validate() {
+    log=$VALIDATE_LOG
+    rm -f "$log"
+
+    set +e
+    redstone-stage1-validate "$@" > "$log" 2>&1
+    rc=$?
+    set -e
+
+    if [ -f "$log" ]; then
+        cat "$log"
+        print_host_analysis_hint "$log"
+        rm -f "$log"
+    fi
+
+    return "$rc"
 }
 
 while [ $# -gt 0 ]; do
@@ -128,8 +166,11 @@ command -v redstone-stage1-validate >/dev/null 2>&1 || \
 
 if [ "$CAPTURE_ONLY" = "1" ]; then
     echo "Redstone stage-1 inventory capture only; this is not acceptance."
-    redstone-stage1-validate --capture
-    exit $?
+    set +e
+    run_validate --capture
+    VALIDATE_RC=$?
+    set -e
+    exit "$VALIDATE_RC"
 fi
 
 [ -n "$IFACE" ] || fail "strict acceptance requires --iface or REDSTONE_IFACE"
@@ -173,7 +214,7 @@ else
 fi
 
 set +e
-redstone-stage1-validate --iface "$IFACE" --peer "$PEER" --ping-count "$PING_COUNT" --strict --capture
+run_validate --iface "$IFACE" --peer "$PEER" --ping-count "$PING_COUNT" --strict --capture
 VALIDATE_RC=$?
 set -e
 

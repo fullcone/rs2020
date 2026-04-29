@@ -489,6 +489,9 @@ Stage-1 acceptance requires a real front-panel target and peer, using
 placeholders such as `REDSTONE_IFACE=swpN`,
 `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`, then
 running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
+The bench runner preserves the validator output, parses the returned
+`Validation bundle:` or `Evidence directory:` line, and prints the exact
+`host-tools/analyze-redstone-handoff-capture.sh` command to run on the host.
 The package also includes
 `bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md` and
 `host-tools/prepare-redstone-bench-note.sh`; run the helper for each bench run

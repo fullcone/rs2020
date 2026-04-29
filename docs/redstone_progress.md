@@ -1339,3 +1339,45 @@ Next checkpoint:
 
 - Commit, request PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Bench Runner Host Return Hint
+
+Completed:
+
+- Updated `redstone-stage1-bench-run` so both capture-only and strict bench
+  validation preserve the validator output, parse the returned
+  `Validation bundle:` or `Evidence directory:` line, and print the exact host
+  analysis command to run after the hardware run.
+- Kept the runner exit-code behavior tied to `redstone-stage1-validate`, so a
+  failed strict validation still tells the operator which evidence directory to
+  return while preserving the validator failure code.
+- Updated source preflight, generated handoff runbooks, and the stage plan so
+  this host-return hint stays part of the packaged bench workflow.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- Synthetic capture-only runner smoke test printed
+  `Return validation bundle to the host: /var/log/redstone-stage1/validate-test.tar.gz`
+  and the matching `./host-tools/analyze-redstone-handoff-capture.sh . ...`
+  command.
+- Synthetic strict-validation failure smoke test printed
+  `Return validation evidence directory to the host: /var/log/redstone-stage1/validate-fail`,
+  the matching host analysis command, and returned validator exit code `7`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+  regenerated `output/redstone-handoff` and
+  `output/redstone-stage1-hardware-handoff.tar.gz`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  reported `55 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  reported `56 pass, 0 warning(s), 0 failure(s)`.
+- `git diff --check`
+
+Next checkpoint:
+
+- Commit, request PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.
