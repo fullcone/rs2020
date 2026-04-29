@@ -108,9 +108,12 @@ make openbcm-userland-check
 ```
 
 This checks the pinned OpenBCM tree for BCM56846 SOC coverage, Linux BDE
-user/kernel entry points, the OpenNSA demo init path from `bde_create` to
-`linux_bde_create`, `soc_attach` or `bcm_attach`, and `bcm_init`, plus public
-L2, VLAN, and port APIs needed for the first SDK-managed data-path probe.
+user/kernel entry points including `systems/bde/linux/user/kernel/linux-user-bde.c`,
+the user BDE `_init` attach through the public kernel BDE `linux_bde_create`,
+the `linux-user-bde` gmodule/ioctl bridge, the OpenNSA demo init path from
+`bde_create` to `linux_bde_create`, `soc_attach` or `bcm_attach`, and
+`bcm_init`, plus public L2, VLAN, and port APIs needed for the first
+SDK-managed data-path probe.
 
 This is still a source-tree check. It does not load the BDE modules, initialize
 BCM56846, program PHYs, or prove hardware offload.

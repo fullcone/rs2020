@@ -374,10 +374,13 @@ APIs:
 make openbcm-userland-check
 ```
 
-This checks BCM56846 SOC coverage, Linux BDE user/kernel entry points, the
-OpenNSA demo `linux_bde_create` to `soc_attach` or `bcm_attach` to `bcm_init`
-path, and public L2, VLAN, and port APIs. It is a source/API preflight only;
-it does not load hardware or prove offload.
+This checks BCM56846 SOC coverage, Linux BDE user/kernel entry points
+including `systems/bde/linux/user/kernel/linux-user-bde.c`, the user BDE
+`_init` attach through the public kernel BDE `linux_bde_create`, the
+`linux-user-bde` gmodule/ioctl bridge, the OpenNSA demo `linux_bde_create` to
+`soc_attach` or `bcm_attach` to `bcm_init` path, and public L2, VLAN, and port
+APIs. It is a source/API preflight only; it does not load hardware or prove
+offload.
 
 The original Redstone firmware evidence points to Broadcom XGS Robo SDK 5.10.2.
 That makes SDK 5.10.x the best compatibility reference for board facts, PHY

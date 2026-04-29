@@ -685,3 +685,33 @@ Next checkpoint:
   showing BDE load plus BCM56846 `14e4:b846` enumeration.
 - Implement the minimal Redstone OpenBCM init tool only after that hardware
   BDE smoke evidence exists.
+
+### Stage-3 OpenBCM Userland BDE Path Review Fix
+
+Completed:
+
+- Updated `scripts/check-openbcm-userland-init.sh` so the user BDE source
+  checks follow the repository's actual OpenBCM BDE build path:
+  `systems/bde/linux/user/kernel/linux-user-bde.c`.
+- Added the matching `linux-user-bde.h` check and replaced stale assumptions
+  that the user BDE source implements `linux_bde_create` directly. The preflight
+  now checks the actual OpenBCM 6.5.27 structure: user BDE `_init` attaches
+  through the public kernel BDE `linux_bde_create`, cleanup destroys `user_bde`,
+  and the `linux-user-bde` gmodule exposes the ioctl bridge.
+- Updated the stage plan and OpenBCM decision note to name that user BDE source
+  location and bridge structure explicitly.
+
+Verified:
+
+- `wsl sh -n scripts/check-openbcm-userland-init.sh`
+- `wsl sh scripts/check-openbcm-userland-init.sh`
+- `wsl make openbcm-userland-check`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Run the OpenBCM BDE hardware smoke helper on Redstone and keep the evidence
+  showing BDE load plus BCM56846 `14e4:b846` enumeration.
+- Implement the minimal Redstone OpenBCM init tool only after that hardware
+  BDE smoke evidence exists.

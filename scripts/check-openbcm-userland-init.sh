@@ -49,7 +49,8 @@ check_file "src/soc/common/cm.c"
 check_file "src/soc/common/feature.c"
 check_file "src/soc/esw/drv.c"
 check_file "systems/bde/linux/include/linux-bde.h"
-check_file "systems/bde/linux/user/linux-user-bde.c"
+check_file "systems/bde/linux/user/kernel/linux-user-bde.c"
+check_file "systems/bde/linux/user/kernel/linux-user-bde.h"
 check_file "systems/bde/linux/kernel/linux-kernel-bde.c"
 check_file "systems/linux/user/opennsa_ut/demo_opennsa_init.c"
 check_file "systems/linux/user/opennsa_ut/Makefile"
@@ -96,14 +97,47 @@ check_grep 'extern int linux_bde_create' \
     "systems/bde/linux/include/linux-bde.h" \
     "Linux BDE public header exports linux_bde_create"
 check_grep 'LINUX_USER_BDE_NAME' \
-    "systems/bde/linux/user/linux-user-bde.c" \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
     "Linux user BDE source references user BDE device name"
-check_grep 'LINUX_KERNEL_BDE_NAME' \
-    "systems/bde/linux/user/linux-user-bde.c" \
-    "Linux user BDE source references kernel BDE device name"
-check_grep '^linux_bde_create' \
-    "systems/bde/linux/user/linux-user-bde.c" \
-    "Linux user BDE implements linux_bde_create"
+check_grep 'linux_bde_create\([^,]*,[[:space:]]*&user_bde\)' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE init attaches to kernel BDE through linux_bde_create"
+check_grep 'linux_bde_destroy\(user_bde\)' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE cleanup destroys kernel BDE handle"
+check_grep 'gmodule_t[[:space:]]+_gmodule' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE source declares gmodule registration"
+check_grep '\.ioctl[[:space:]]*=[[:space:]]*_ioctl' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE gmodule exposes ioctl handler"
+check_grep 'case[[:space:]]+LUBDE_GET_NUM_DEVICES:' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE ioctl handles device enumeration"
+check_grep 'case[[:space:]]+LUBDE_GET_DEVICE:' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE ioctl returns device IDs"
+check_grep 'case[[:space:]]+LUBDE_GET_DMA_INFO:' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE ioctl exposes DMA info"
+check_grep 'case[[:space:]]+LUBDE_WAIT_FOR_INTERRUPT:' \
+    "systems/bde/linux/user/kernel/linux-user-bde.c" \
+    "Linux user BDE ioctl exposes interrupt wait"
+check_grep 'lubde_ioctl_t' \
+    "systems/bde/linux/user/kernel/linux-user-bde.h" \
+    "Linux user BDE header declares ioctl control structure"
+check_grep '#define[[:space:]]+LUBDE_GET_NUM_DEVICES' \
+    "systems/bde/linux/user/kernel/linux-user-bde.h" \
+    "Linux user BDE header declares device enumeration ioctl"
+check_grep '#define[[:space:]]+LUBDE_GET_DMA_INFO' \
+    "systems/bde/linux/user/kernel/linux-user-bde.h" \
+    "Linux user BDE header declares DMA info ioctl"
+check_grep '#define[[:space:]]+LUBDE_WAIT_FOR_INTERRUPT' \
+    "systems/bde/linux/user/kernel/linux-user-bde.h" \
+    "Linux user BDE header declares interrupt wait ioctl"
+check_grep '#define[[:space:]]+LUBDE_ATTACH_INSTANCE' \
+    "systems/bde/linux/user/kernel/linux-user-bde.h" \
+    "Linux user BDE header declares instance attach ioctl"
 check_grep '^linux_bde_create' \
     "systems/bde/linux/kernel/linux-kernel-bde.c" \
     "Linux kernel BDE implements linux_bde_create"
