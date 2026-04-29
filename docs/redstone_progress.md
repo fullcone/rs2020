@@ -1005,3 +1005,38 @@ Next checkpoint:
 - Run the strict validator on Redstone hardware with the real bench interface
   and peer, then analyze the evidence bundle before attempting the reset-risk
   gated OpenBCM init probe `--exec` path.
+
+### Stage-3 Redstone Handoff Runbook Acceptance Path
+
+Completed:
+
+- Updated the generated hardware handoff `RUNBOOK.md` so first-boot
+  `redstone-stage1-validate --capture` is explicitly smoke/inventory evidence,
+  not stage-1 acceptance.
+- Added explicit bench placeholders for `REDSTONE_IFACE=swpN`,
+  `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`.
+- Made the handoff acceptance command use
+  `redstone-stage1-validate --iface "$REDSTONE_IFACE" --peer "$REDSTONE_PEER" --strict --capture`.
+- Extended source preflight so the generated runbook keeps that strict
+  acceptance path.
+
+Verified:
+
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone make redstone-handoff`
+- Generated `output/redstone-handoff/RUNBOOK.md` contains the
+  non-acceptance smoke note, strict bench placeholders, and strict
+  `redstone-stage1-validate --iface "$REDSTONE_IFACE" --peer "$REDSTONE_PEER" --strict --capture`
+  command.
+- The generated handoff tarball still contains `RUNBOOK.md`, `MANIFEST.txt`,
+  and the bundled host evidence analyzer.
+- `git diff --check`
+
+Next checkpoint:
+
+- Transfer `output/redstone-stage1-hardware-handoff.tar.gz` to the bench host,
+  run the strict acceptance command from `RUNBOOK.md` on Redstone hardware, and
+  analyze the returned capture tarball.

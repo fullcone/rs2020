@@ -122,11 +122,17 @@ onie-nos-install http://SERVER/$EDGENOS_IMAGE_NAME
 cat /etc/edgenos/board
 redstone-stage1-validate --capture
 
-For a strict one-port data-path test, assign a test IP and peer:
+The capture above is useful for inventory and smoke triage, but it is not stage-1 acceptance.
+Strict acceptance requires an explicit Redstone front-panel interface and an
+actual peer IP on the bench link:
 
-ip addr add SWITCH_IP/PREFIX dev swpN
-ip link set swpN up
-redstone-stage1-validate --iface swpN --peer PEER_IP --strict --capture
+REDSTONE_IFACE=swpN
+REDSTONE_LOCAL_CIDR=192.0.2.1/24
+REDSTONE_PEER=192.0.2.2
+
+ip link set "\$REDSTONE_IFACE" up
+ip addr add "\$REDSTONE_LOCAL_CIDR" dev "\$REDSTONE_IFACE"
+redstone-stage1-validate --iface "\$REDSTONE_IFACE" --peer "\$REDSTONE_PEER" --strict --capture
 
 ## Host Analysis
 

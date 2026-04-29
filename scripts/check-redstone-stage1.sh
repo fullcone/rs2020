@@ -163,6 +163,18 @@ check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-imag
 check_grep 'redstone-stage1-validate --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"
+check_grep 'not[[:space:]]+stage-1[[:space:]]+acceptance' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook marks smoke capture as non-acceptance"
+check_grep 'REDSTONE_IFACE=swpN' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook declares strict interface placeholder"
+check_grep 'REDSTONE_PEER=192\.0\.2\.2' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook declares strict peer placeholder"
+check_grep '--iface "\\[$]REDSTONE_IFACE" --peer "\\[$]REDSTONE_PEER" --strict --capture' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook uses strict iface and peer acceptance command"
 check_grep 'analyze-redstone-stage1-evidence\.sh --strict' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes strict host evidence analysis"

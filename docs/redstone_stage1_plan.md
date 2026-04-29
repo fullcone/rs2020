@@ -466,6 +466,13 @@ The package script forces the packed-rootfs image check with
 `REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
 rootfs does not contain the Redstone OpenBCM init probe and manifest.
 
+The generated `RUNBOOK.md` separates first-boot smoke capture from acceptance:
+`redstone-stage1-validate --capture` is inventory evidence only. Stage-1
+acceptance requires a real front-panel target and peer, using placeholders such
+as `REDSTONE_IFACE=swpN`, `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and
+`REDSTONE_PEER=192.0.2.2`, then running
+`redstone-stage1-validate --iface "$REDSTONE_IFACE" --peer "$REDSTONE_PEER" --strict --capture`.
+
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`
 path remains reset-risk-gated and should only run after strict OpenBCM BDE
