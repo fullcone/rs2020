@@ -1107,3 +1107,30 @@ Next checkpoint:
 
 - Request review on the PR again, then continue the next Redstone handoff
   host-analysis wrapper step.
+
+### Stage-3 Redstone Handoff Capture Analyzer
+
+Completed:
+
+- Added `scripts/analyze-redstone-handoff-capture.sh` as the host-side one
+  command path for package verification plus strict capture analysis.
+- Bundled the wrapper under `host-tools/` in the generated handoff package and
+  made the generated `RUNBOOK.md` call it with
+  `./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_CAPTURE_TARBALL`.
+- Added `make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=... REDSTONE_CAPTURE_PATH=...`.
+- Extended source preflight so the wrapper stays present, executable, bundled,
+  and strict.
+
+Verified:
+
+- `wsl sh scripts/analyze-redstone-handoff-capture.sh output/redstone-handoff output/redstone-handoff-capture-ok.tar.gz`
+  passed: handoff directory verification reported `48 pass, 0 warning(s), 0 failure(s)`;
+  strict capture analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
+- `wsl make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=output/redstone-handoff-capture-ok.tar.gz`
+  passed: handoff tarball verification reported `49 pass, 0 warning(s), 0 failure(s)`;
+  strict capture analysis reported `17 pass, 0 warning(s), 0 failure(s)`.
+
+Next checkpoint:
+
+- Request another PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.

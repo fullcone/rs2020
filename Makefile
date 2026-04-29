@@ -31,7 +31,8 @@ PLATFORM_MODS := platform/cpld platform/retimer
         switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
         openbcm-bde-bundle openbcm-bde-smoke-analyze \
         openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
-        openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify help
+        openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify \
+        redstone-handoff-analyze help
 
 all: image
 
@@ -55,6 +56,7 @@ help:
 	@echo "  openbcm-init-probe-bundle - Bundle Redstone OpenBCM init probe gate"
 	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
 	@echo "  redstone-handoff-verify - Verify a Redstone hardware handoff bundle"
+	@echo "  redstone-handoff-analyze - Verify handoff and analyze strict Redstone capture"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -161,6 +163,17 @@ redstone-handoff-verify:
 		exit 2; \
 	}
 	@$(TOPDIR)/scripts/verify-redstone-hardware-handoff.sh "$(REDSTONE_HANDOFF_PATH)"
+
+redstone-handoff-analyze:
+	@[ -n "$(REDSTONE_HANDOFF_PATH)" ] || { \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/capture-or-tarball" >&2; \
+		exit 2; \
+	}
+	@[ -n "$(REDSTONE_CAPTURE_PATH)" ] || { \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/capture-or-tarball" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-handoff-capture.sh "$(REDSTONE_HANDOFF_PATH)" "$(REDSTONE_CAPTURE_PATH)"
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

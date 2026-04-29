@@ -118,6 +118,7 @@ check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
 check_file "scripts/verify-redstone-hardware-handoff.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
+check_file "scripts/analyze-redstone-handoff-capture.sh"
 check_file "scripts/analyze-redstone-openbcm-bde-smoke.sh"
 check_file "scripts/prepare-openbcm.sh"
 check_file "scripts/build-openbcm-bde.sh"
@@ -178,9 +179,21 @@ check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-imag
 check_grep 'verify-redstone-hardware-handoff\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles host manifest verifier"
-check_grep 'verify-redstone-hardware-handoff\.sh[[:space:]]+[.]' \
+check_grep 'analyze-redstone-handoff-capture\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
-    "Redstone handoff runbook verifies unpacked package before host analysis"
+    "Redstone handoff package bundles combined host capture analyzer"
+check_grep 'analyze-redstone-handoff-capture\.sh[[:space:]]+[.][[:space:]]+PATH_TO_CAPTURE_TARBALL' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook verifies handoff and capture through one host command"
+check_grep 'verify-redstone-hardware-handoff\.sh' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer runs the handoff verifier"
+check_grep 'analyze-redstone-stage1-evidence\.sh' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer runs the stage-1 evidence analyzer"
+check_grep 'sh "[$]ANALYZE_TOOL" --strict' \
+    "scripts/analyze-redstone-handoff-capture.sh" \
+    "combined host capture analyzer enforces strict capture analysis"
 check_grep 'redstone-stage1-validate --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"
@@ -196,9 +209,6 @@ check_grep 'REDSTONE_PEER=192\.0\.2\.2' \
 check_grep '--iface "\\[$]REDSTONE_IFACE" --peer "\\[$]REDSTONE_PEER" --strict --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook uses strict iface and peer acceptance command"
-check_grep 'analyze-redstone-stage1-evidence\.sh --strict' \
-    "scripts/package-redstone-hardware-handoff.sh" \
-    "Redstone handoff runbook includes strict host evidence analysis"
 check_grep 'redstone-openbcm-bde-smoke\.sh --strict --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes BDE smoke capture"
@@ -231,6 +241,8 @@ check_grep 'redstone-handoff' "Makefile" \
     "Makefile exposes Redstone hardware handoff package target"
 check_grep 'redstone-handoff-verify' "Makefile" \
     "Makefile exposes Redstone hardware handoff verification target"
+check_grep 'redstone-handoff-analyze' "Makefile" \
+    "Makefile exposes combined Redstone handoff and capture analysis target"
 check_grep 'manifest has [$]entry_count file entries' "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier checks manifest entries"
 check_grep 'sha256 mismatch' "scripts/verify-redstone-hardware-handoff.sh" \
@@ -298,6 +310,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/package-redstone-hardware-handoff.sh \
         scripts/verify-redstone-hardware-handoff.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
+        scripts/analyze-redstone-handoff-capture.sh \
         scripts/analyze-redstone-openbcm-bde-smoke.sh \
         scripts/prepare-openbcm.sh \
         scripts/build-openbcm-bde.sh \
@@ -384,6 +397,15 @@ if command -v git >/dev/null 2>&1; then
         ok "analyze-redstone-stage1-evidence.sh is tracked executable"
     else
         fail "analyze-redstone-stage1-evidence.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/analyze-redstone-handoff-capture.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "analyze-redstone-handoff-capture.sh is tracked executable"
+    else
+        fail "analyze-redstone-handoff-capture.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

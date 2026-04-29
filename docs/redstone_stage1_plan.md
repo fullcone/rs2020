@@ -473,8 +473,8 @@ The target writes `output/redstone-handoff/` and
 `output/redstone-stage1-hardware-handoff.tar.gz`. The package includes the
 ONIE installer image, `rootfs.sqsh`, Redstone DTB, OpenBCM BDE modules and
 smoke helper, OpenBCM init probe bundle, the host-side stage-1 evidence
-analyzer, the host-side handoff verifier, `RUNBOOK.md`, and `MANIFEST.txt`
-with sizes and SHA-256 hashes.
+analyzer, the combined host handoff/capture analyzer, the host-side handoff
+verifier, `RUNBOOK.md`, and `MANIFEST.txt` with sizes and SHA-256 hashes.
 
 The package script forces the packed-rootfs image check with
 `REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
@@ -493,6 +493,22 @@ verify the tarball from the source tree with:
 ```sh
 make redstone-handoff-verify REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz
 ```
+
+After the Redstone hardware run returns a strict capture tarball, verify the
+handoff and analyze the capture together from the unpacked package:
+
+```sh
+./host-tools/analyze-redstone-handoff-capture.sh . PATH_TO_CAPTURE_TARBALL
+```
+
+The same combined check is available from the source tree:
+
+```sh
+make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz REDSTONE_CAPTURE_PATH=/path/to/capture.tar.gz
+```
+
+The combined check verifies the handoff manifest and hashes first, then runs
+the strict stage-1 evidence analyzer against the returned capture.
 
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`
