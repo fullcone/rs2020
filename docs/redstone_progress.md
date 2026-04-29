@@ -1579,3 +1579,27 @@ Next checkpoint:
 - Run `EDGENOS_BOARD=redstone make redstone-usb-stage1-verify` before writing the
   selected external USB stick, then collect the Redstone serial log and capture
   bundle from first boot.
+
+### Stage-3 Redstone USB Stage-1 Verifier Review Fix
+
+Completed:
+
+- Addressed the latest Codex P2 review on the raw-image verifier: missing
+  `sha256sum` or `md5sum` is now fatal, so the pre-write gate cannot approve an
+  image whose integrity sidecar was not actually checked.
+- Added source preflight coverage for that fail-closed checksum-tool behavior.
+- Updated the stage plan and generated handoff runbook text to make checksum
+  tools mandatory before the guarded USB write step.
+
+Verified:
+
+- `wsl sh -n scripts/verify-redstone-usb-stage1-image.sh scripts/check-redstone-stage1.sh scripts/package-redstone-hardware-handoff.sh`
+- Negative checksum-tool test with a temporary PATH containing no `sha256sum`
+  or `md5sum` failed closed as expected: `36 pass, 0 warning(s), 2 failure(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/verify-redstone-usb-stage1-image.sh`
+  passed with `38 pass, 0 warning(s), 0 failure(s)`.
+- `wsl env EDGENOS_BOARD=redstone make redstone-usb-stage1-verify` passed with
+  the same image and sidecar checks.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passed
+  with `0 warning(s)`.
+- `git diff --check`

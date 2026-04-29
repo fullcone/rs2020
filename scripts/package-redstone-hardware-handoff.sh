@@ -147,7 +147,9 @@ boot/capture media only and does not flash internal storage.
 
 The redstone-usb-stage1-verify target is host-side and read-only. It checks the
 raw image size, hash sidecars, fdisk sidecar, and FAT/data file inventories
-before any Windows guarded-write step.
+before any Windows guarded-write step. sha256sum and md5sum are required; if
+either checksum utility is missing, verification fails instead of approving an
+unchecked image.
 
 Use temporary U-Boot commands first and do not run saveenv until manual external
 boot succeeds:

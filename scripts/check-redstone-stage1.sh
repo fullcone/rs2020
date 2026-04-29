@@ -227,6 +227,9 @@ check_grep 'verify_hash sha256sum' \
 check_grep 'verify_hash md5sum' \
     "scripts/verify-redstone-usb-stage1-image.sh" \
     "Redstone USB stage-1 image verifier checks md5 sidecar"
+check_grep 'fail "\$tool unavailable; cannot verify \$desc sidecar"' \
+    "scripts/verify-redstone-usb-stage1-image.sh" \
+    "Redstone USB stage-1 image verifier fails when checksum tools are missing"
 check_grep 'Disklabel type:' \
     "scripts/verify-redstone-usb-stage1-image.sh" \
     "Redstone USB stage-1 image verifier checks fdisk sidecar"

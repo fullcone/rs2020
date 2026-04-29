@@ -107,7 +107,7 @@ verify_hash() {
     mismatch=$4
 
     if ! command -v "$tool" >/dev/null 2>&1; then
-        warn "$tool unavailable; skipped $desc"
+        fail "$tool unavailable; cannot verify $desc sidecar"
         return
     fi
 

@@ -134,7 +134,9 @@ The target writes:
 
 The verifier is a host-side read-only gate. It checks the raw image size, hash
 sidecars, fdisk partition summary, and the FAT/data partition inventory sidecars
-without mounting the image or writing to any USB device.
+without mounting the image or writing to any USB device. `sha256sum` and
+`md5sum` are mandatory for this gate; if either checksum utility is missing, the
+verifier fails instead of approving an unchecked image.
 
 Writing that raw image to a USB stick overwrites the selected USB stick. On the
 Windows host, the existing guarded writer can be pointed at the generated image
