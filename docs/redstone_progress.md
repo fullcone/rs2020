@@ -479,3 +479,27 @@ Next checkpoint:
   or platform drivers.
 - If the validation run also produces a capture tarball, analyze the tarball and
   keep both outputs attached to the next hardware-focused change.
+
+### Stage-1 Evidence Analyzer Link Scope Fix
+
+Completed:
+
+- Tightened host-side link-up analysis so capture-only evidence must tie
+  `carrier=1`, `operstate=up`, `LOWER_UP`, `state UP`, or ethtool link status
+  to a `swp*` interface.
+- Kept explicit validator PASS lines such as `front-panel link is up: swpN` and
+  `at least one swp link is up: swpN` as valid front-panel link evidence.
+- Updated the stage-1 plan to document that management `eth*` link state cannot
+  satisfy the front-panel link checkpoint.
+
+Verified:
+
+- `sh -n scripts/analyze-redstone-stage1-evidence.sh`
+- Analyzer rejects capture evidence where only `eth0` has `carrier=1`.
+- Analyzer accepts capture evidence where `swp1` has `carrier=1`.
+
+Next checkpoint:
+
+- Keep using `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`
+  for acceptance; capture-only bundles remain diagnostic unless strict validation
+  output is present.

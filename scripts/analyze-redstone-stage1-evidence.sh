@@ -109,6 +109,42 @@ has_path() {
     find "$ROOT" -name "$name" -print -quit 2>/dev/null | grep -q .
 }
 
+has_swp_link_up() {
+    if has_text 'front-panel link is up: swp[0-9]+|at least one swp link is up: swp[0-9]+'; then
+        return 0
+    fi
+
+    find "$ROOT" -type f -size -2097152c -exec awk '
+        /^##[[:space:]]+swp[0-9]+/ {
+            in_swp = 1
+            next
+        }
+        /^##[[:space:]]+/ {
+            in_swp = 0
+            next
+        }
+        /^[0-9]+:[[:space:]]+swp[0-9]+[:@]/ {
+            line = tolower($0)
+            if (line ~ /lower_up/ || line ~ /state[[:space:]]+up/) {
+                found = 1
+            }
+        }
+        in_swp {
+            line = tolower($0)
+            if (line ~ /^carrier=1$/ ||
+                line ~ /^operstate=up$/ ||
+                line ~ /link detected:[[:space:]]*yes/ ||
+                line ~ /lower_up/ ||
+                line ~ /state[[:space:]]+up/) {
+                found = 1
+            }
+        }
+        END {
+            exit found ? 0 : 1
+        }
+    ' {} \; -print -quit 2>/dev/null | grep -q .
+}
+
 extract_if_needed() {
     case "$INPUT" in
     *.tar.gz|*.tgz)
@@ -263,7 +299,7 @@ else
     fail "swp interface evidence missing"
 fi
 
-if has_text 'front-panel link is up|at least one swp link is up|carrier=1|operstate=up|state UP'; then
+if has_swp_link_up; then
     pass "front-panel link-up evidence found"
 else
     fail "front-panel link-up evidence missing"

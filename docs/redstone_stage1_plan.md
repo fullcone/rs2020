@@ -149,8 +149,10 @@ skipped ping:
 The analyzer is host-side only. It does not replace the live hardware run; it
 turns the collected `validate-*` directory or capture tarball into a repeatable
 PASS/WARN/FAIL checklist for board selection, BCM56846 PCIe enumeration, BDE
-modules and device nodes, `switchd`, `swp` interfaces, link-up, and ping
-evidence.
+modules and device nodes, `switchd`, `swp` interfaces, `swp*`-scoped link-up,
+and ping evidence. Capture-only link evidence must come from a `swp*` interface
+section or an `ip link` line for a `swp*` interface, so a management `eth*`
+interface cannot satisfy the front-panel link checkpoint.
 
 ## Source Preflight
 
