@@ -881,3 +881,37 @@ Verified:
 - `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh`
 - `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
 - `git diff --check`
+
+### Stage-3 Redstone Installer Image Gate
+
+Completed:
+
+- Extended `scripts/check-redstone-image.sh` to inspect either rootfs staging
+  or packed `rootfs.sqsh` via `--squashfs`.
+- Wired `scripts/build-installer.sh image` to verify Redstone `rootfs.sqsh`
+  before creating the ONIE installer payload, defaulting
+  `REQUIRE_OPENBCM_INIT_PROBE=1` for that release path.
+- Wired `scripts/build-all.sh` to install the Redstone OpenBCM init probe
+  before squashfs packing and to run the same packed-rootfs check before
+  installer packaging.
+- Extended `scripts/check-redstone-stage1.sh` so the release-path squashfs
+  checks are covered by preflight.
+
+Verified:
+
+- `wsl sh -n scripts/check-redstone-image.sh`
+- `wsl sh -n scripts/build-installer.sh`
+- `wsl sh -n scripts/build-all.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh --squashfs output/images/rootfs.sqsh`
+- `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh`
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-installer.sh image`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Copy `output/images/edgenos-redstone-stage1.bin` to the ONIE install host
+  and boot it on Redstone.
+- On hardware, run `redstone-stage1-validate --capture`, analyze the returned
+  tarball, and only then consider the reset-risk-gated OpenBCM init probe
+  `--exec` path.

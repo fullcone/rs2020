@@ -36,7 +36,7 @@ check_grep() {
     rel=$2
     desc=$3
 
-    if grep -Eq "$pattern" "$TOPDIR/$rel"; then
+    if grep -Eq -- "$pattern" "$TOPDIR/$rel"; then
         ok "$desc"
     else
         fail "$desc"
@@ -48,7 +48,7 @@ check_no_regex() {
     rel=$2
     desc=$3
 
-    if grep -Eq "$pattern" "$TOPDIR/$rel"; then
+    if grep -Eq -- "$pattern" "$TOPDIR/$rel"; then
         fail "$desc"
     else
         ok "$desc"
@@ -141,6 +141,16 @@ check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
     "Buildroot post-build installs optional Redstone OpenBCM init probe"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
+check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \
+    "build-all installs required Redstone OpenBCM init probe before squashfs packing"
+check_grep '--squashfs' "scripts/check-redstone-image.sh" \
+    "image checker can verify packed rootfs.sqsh contents"
+check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
+    "scripts/build-installer.sh" \
+    "build-installer checks Redstone rootfs.sqsh before packaging"
+check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
+    "scripts/build-all.sh" \
+    "build-all checks Redstone rootfs.sqsh before packaging"
 check_grep 'bundle' "scripts/build-openbcm-bde.sh" \
     "OpenBCM BDE helper can bundle hardware-load artifacts"
 check_grep 'redstone-openbcm-bde-smoke\.sh' "scripts/build-openbcm-bde.sh" \

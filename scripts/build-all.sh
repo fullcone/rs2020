@@ -268,6 +268,11 @@ EOF
     # Persist mount point
     mkdir -p "$STAGING/mnt/persist"
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+            "$SRCDIR/scripts/install-openbcm-init-probe.sh" "$STAGING"
+    fi
+
     # Cleanup
     rm -f "$STAGING/usr/bin/qemu-ppc-static" "$STAGING/usr/bin/qemu-powerpc-static"
     rm -f "$STAGING/usr/sbin/policy-rc.d"
@@ -361,6 +366,11 @@ build_installer() {
     log "Building ONIE installer..."
 
     local TMPDIR=$(mktemp -d)
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        log "Checking Redstone rootfs.sqsh contents..."
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+            "$SRCDIR/scripts/check-redstone-image.sh" --squashfs "$OUTDIR/images/rootfs.sqsh"
+    fi
     cp "$OUTDIR/images/uImage-powerpc.itb" "$TMPDIR/"
     cp "$OUTDIR/images/rootfs.sqsh" "$TMPDIR/"
     (cd "$TMPDIR" && tar cf payload.tar uImage-powerpc.itb rootfs.sqsh)

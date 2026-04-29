@@ -3,13 +3,69 @@
 set -eu
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
-STAGING="${1:-$TOPDIR/output/rootfs/staging}"
 REQUIRE_OPENBCM_INIT_PROBE=${REQUIRE_OPENBCM_INIT_PROBE:-0}
+MODE=staging
+STAGING="$TOPDIR/output/rootfs/staging"
+SQUASHFS=
+EXTRACT_DIR=
 
 fail() {
     echo "FAIL: $*" >&2
     exit 1
 }
+
+usage() {
+    cat >&2 <<EOF
+Usage: $0 [--staging DIR|DIR]
+       $0 --squashfs FILE
+EOF
+    exit 1
+}
+
+cleanup() {
+    if [ -n "$EXTRACT_DIR" ]; then
+        rm -rf "$EXTRACT_DIR"
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --staging)
+            [ $# -ge 2 ] || usage
+            MODE=staging
+            STAGING=$2
+            shift 2
+            ;;
+        --squashfs)
+            [ $# -ge 2 ] || usage
+            MODE=squashfs
+            SQUASHFS=$2
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            fail "unknown option: $1"
+            ;;
+        *)
+            [ $# -eq 1 ] || usage
+            MODE=staging
+            STAGING=$1
+            shift
+            ;;
+    esac
+done
+
+if [ "$MODE" = "squashfs" ]; then
+    [ -f "$SQUASHFS" ] || fail "rootfs squashfs image not found: $SQUASHFS"
+    command -v unsquashfs >/dev/null 2>&1 || fail "unsquashfs not found"
+    EXTRACT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/redstone-rootfs.XXXXXX")
+    trap cleanup EXIT HUP INT TERM
+    unsquashfs -q -d "$EXTRACT_DIR/rootfs" "$SQUASHFS" >/dev/null || \
+        fail "failed to extract rootfs squashfs image: $SQUASHFS"
+    STAGING="$EXTRACT_DIR/rootfs"
+fi
 
 check_file() {
     [ -f "$STAGING/$1" ] || fail "missing file: $1"
@@ -72,4 +128,4 @@ check_module accton_as5610_52x_cpld.ko
 check_module retimer_class.ko
 check_module ds100df410.ko
 
-echo "PASS: Redstone generated image staging contains switchd, BDE, platform modules, validation tools, and board config"
+echo "PASS: Redstone generated image contains switchd, BDE, platform modules, validation tools, and board config"

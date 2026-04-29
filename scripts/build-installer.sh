@@ -129,6 +129,12 @@ build_image() {
         exit 1
     fi
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        echo "  Checking Redstone rootfs.sqsh contents..."
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+            "$TOPDIR/scripts/check-redstone-image.sh" --squashfs "$ROOTFS"
+    fi
+
     # Build payload tar
     local PAYLOAD="$IMGDIR/payload.tar"
     tar -cf "$PAYLOAD" -C "$IMGDIR" uImage-powerpc.itb rootfs.sqsh

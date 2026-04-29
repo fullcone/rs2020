@@ -252,6 +252,7 @@ pieces that will go into `rootfs.sqsh`:
 
 ```sh
 EDGENOS_BOARD=redstone ./scripts/check-redstone-image.sh
+REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh --squashfs output/images/rootfs.sqsh
 ```
 
 The current Redstone stage-1 rootfs intentionally uses:
@@ -281,6 +282,13 @@ kernel and rootfs outputs with:
 EDGENOS_BOARD=redstone ./scripts/build-installer.sh fit
 EDGENOS_BOARD=redstone ./scripts/build-installer.sh image
 ```
+
+For Redstone, `build-installer.sh image` checks `output/images/rootfs.sqsh`
+before creating the ONIE payload tarball. That release path defaults
+`REQUIRE_OPENBCM_INIT_PROBE` to `1`, so a missing
+`/usr/sbin/redstone-openbcm-init-probe` or a missing manifest with
+`sdk_baseline=openbcm-6.5.27` blocks packaging instead of producing a weak
+installer image.
 
 `initramfs-build.sh` compiles `initramfs/nos-init.c` as a freestanding
 PowerPC raw-syscall init because that source defines `_start` directly and does
@@ -420,7 +428,14 @@ Redstone-only and optional by default:
 ```sh
 EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble
 REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh
+REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh --squashfs output/images/rootfs.sqsh
 ```
+
+`build-installer.sh image` and the `build-all.sh` installer path use that same
+packed-rootfs check for Redstone before packaging. `build-all.sh` also installs
+the Redstone OpenBCM init probe into the rootfs staging tree before squashfs
+packing, so the generated `rootfs.sqsh` is checked rather than only the
+pre-pack staging directory.
 
 The first-boot capture and validation tools record the probe's `--dry-run`
 output. They do not run `--exec`; that remains a manual bench step after BDE
