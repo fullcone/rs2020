@@ -109,6 +109,7 @@ prove L3 routing, ACL, ECMP, or full hardware offload.
 - openbcm-init/redstone-openbcm-init-probe
 - openbcm-init/redstone-openbcm-init-probe.manifest
 - host-tools/analyze-redstone-stage1-evidence.sh
+- host-tools/verify-redstone-hardware-handoff.sh
 
 ## ONIE Install
 
@@ -136,6 +137,7 @@ redstone-stage1-validate --iface "\$REDSTONE_IFACE" --peer "\$REDSTONE_PEER" --s
 
 ## Host Analysis
 
+./host-tools/verify-redstone-hardware-handoff.sh .
 ./host-tools/analyze-redstone-stage1-evidence.sh --strict PATH_TO_CAPTURE_TARBALL
 
 ## Optional OpenBCM BDE Smoke
@@ -195,6 +197,7 @@ package() {
     require_file "$INIT_DIR/redstone-openbcm-init-probe"
     require_file "$INIT_DIR/redstone-openbcm-init-probe.manifest"
     require_file "$TOPDIR/scripts/analyze-redstone-stage1-evidence.sh"
+    require_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh"
 
     REQUIRE_OPENBCM_INIT_PROBE=1 \
         "$TOPDIR/scripts/check-redstone-image.sh" --squashfs "$IMAGE_DIR/rootfs.sqsh"
@@ -212,6 +215,8 @@ package() {
     copy_file "$INIT_DIR/redstone-openbcm-init-probe.manifest" "$OUTDIR/openbcm-init/redstone-openbcm-init-probe.manifest"
     copy_file "$TOPDIR/scripts/analyze-redstone-stage1-evidence.sh" \
         "$OUTDIR/host-tools/analyze-redstone-stage1-evidence.sh"
+    copy_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh" \
+        "$OUTDIR/host-tools/verify-redstone-hardware-handoff.sh"
 
     git_head=unknown
     if command -v git >/dev/null 2>&1; then

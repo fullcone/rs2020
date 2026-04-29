@@ -460,7 +460,8 @@ The target writes `output/redstone-handoff/` and
 `output/redstone-stage1-hardware-handoff.tar.gz`. The package includes the
 ONIE installer image, `rootfs.sqsh`, Redstone DTB, OpenBCM BDE modules and
 smoke helper, OpenBCM init probe bundle, the host-side stage-1 evidence
-analyzer, `RUNBOOK.md`, and `MANIFEST.txt` with sizes and SHA-256 hashes.
+analyzer, the host-side handoff verifier, `RUNBOOK.md`, and `MANIFEST.txt`
+with sizes and SHA-256 hashes.
 
 The package script forces the packed-rootfs image check with
 `REQUIRE_OPENBCM_INIT_PROBE=1`, so it fails before handoff if the stage-1
@@ -472,6 +473,13 @@ acceptance requires a real front-panel target and peer, using placeholders such
 as `REDSTONE_IFACE=swpN`, `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and
 `REDSTONE_PEER=192.0.2.2`, then running
 `redstone-stage1-validate --iface "$REDSTONE_IFACE" --peer "$REDSTONE_PEER" --strict --capture`.
+Before using an unpacked handoff directory on the bench host, run
+`./host-tools/verify-redstone-hardware-handoff.sh .` from the package root, or
+verify the tarball from the source tree with:
+
+```sh
+make redstone-handoff-verify REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz
+```
 
 This is handoff material for the stage-1 bench run only. It still does not
 prove L3 routing, ACL, ECMP, or production offload. The init probe `--exec`

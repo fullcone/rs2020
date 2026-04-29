@@ -116,6 +116,7 @@ check_file "scripts/build-modules.sh"
 check_file "scripts/build-all.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
+check_file "scripts/verify-redstone-hardware-handoff.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
 check_file "scripts/analyze-redstone-openbcm-bde-smoke.sh"
 check_file "scripts/prepare-openbcm.sh"
@@ -160,6 +161,12 @@ check_grep 'redstone-stage1-hardware-handoff\.tar\.gz' \
 check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-image\.sh' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package verifies packed rootfs.sqsh"
+check_grep 'verify-redstone-hardware-handoff\.sh' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff package bundles host manifest verifier"
+check_grep 'verify-redstone-hardware-handoff\.sh[[:space:]]+[.]' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook verifies unpacked package before host analysis"
 check_grep 'redstone-stage1-validate --capture' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook includes first-boot capture"
@@ -208,6 +215,12 @@ check_grep 'openbcm-init-probe' "Makefile" \
     "Makefile exposes Redstone OpenBCM init probe gate targets"
 check_grep 'redstone-handoff' "Makefile" \
     "Makefile exposes Redstone hardware handoff package target"
+check_grep 'redstone-handoff-verify' "Makefile" \
+    "Makefile exposes Redstone hardware handoff verification target"
+check_grep 'manifest has [$]entry_count file entries' "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier checks manifest entries"
+check_grep 'sha256 mismatch' "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier checks file hashes"
 check_grep 'loaded OpenBCM linux-kernel-bde.*ko from bundle' \
     "scripts/analyze-redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke analyzer requires kernel bundle-load proof"
@@ -269,6 +282,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-all.sh \
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
+        scripts/verify-redstone-hardware-handoff.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
         scripts/analyze-redstone-openbcm-bde-smoke.sh \
         scripts/prepare-openbcm.sh \
@@ -338,6 +352,15 @@ if command -v git >/dev/null 2>&1; then
         ok "package-redstone-hardware-handoff.sh is tracked executable"
     else
         fail "package-redstone-hardware-handoff.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/verify-redstone-hardware-handoff.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "verify-redstone-hardware-handoff.sh is tracked executable"
+    else
+        fail "verify-redstone-hardware-handoff.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

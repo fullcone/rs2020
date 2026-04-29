@@ -1040,3 +1040,38 @@ Next checkpoint:
 - Transfer `output/redstone-stage1-hardware-handoff.tar.gz` to the bench host,
   run the strict acceptance command from `RUNBOOK.md` on Redstone hardware, and
   analyze the returned capture tarball.
+
+### Stage-3 Redstone Handoff Package Verifier
+
+Completed:
+
+- Added `scripts/verify-redstone-hardware-handoff.sh` so the generated handoff
+  directory or tarball can be checked before use on the bench.
+- The verifier checks `MANIFEST.txt`, Redstone board/image/DTB metadata,
+  required handoff files, file sizes, SHA-256 hashes, and manifest coverage.
+- The handoff package now bundles the verifier under `host-tools/` and the
+  generated `RUNBOOK.md` runs it before strict host evidence analysis.
+- Added `make redstone-handoff-verify REDSTONE_HANDOFF_PATH=...` for source-tree
+  verification of a handoff directory or tarball.
+- Extended source preflight so the verifier stays present, executable, bundled,
+  and covered by the generated runbook.
+
+Verified:
+
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+- `wsl make redstone-handoff-verify REDSTONE_HANDOFF_PATH=output/redstone-stage1-hardware-handoff.tar.gz`
+- Directory verification reported `46 pass, 0 warning(s), 0 failure(s)`.
+- Tarball and make-target verification reported `47 pass, 0 warning(s), 0 failure(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+- `git diff --cached --check`
+
+Next checkpoint:
+
+- Transfer `output/redstone-stage1-hardware-handoff.tar.gz` to the bench host,
+  run `./host-tools/verify-redstone-hardware-handoff.sh .` after unpacking,
+  then run the strict acceptance command from `RUNBOOK.md` on Redstone hardware.
+- Feed the returned capture tarball to the bundled strict evidence analyzer
+  before considering the reset-risk-gated OpenBCM init probe `--exec` path.

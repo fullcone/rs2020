@@ -31,7 +31,7 @@ PLATFORM_MODS := platform/cpld platform/retimer
         switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
         openbcm-bde-bundle openbcm-bde-smoke-analyze \
         openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
-        openbcm-init-probe-bundle redstone-handoff help
+        openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify help
 
 all: image
 
@@ -54,6 +54,7 @@ help:
 	@echo "  openbcm-init-probe - Build Redstone OpenBCM init probe gate"
 	@echo "  openbcm-init-probe-bundle - Bundle Redstone OpenBCM init probe gate"
 	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
+	@echo "  redstone-handoff-verify - Verify a Redstone hardware handoff bundle"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -153,6 +154,13 @@ openbcm-init-probe-bundle: openbcm-init-probe
 redstone-handoff:
 	@echo "==> Packaging Redstone stage-1 hardware handoff bundle"
 	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-hardware-handoff.sh
+
+redstone-handoff-verify:
+	@[ -n "$(REDSTONE_HANDOFF_PATH)" ] || { \
+		echo "usage: make redstone-handoff-verify REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/verify-redstone-hardware-handoff.sh "$(REDSTONE_HANDOFF_PATH)"
 
 # ── Switch daemon ──────────────────────────────────────────────────
 
