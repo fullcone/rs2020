@@ -130,6 +130,21 @@ redstone-stage1-bench-run --capture-only
 
 The capture above writes an evidence directory and, when tar is available, a
 validation bundle. It is useful for inventory and smoke triage, but it is not stage-1 acceptance.
+The embedded capture is verbose and includes a top-level capture-summary.txt,
+run metadata, command availability, full and focused dmesg, PCI driver/resource
+details, BCM/BDE module metadata, BDE device nodes, switchd service/journal
+state, netdev counters, ethtool output, passive I2C topology, DT properties,
+and EEPROM/CPLD/hwmon/thermal/LED/platform sysfs snapshots.
+
+If you need a standalone diagnostic package without the validator wrapper:
+
+redstone-stage1-capture --verbose
+
+Run active I2C bus scans only on a bench system where probing every detected
+bus is acceptable:
+
+redstone-stage1-capture --verbose --scan-i2c
+
 Strict acceptance requires an explicit Redstone front-panel interface and an
 actual peer IP on the bench link:
 

@@ -317,6 +317,16 @@ check_grep 'has_exact_bcm56846_pci_evidence' "scripts/analyze-redstone-stage1-ev
     "stage-1 evidence analyzer requires exact BCM56846 PCI ID evidence"
 check_no_regex "$LOOSE_BCM56846_SOURCE_RE" "scripts/analyze-redstone-stage1-evidence.sh" \
     "stage-1 evidence analyzer avoids vendorless PCI ID text matches"
+check_grep 'capture-summary\.txt' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer checks expanded capture summary"
+check_grep 'run_metadata\.txt' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer checks expanded run metadata"
+check_grep 'pci_driver_details\.txt' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer checks PCI driver detail capture"
+check_grep 'net_counters\.txt' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer checks net counter capture"
+check_grep 'i2c_devices\.txt' "scripts/analyze-redstone-stage1-evidence.sh" \
+    "stage-1 evidence analyzer checks passive I2C topology capture"
 check_grep 'openbcm-userland-check' "Makefile" \
     "Makefile exposes OpenBCM userland init source check"
 check_grep 'openbcm-bde-smoke-analyze' "Makefile" \
@@ -364,9 +374,45 @@ check_grep 'sdk_baseline=openbcm-6\.5\.27' "scripts/build-openbcm-init-probe.sh"
 check_grep 'redstone-openbcm-init-probe --dry-run' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
     "capture records OpenBCM init probe dry-run evidence"
+check_grep 'Usage: redstone-stage1-capture \[--scan-i2c\] \[--verbose\]' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture supports verbose progress output for hardware runs"
+check_grep 'REDSTONE_CAPTURE_VERBOSE' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture supports a verbose environment override"
+check_grep 'run_metadata\.txt' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture writes run metadata for handoff correlation"
+check_grep 'capture-summary\.txt' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture writes a top-level triage summary"
+check_grep 'capture_shell command_inventory' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records command availability"
+check_grep 'capture_shell pci_driver_details' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records PCI driver and resource details"
+check_grep 'capture_shell net_counters' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records net counters and ethtool diagnostics"
+check_grep 'capture_shell modinfo_bringup' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records module metadata for bring-up drivers"
+check_grep 'capture_shell i2c_devices' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records passive I2C device topology"
+check_grep 'sys_class_thermal' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records thermal sysfs evidence"
+check_grep 'sys_bus_platform_devices' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records platform bus sysfs evidence"
 check_grep 'redstone-openbcm-init-probe --dry-run' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "validator records OpenBCM init probe dry-run evidence"
+check_grep 'redstone-stage1-capture --verbose' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator captures verbose hardware diagnostics"
 check_grep 'strict requires --iface swpN' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
     "validator strict mode requires explicit front-panel interface"

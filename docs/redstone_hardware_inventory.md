@@ -72,11 +72,32 @@ output proves them.
 
 ## First Hardware-Capture Checklist
 
-Collect these on a live Redstone boot before turning pending items into final
-DTS or driver claims:
+Run the packaged capture first on a live Redstone boot before turning pending
+items into final DTS or driver claims:
 
 ```sh
-redstone-stage1-capture
+redstone-stage1-capture --verbose
+redstone-stage1-validate --iface swpN --peer PEER_IP --strict --capture
+```
+
+The validation command is the preferred evidence path when one front-panel link
+and a ping peer are available. It embeds the verbose capture into the validation
+bundle and prints the host-side analysis command to run after copying the bundle
+back.
+
+The verbose capture writes a timestamped directory under
+`/var/log/redstone-stage1/` and creates a tarball when `tar` is available. It
+includes top-level `capture-summary.txt` and `run_metadata.txt`, command
+availability, device-tree properties, full and focused dmesg, exact PCI
+driver/resource/config-space data for BCM56846 evidence, BDE/OpenBCM module and
+device-node state, switchd service/journal/process state, netdev counters,
+ethtool and tc output, passive I2C topology, and sysfs snapshots for EEPROM,
+CPLD, hwmon, thermal, LED, GPIO, and platform devices.
+
+Manual console notes are secondary context. Use these only to double-check what
+the bundle already captured:
+
+```sh
 cat /proc/device-tree/model
 cat /proc/device-tree/compatible
 cat /sys/class/eeprom/pro_name
@@ -87,11 +108,9 @@ find /sys/class -maxdepth 2 -type f | grep -iE 'cpld|eeprom|fan|psu|sfp|qsfp|the
 i2cdetect -l
 ```
 
-`redstone-stage1-capture` writes a timestamped capture under
-`/var/log/redstone-stage1/` and creates a tarball when `tar` is available. It
-does not run active I2C scans by default. Use
-`redstone-stage1-capture --scan-i2c` only on a bench system where active
-probing is acceptable.
+`redstone-stage1-capture` does not run active I2C scans by default. Use
+`redstone-stage1-capture --verbose --scan-i2c` only on a bench system where
+active probing is acceptable.
 
 ## Host Platform Inventory Analysis
 

@@ -1426,3 +1426,47 @@ Next checkpoint:
 
 - Commit, request PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Hardware Diagnostic Capture Expansion
+
+Completed:
+
+- Expanded `redstone-stage1-capture` so one hardware run collects verbose run
+  metadata, a top-level triage summary, command inventory, device-tree
+  properties, full and focused `dmesg`, exact PCI driver/resource/config-space
+  details, BDE/OpenBCM module and device-node evidence, switchd
+  service/journal/process state, netdev counters, `ethtool`/`tc` diagnostics,
+  passive I2C topology, and sysfs snapshots for EEPROM, CPLD, hwmon, thermal,
+  LED, GPIO, RTC, watchdog, power, and platform devices.
+- Made `redstone-stage1-validate --capture` invoke the capture tool in verbose
+  mode, so strict one-port tests and capture-only runs return the same expanded
+  evidence surface.
+- Updated the source preflight and host evidence analyzer to check for the new
+  expanded capture files: `capture-summary.txt`, `run_metadata.txt`,
+  `command_inventory.txt`, `pci_driver_details.txt`, `modinfo_bringup.txt`,
+  `net_counters.txt`, and `i2c_devices.txt`.
+- Updated the generated handoff runbook, stage plan, and hardware inventory
+  notes so the first real boot asks for verbose capture output by default and
+  leaves active I2C scanning behind the explicit `--scan-i2c` bench-only flag.
+
+Verified:
+
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture config/rootfs/overlay/usr/sbin/redstone-stage1-validate config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run scripts/check-redstone-stage1.sh scripts/package-redstone-hardware-handoff.sh scripts/analyze-redstone-stage1-evidence.sh`
+- `wsl env REDSTONE_CAPTURE_DIR=/tmp/redstone-capture-test REDSTONE_CAPTURE_VERBOSE=1 sh config/rootfs/overlay/usr/sbin/redstone-stage1-capture --verbose`
+  completed on the WSL host smoke environment and printed verbose capture
+  progress through `capture: capture-summary` and `tarball: ...`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+  regenerated `output/redstone-handoff` and
+  `output/redstone-stage1-hardware-handoff.tar.gz`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  reported `58 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  reported `59 pass, 0 warning(s), 0 failure(s)`.
+- `git diff --check`
+
+Next checkpoint:
+
+- Run either capture-only or strict one-port validation on real Redstone
+  hardware and return the generated validation bundle plus console log.

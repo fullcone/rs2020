@@ -72,26 +72,36 @@ journalctl -u switchd -f
 ## First-Boot Capture
 
 The rootfs includes `redstone-stage1-capture` for the first hardware boot. It
-collects the board selector, device-tree properties, dmesg, PCI, network, BDE,
-switchd, EEPROM, CPLD, and hwmon evidence into `/var/log/redstone-stage1/`.
-The default mode avoids active I2C probing:
+collects the board selector, run metadata, command availability,
+device-tree properties, full and focused dmesg, PCI driver/resource details,
+BCM/BDE module metadata, BDE device nodes, switchd service/journal state,
+network counters, ethtool output, passive I2C topology, EEPROM, CPLD, hwmon,
+thermal, LED, and platform sysfs evidence into `/var/log/redstone-stage1/`.
+It also writes a top-level `capture-summary.txt` for quick triage. The default
+mode avoids active I2C probing:
 
 ```sh
 redstone-stage1-capture
+```
+
+Use verbose mode when capturing console output from a hardware run:
+
+```sh
+redstone-stage1-capture --verbose
 ```
 
 On a bench system, after confirming it is safe to touch all discovered I2C
 buses, collect an active scan as well:
 
 ```sh
-redstone-stage1-capture --scan-i2c
+redstone-stage1-capture --verbose --scan-i2c
 ```
 
 Use the resulting tarball as the input for DTS and platform-driver changes.
 Do not promote pending Redstone assumptions to final board facts without this
 kind of live hardware output. The capture script follows `/sys/class` symlinks
-when collecting EEPROM, CPLD, and hwmon evidence, because those class entries
-normally point into real device directories.
+when collecting EEPROM, CPLD, hwmon, thermal, LED, GPIO, and platform evidence,
+because those class entries normally point into real device directories.
 
 ## First-Boot Validation
 
@@ -122,7 +132,7 @@ fails nonzero if any required check fails:
 redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict
 ```
 
-Use `--capture` when the same run should also embed the larger
+Use `--capture` when the same run should also embed the larger verbose
 `redstone-stage1-capture` evidence and, when `tar` is available, print a
 host-transfer validation bundle:
 

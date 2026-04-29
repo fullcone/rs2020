@@ -19,7 +19,7 @@ usage() {
     echo "  --peer IP       peer IP to ping after link validation"
     echo "  --ping-count N  ping packet count, default 3"
     echo "  --strict        require --iface swpN and --peer IP; exit nonzero if any required check fails"
-    echo "  --capture       run redstone-stage1-capture after validation"
+    echo "  --capture       run redstone-stage1-capture --verbose after validation"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -483,7 +483,7 @@ run_ping_check
 
 if [ "$RUN_CAPTURE" = "1" ]; then
     if have_cmd redstone-stage1-capture; then
-        if capture_cmd capture 'redstone-stage1-capture'; then
+        if capture_cmd capture 'redstone-stage1-capture --verbose'; then
             pass "redstone-stage1-capture completed"
             embed_capture_evidence
         else

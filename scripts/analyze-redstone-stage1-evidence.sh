@@ -271,6 +271,48 @@ else
     warn "capture log not found; DTS/platform follow-up evidence may be incomplete"
 fi
 
+if has_file capture-summary.txt; then
+    pass "capture triage summary found"
+else
+    warn "capture triage summary missing; rerun redstone-stage1-capture --verbose"
+fi
+
+if has_file run_metadata.txt; then
+    pass "capture run metadata found"
+else
+    warn "capture run metadata missing"
+fi
+
+if has_file command_inventory.txt; then
+    pass "capture command inventory found"
+else
+    warn "capture command inventory missing"
+fi
+
+if has_file pci_driver_details.txt; then
+    pass "PCI driver/resource/config-space details found"
+else
+    warn "PCI driver/resource/config-space details missing"
+fi
+
+if has_file modinfo_bringup.txt; then
+    pass "bring-up module metadata found"
+else
+    warn "bring-up module metadata missing"
+fi
+
+if has_file net_counters.txt; then
+    pass "netdev counter and ethtool diagnostics found"
+else
+    warn "netdev counter and ethtool diagnostics missing"
+fi
+
+if has_file i2c_devices.txt; then
+    pass "passive I2C device topology found"
+else
+    warn "passive I2C device topology missing"
+fi
+
 if has_text 'board selector is Redstone-compatible|^redstone$|^rs2020$|^r0678$'; then
     pass "Redstone board selector evidence found"
 else
