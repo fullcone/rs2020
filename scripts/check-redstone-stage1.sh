@@ -117,6 +117,7 @@ check_file "scripts/build-modules.sh"
 check_file "scripts/build-all.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
+check_file "scripts/package-redstone-usb-stage1.sh"
 check_file "scripts/verify-redstone-hardware-handoff.sh"
 check_file "scripts/prepare-redstone-bench-note.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
@@ -198,6 +199,27 @@ check_grep 'Do not overwrite internal flash' \
 check_grep 'not a raw USB disk image' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook distinguishes ONIE payload from raw USB images"
+check_grep 'package-redstone-usb-stage1\.sh' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook points to the USB stage-1 image builder"
+check_grep 'redstone-usb-stage1-boot-capture\.img' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder writes a stable raw image name"
+check_grep 'FAT16 type 0x06' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder documents FAT16 U-Boot partition"
+check_grep 'type=6, bootable' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder creates bootable FAT16 partition"
+check_grep 'Do not run saveenv' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder preserves U-Boot environment"
+check_grep 'fatload usb 0:1 1000000 uImage-powerpc\.itb' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder readme uses FIT boot from FAT"
+check_grep 'bootm 1000000#\$FIT_CONFIG' \
+    "scripts/package-redstone-usb-stage1.sh" \
+    "Redstone USB stage-1 builder readme boots the selected FIT config"
 check_grep 'Optional ONIE Install' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook keeps ONIE install optional after external boot proof"
@@ -264,6 +286,9 @@ check_grep 'edgenos-redstone-stage1\.bin.*ONIE-style installer payload' \
 check_grep 'A Redstone USB stage-1 package is a separate deliverable' \
     "docs/redstone_stage1_plan.md" \
     "stage plan keeps the future USB stage-1 package as a separate non-destructive deliverable"
+check_grep 'redstone-usb-stage1-boot-capture\.img' \
+    "docs/redstone_stage1_plan.md" \
+    "stage plan documents the Redstone USB stage-1 raw image path"
 check_grep 'verify-redstone-hardware-handoff\.sh' \
     "scripts/analyze-redstone-handoff-capture.sh" \
     "combined host capture analyzer runs the handoff verifier"
@@ -367,6 +392,10 @@ check_grep 'redstone-handoff-analyze' "Makefile" \
     "Makefile exposes combined Redstone handoff and capture analysis target"
 check_grep 'redstone-platform-inventory-analyze' "Makefile" \
     "Makefile exposes Redstone platform inventory analysis target"
+check_grep 'redstone-usb-stage1-check' "Makefile" \
+    "Makefile exposes Redstone USB stage-1 prerequisite check target"
+check_grep 'redstone-usb-stage1' "Makefile" \
+    "Makefile exposes Redstone USB stage-1 image target"
 check_grep 'manifest has [$]entry_count file entries' "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier checks manifest entries"
 check_grep 'sha256 mismatch' "scripts/verify-redstone-hardware-handoff.sh" \
@@ -492,6 +521,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-all.sh \
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
+        scripts/package-redstone-usb-stage1.sh \
         scripts/verify-redstone-hardware-handoff.sh \
         scripts/prepare-redstone-bench-note.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
@@ -566,6 +596,15 @@ if command -v git >/dev/null 2>&1; then
         ok "package-redstone-hardware-handoff.sh is tracked executable"
     else
         fail "package-redstone-hardware-handoff.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/package-redstone-usb-stage1.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "package-redstone-usb-stage1.sh is tracked executable"
+    else
+        fail "package-redstone-usb-stage1.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

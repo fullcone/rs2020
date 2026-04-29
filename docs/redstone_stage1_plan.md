@@ -115,10 +115,58 @@ The recommended first bench sequence is:
    hardware path.
 
 A Redstone USB stage-1 package is a separate deliverable from the ONIE installer
-payload. The first such package should be a non-destructive USB boot and
-capture image, not an auto-flashing package. It can later reuse the verified
-FAT boot partition plus Linux rootfs partition layout, but it must not write
-internal flash until a deliberate install stage is added and reviewed.
+payload. Build the non-destructive boot/capture raw disk image with:
+
+```sh
+EDGENOS_BOARD=redstone make redstone-usb-stage1-check
+sudo EDGENOS_BOARD=redstone make redstone-usb-stage1
+```
+
+The target writes:
+
+- `output/images/redstone-usb-stage1-boot-capture.img`
+- `output/images/redstone-usb-stage1-boot-capture.img.sha256`
+- `output/images/redstone-usb-stage1-boot-capture.img.md5`
+- `output/images/redstone-usb-stage1-boot-capture.img.fdisk.txt`
+- `output/images/redstone-usb-stage1-boot-capture.img.boot-files.txt`
+- `output/images/redstone-usb-stage1-boot-capture.img.data-files.txt`
+
+Writing that raw image to a USB stick overwrites the selected USB stick. On the
+Windows host, the existing guarded writer can be pointed at the generated image
+after opening PowerShell as Administrator and selecting the exact USB disk name
+and size range:
+
+```powershell
+cd C:\other_project\R0678
+.\write_fanxiang_uboot_fat_image.ps1 `
+  -ImagePath C:\other_project\R0678\redstone_system_extracted\_external\edgenos\output\images\redstone-usb-stage1-boot-capture.img `
+  -DiskName "General UDisk" `
+  -MinSizeGB 3 `
+  -MaxSizeGB 5
+```
+
+That image intentionally follows the verified R0678 external-boot shape:
+partition 1 is bootable FAT16 type `0x06` with label `REDBOOT`; partition 2 is
+ext2 type `0x83` with label `REDCF`. The FAT partition contains the FIT image
+as `uImage-powerpc.itb`, plus legacy inspection aliases `uImage` and
+`p2020rdb.dtb`. The ext2 partition carries the ONIE-style installer payload,
+`rootfs.sqsh`, Redstone DTB, the hardware handoff tarball, host verifier tools,
+and this progress documentation for the bench machine.
+
+Use the FIT path first from U-Boot:
+
+```text
+usb stop
+usb reset
+usb storage
+fatls usb 0:1 /
+fatload usb 0:1 1000000 uImage-powerpc.itb
+bootm 1000000#accton_as5610_52x
+```
+
+The USB image does not contain any automatic flash, NAND, NOR, ONIE install, or
+`saveenv` step. It remains a first-boot capture artifact until an explicit
+persistent install stage is designed and reviewed.
 
 The Redstone DTB now comes from `kernel/dts/redstone-stage1.dts`, a stage-1
 skeleton derived from the extracted original Redstone `p2020rdb.dtb` facts. The

@@ -130,6 +130,20 @@ to a USB stick for the Redstone U-Boot 2009.11 path. The existing R0678
 General UDisk 4G recovery image is an old-system USB recovery artifact, not the
 Redstone EdgeNOS stage-1 image.
 
+To build the separate non-destructive Redstone USB stage-1 boot/capture raw
+disk image from the source tree, run:
+
+EDGENOS_BOARD=redstone make redstone-usb-stage1-check
+sudo EDGENOS_BOARD=redstone make redstone-usb-stage1
+
+The Makefile target invokes scripts/package-redstone-usb-stage1.sh, which can
+also be run directly from the tree. It writes
+output/images/redstone-usb-stage1-boot-capture.img plus hash, fdisk, boot-file,
+and data-file sidecars. The USB image uses the verified R0678 shape: partition 1
+is FAT16 type 0x06 label REDBOOT for U-Boot files; partition 2 is ext2 type
+0x83 label REDCF for capture material and handoff files. It is still external
+boot/capture media only and does not flash internal storage.
+
 Use temporary U-Boot commands first and do not run saveenv until manual external
 boot succeeds:
 
@@ -139,6 +153,15 @@ usb storage
 fatls usb 0:1 /
 
 Temporary USB boot command shape for the verified R0678 recovery layout:
+
+usb stop
+usb reset
+usb storage
+fatls usb 0:1 /
+fatload usb 0:1 1000000 uImage-powerpc.itb
+bootm 1000000#accton_as5610_52x
+
+Legacy split-boot command shape from the verified R0678 recovery layout:
 
 usb stop
 usb reset

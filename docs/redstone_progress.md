@@ -1492,3 +1492,52 @@ Next checkpoint:
 - Build a separate non-destructive Redstone USB stage-1 boot and capture image
   when kernel, DTB, and rootfs files are ready for the U-Boot FAT plus Linux
   rootfs partition layout.
+
+### Stage-3 Redstone USB Stage-1 Boot/Capture Image
+
+Completed:
+
+- Added `package-redstone-usb-stage1.sh` to build a non-destructive raw USB
+  disk image for first Redstone external boot and capture.
+- Matched the locally verified R0678 USB shape: bootable FAT16 type `0x06`
+  partition 1 labeled `REDBOOT`, and ext2 type `0x83` partition 2 labeled
+  `REDCF`.
+- Populated the FAT partition with the Redstone FIT image and legacy inspection
+  aliases, while keeping the ext2 partition for handoff material, host tools,
+  docs, rootfs, DTB, and installer payload inspection.
+- Added `redstone-usb-stage1-check` and `redstone-usb-stage1` Makefile targets,
+  plus source preflight coverage for the new image builder and no-flash
+  first-boot policy.
+- Updated the stage plan and generated handoff runbook with the exact U-Boot
+  FIT commands, Windows guarded-write example, and the rule that this image does
+  not run `saveenv`, ONIE install, or any internal flash write.
+
+Verified:
+
+- `wsl sh -n scripts/package-redstone-usb-stage1.sh scripts/check-redstone-stage1.sh scripts/package-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-usb-stage1.sh check`
+  confirmed the Redstone FIT image, DTB, rootfs, installer payload, handoff
+  packager, and host filesystem tools are present.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passed
+  with `0 warning(s)`.
+- `wsl -u root ... EDGENOS_BOARD=redstone sh -x scripts/package-redstone-usb-stage1.sh image`
+  generated `output/images/redstone-usb-stage1-boot-capture.img` and sidecars.
+- `wsl -u root ... EDGENOS_BOARD=redstone sh scripts/package-redstone-usb-stage1.sh image`
+  also completed after adding explicit file-inventory, partition-table, and
+  long hash-phase progress logs.
+- The generated image is `4037017600` bytes with DOS partitions:
+  partition 1 `2048..524287` bootable FAT16 type `0x06`, and partition 2
+  `524288..7884799` Linux/ext2 type `0x83`.
+- The build writes non-empty `.sha256` and `.md5` sidecars for the current raw
+  image; use those generated sidecars for the exact image written to USB.
+- `output/images/redstone-usb-stage1-boot-capture.img.boot-files.txt` lists
+  FIT, legacy aliases, DTB aliases, readme, and manifest on the FAT partition.
+- `output/images/redstone-usb-stage1-boot-capture.img.data-files.txt` lists
+  rootfs, installer payload, DTB, handoff archive/runbook/manifest, host tools,
+  and source docs on the ext2 partition.
+
+Next checkpoint:
+
+- Build `output/images/redstone-usb-stage1-boot-capture.img`, write it only to
+  a selected external USB stick, then boot Redstone with temporary U-Boot
+  commands and return the generated capture bundle plus serial log.
