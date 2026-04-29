@@ -29,7 +29,8 @@ PLATFORM_MODS := platform/cpld platform/retimer
 
 .PHONY: all clean toolchain kernel modules rootfs-base rootfs image installer \
         switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
-        openbcm-bde-bundle openbcm-userland-check help
+        openbcm-bde-bundle openbcm-bde-smoke-analyze \
+        openbcm-userland-check help
 
 all: image
 
@@ -46,6 +47,7 @@ help:
 	@echo "  openbcm-bde-check - Check OpenBCM BDE build prerequisites"
 	@echo "  openbcm-bde  - Build OpenBCM BDE modules for Redstone Linux 5.10"
 	@echo "  openbcm-bde-bundle - Copy OpenBCM BDE modules into a hardware-load bundle"
+	@echo "  openbcm-bde-smoke-analyze - Analyze Redstone OpenBCM BDE smoke evidence"
 	@echo "  openbcm-userland-check - Check OpenBCM userland init source/API path"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
@@ -121,6 +123,13 @@ openbcm-bde: openbcm-source
 openbcm-bde-bundle:
 	@echo "==> Bundling OpenBCM Linux BDE modules for Redstone hardware smoke testing"
 	@$(TOPDIR)/scripts/build-openbcm-bde.sh bundle
+
+openbcm-bde-smoke-analyze:
+	@[ -n "$(OPENBCM_BDE_SMOKE_EVIDENCE)" ] || { \
+		echo "usage: make openbcm-bde-smoke-analyze OPENBCM_BDE_SMOKE_EVIDENCE=/path/to/openbcm-bde-smoke-..." >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-openbcm-bde-smoke.sh --strict "$(OPENBCM_BDE_SMOKE_EVIDENCE)"
 
 openbcm-userland-check:
 	@$(TOPDIR)/scripts/check-openbcm-userland-init.sh

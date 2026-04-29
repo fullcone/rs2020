@@ -78,6 +78,17 @@ Run the helper from the bundle directory on a bench Redstone system:
 ./redstone-openbcm-bde-smoke.sh --strict
 ```
 
+Then copy the smoke evidence directory back to the build host and verify it:
+
+```sh
+./scripts/analyze-redstone-openbcm-bde-smoke.sh --strict /path/to/openbcm-bde-smoke-20260429T000000Z
+make openbcm-bde-smoke-analyze OPENBCM_BDE_SMOKE_EVIDENCE=/path/to/openbcm-bde-smoke-20260429T000000Z
+```
+
+The analyzer requires bundle-loaded OpenBCM BDE module proof, both BDE device
+nodes, and an exact BCM56846 PCI identity of `14e4:b846` before the evidence can
+unlock a Redstone SDK-managed init probe.
+
 If the default stage-1 image has already loaded its in-image BDE modules, stop
 `switchd` and run the helper with explicit replacement:
 

@@ -715,3 +715,38 @@ Next checkpoint:
   showing BDE load plus BCM56846 `14e4:b846` enumeration.
 - Implement the minimal Redstone OpenBCM init tool only after that hardware
   BDE smoke evidence exists.
+
+### Stage-3 OpenBCM BDE Smoke Evidence Analyzer
+
+Completed:
+
+- Added `scripts/analyze-redstone-openbcm-bde-smoke.sh` as a host-side analyzer
+  for Redstone OpenBCM BDE smoke evidence directories or `.tar.gz` archives.
+- The analyzer requires the smoke log to prove both OpenBCM BDE modules loaded
+  from the bundle, both BDE device nodes exist, and BCM56846 is identified by
+  the exact PCI ID `14e4:b846` or exact sysfs vendor/device IDs.
+- Wired `make openbcm-bde-smoke-analyze` into the top-level Makefile with an
+  explicit `OPENBCM_BDE_SMOKE_EVIDENCE=/path/to/evidence` input.
+- Extended Redstone source preflight so the analyzer must be present,
+  shell-valid, executable, and guarded against generic BCM56846 text matches.
+- Updated the OpenBCM decision note and stage plan with the evidence-analysis
+  workflow.
+
+Verified:
+
+- `wsl sh -n scripts/analyze-redstone-openbcm-bde-smoke.sh`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- Temporary complete smoke evidence directory passed `--strict` analysis.
+- Temporary complete smoke evidence tarball passed `--strict` analysis.
+- `wsl make openbcm-bde-smoke-analyze` passed against complete smoke evidence.
+- Temporary evidence missing user BDE bundle-load proof failed as expected.
+- Temporary evidence with only `[8086:b846] BCM56846 text` failed as expected.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Run the OpenBCM BDE hardware smoke helper on Redstone and keep the evidence
+  showing BDE load plus BCM56846 `14e4:b846` enumeration.
+- Use analyzed BDE smoke evidence as the prerequisite for the first minimal
+  Redstone SDK-managed init probe.

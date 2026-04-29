@@ -361,6 +361,19 @@ stop `switchd` and pass
 `--reload-existing` when intentionally replacing the in-image BDE modules with
 the OpenBCM bundle on a bench system.
 
+After copying the smoke evidence back to the build host, run the host-side
+analyzer:
+
+```sh
+./scripts/analyze-redstone-openbcm-bde-smoke.sh --strict /path/to/openbcm-bde-smoke-20260429T000000Z
+make openbcm-bde-smoke-analyze OPENBCM_BDE_SMOKE_EVIDENCE=/path/to/openbcm-bde-smoke-20260429T000000Z
+```
+
+The analyzer requires the smoke log to show the two OpenBCM BDE modules loaded
+from the bundle, the `linux-kernel-bde` and `linux-user-bde` device nodes, and
+an exact BCM56846 PCI ID of `14e4:b846`. It deliberately does not accept generic
+`b846` or `56846` text as device proof.
+
 This is a build and packaging proof only; hardware loading, BCM56846
 enumeration through BDE, and any SDK-managed switching/offload still require
 Redstone hardware validation.
