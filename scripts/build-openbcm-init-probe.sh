@@ -77,6 +77,7 @@ write_manifest() {
     mkdir -p "$OPENBCM_INIT_OUT"
     {
         printf 'openbcm_init_probe_bundle=1\n'
+        printf 'sdk_baseline=openbcm-6.5.27\n'
         printf 'source=%s\n' "$OPENBCM_INIT_SRC"
         printf 'binary=%s\n' "$OPENBCM_INIT_BIN"
         printf 'demo_default=%s\n' "$OPENBCM_INIT_DEFAULT_DEMO"

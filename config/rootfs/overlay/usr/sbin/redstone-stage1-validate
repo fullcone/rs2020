@@ -185,8 +185,8 @@ detect_bcm56846() {
 
     if have_cmd lspci; then
         lspci -nn > "$out" 2>&1 || true
-        if grep -qiE '14e4.*(b846|56846)|b846|56846' "$out"; then
-            pass "BCM56846 PCIe device detected by lspci"
+        if grep -qiE '(^|[^[:xdigit:]])14e4:b846([^[:xdigit:]]|$)' "$out"; then
+            pass "BCM56846 PCIe device detected by lspci as 14e4:b846"
             return
         fi
     else
@@ -205,6 +205,25 @@ detect_bcm56846() {
     done
 
     fail "BCM56846 PCIe device not detected"
+}
+
+check_openbcm_init_probe() {
+    if ! have_cmd redstone-openbcm-init-probe; then
+        warn "OpenBCM init probe is not packaged; build and install it before SDK init testing"
+        return
+    fi
+
+    if [ -f /usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest ]; then
+        pass "OpenBCM init probe manifest is packaged"
+    else
+        warn "OpenBCM init probe manifest is missing"
+    fi
+
+    if capture_cmd openbcm_init_probe_dry_run 'redstone-openbcm-init-probe --dry-run'; then
+        pass "OpenBCM init probe dry-run gate passed"
+    else
+        warn "OpenBCM init probe dry-run gate did not pass; see $OUT_DIR/openbcm_init_probe_dry_run.txt"
+    fi
 }
 
 check_switchd_status() {
@@ -360,6 +379,7 @@ check_required_char /dev/linux-kernel-bde "kernel BDE device"
 check_required_char /dev/linux-user-bde "user BDE device"
 
 detect_bcm56846
+check_openbcm_init_probe
 check_switchd_status
 check_swp_interfaces
 

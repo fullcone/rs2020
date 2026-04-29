@@ -781,12 +781,51 @@ Verified:
 
 Next checkpoint:
 
-- Package or build the OpenBCM demo init binary that the wrapper executes,
-  then deploy it with `redstone-stage1.bcm` and the BDE smoke bundle on the
-  Redstone bench system.
+- Package the probe into the Redstone rootfs, then deploy it with
+  `redstone-stage1.bcm` and the BDE smoke bundle on the Redstone bench system.
 - Run `./redstone-openbcm-init-probe --dry-run` first. Only run
   `./redstone-openbcm-init-probe --exec --i-accept-hardware-reset-risk` after
   strict BDE smoke evidence exists and the reset risk is accepted for the
   bench session.
 - Treat a successful init probe as the start of the L2/VLAN/one-port link-up
   path, not as proof of L3/ACL/ECMP offload.
+
+### Stage-3 Redstone OpenBCM Init Probe Rootfs Wiring
+
+Completed:
+
+- Added `scripts/install-openbcm-init-probe.sh` to install the built probe into
+  a Redstone rootfs as `/usr/sbin/redstone-openbcm-init-probe` and, when
+  available, its manifest under `/usr/share/edgenos/openbcm/`.
+- Wired the installer into both `scripts/build-rootfs.sh assemble` and the
+  Buildroot post-build hook. The installer is Redstone-only and remains
+  optional unless `REQUIRE_OPENBCM_INIT_PROBE=1` is set.
+- Extended `scripts/check-redstone-image.sh` so a packaged probe must be
+  executable and must carry a manifest identifying `sdk_baseline=openbcm-6.5.27`.
+- Extended first-boot capture and validation so the Redstone rootfs records
+  `redstone-openbcm-init-probe --dry-run` output without running the risky
+  `--exec` path.
+- Tightened `redstone-stage1-validate` so the `lspci` path accepts only the
+  exact BCM56846 PCI ID `14e4:b846`, matching the OpenBCM BDE smoke helper.
+
+Verified:
+
+- `wsl sh -n scripts/install-openbcm-init-probe.sh`
+- `wsl sh -n scripts/check-redstone-image.sh`
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-capture`
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-stage1-validate`
+- `wsl sh scripts/build-openbcm-init-probe.sh bundle`
+- Installer skip/required-failure temp-rootfs checks for a missing probe binary.
+- Installer temp-rootfs check with the built probe and
+  `sdk_baseline=openbcm-6.5.27` manifest.
+- `wsl env EDGENOS_BOARD=redstone ./scripts/build-rootfs.sh assemble`
+- `wsl env REQUIRE_OPENBCM_INIT_PROBE=1 sh scripts/check-redstone-image.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+
+Next checkpoint:
+
+- Build the installer image with the probe-bearing Redstone rootfs and keep the
+  same forced image check in the release path.
+- On hardware, run `redstone-stage1-validate --capture` and keep the dry-run
+  evidence before attempting the reset-risk-gated `--exec` path.

@@ -4,6 +4,7 @@ set -eu
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
 STAGING="${1:-$TOPDIR/output/rootfs/staging}"
+REQUIRE_OPENBCM_INIT_PROBE=${REQUIRE_OPENBCM_INIT_PROBE:-0}
 
 fail() {
     echo "FAIL: $*" >&2
@@ -33,6 +34,27 @@ check_exec usr/sbin/switchd-init
 check_exec usr/sbin/redstone-stage1-capture
 check_exec usr/sbin/redstone-stage1-validate
 check_exec usr/sbin/switchd
+
+case "$REQUIRE_OPENBCM_INIT_PROBE" in
+    1|yes|true|TRUE|on|ON)
+        REQUIRE_OPENBCM_INIT_PROBE=1
+        ;;
+    0|no|false|FALSE|off|OFF|"")
+        REQUIRE_OPENBCM_INIT_PROBE=0
+        ;;
+    *)
+        fail "invalid REQUIRE_OPENBCM_INIT_PROBE=$REQUIRE_OPENBCM_INIT_PROBE"
+        ;;
+esac
+
+if [ -e "$STAGING/usr/sbin/redstone-openbcm-init-probe" ] ||
+    [ "$REQUIRE_OPENBCM_INIT_PROBE" = "1" ]; then
+    check_exec usr/sbin/redstone-openbcm-init-probe
+    check_file usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest
+    grep -qx "sdk_baseline=openbcm-6.5.27" \
+        "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" || \
+        fail "OpenBCM init probe manifest does not identify sdk_baseline=openbcm-6.5.27"
+fi
 
 check_file etc/switchd/redstone-stage1.bcm
 grep -q "portmap_52" "$STAGING/etc/switchd/redstone-stage1.bcm" || \

@@ -137,6 +137,10 @@ assemble() {
     mkdir -p "$STAGING/etc/edgenos"
     printf '%s\n' "$EDGENOS_BOARD" > "$STAGING/etc/edgenos/board"
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        "$TOPDIR/scripts/install-openbcm-init-probe.sh" "$STAGING"
+    fi
+
     # Create final squashfs
     echo "  Creating squashfs image..."
     mkdir -p "$OUTDIR/images"

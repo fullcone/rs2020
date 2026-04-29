@@ -120,6 +120,7 @@ check_file "scripts/build-openbcm-bde.sh"
 check_file "scripts/redstone-openbcm-bde-smoke.sh"
 check_file "scripts/check-openbcm-userland-init.sh"
 check_file "scripts/build-openbcm-init-probe.sh"
+check_file "scripts/install-openbcm-init-probe.sh"
 check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
@@ -134,6 +135,10 @@ check_grep 'start-foreground' "config/rootfs/overlay/etc/systemd/system/switchd.
     "switchd service uses switchd-init foreground path"
 check_grep 'config/rootfs/overlay' "scripts/build-rootfs.sh" \
     "build-rootfs applies the rootfs overlay"
+check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
+    "build-rootfs installs optional Redstone OpenBCM init probe"
+check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
+    "Buildroot post-build installs optional Redstone OpenBCM init probe"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'bundle' "scripts/build-openbcm-bde.sh" \
@@ -144,6 +149,11 @@ check_grep '14e4:b846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper requires exact BCM56846 PCI ID"
 check_no_fixed '14e4.*(b846|56846)|b846|56846' "scripts/redstone-openbcm-bde-smoke.sh" \
     "OpenBCM BDE smoke helper avoids vendorless lspci matches"
+check_grep '14e4:b846' "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "Redstone validator checks exact BCM56846 PCI ID"
+check_no_fixed '14e4.*(b846|56846)|b846|56846' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "Redstone validator avoids vendorless lspci matches"
 check_grep 'openbcm-userland-check' "Makefile" \
     "Makefile exposes OpenBCM userland init source check"
 check_grep 'openbcm-bde-smoke-analyze' "Makefile" \
@@ -174,6 +184,16 @@ check_grep 'i-accept-hardware-reset-risk' \
     "OpenBCM init probe requires explicit hardware reset risk acknowledgement"
 check_grep 'BCM_CONFIG_FILE' "asic/openbcm-init/redstone-openbcm-init-probe.c" \
     "OpenBCM init probe sets BCM_CONFIG_FILE before demo init execution"
+check_grep 'sdk_baseline=openbcm-6\.5\.27' "scripts/build-openbcm-init-probe.sh" \
+    "OpenBCM init probe manifest records SDK baseline"
+check_grep 'redstone-openbcm-init-probe --dry-run' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records OpenBCM init probe dry-run evidence"
+check_grep 'redstone-openbcm-init-probe --dry-run' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+    "validator records OpenBCM init probe dry-run evidence"
+check_grep 'REQUIRE_OPENBCM_INIT_PROBE' "scripts/check-redstone-image.sh" \
+    "image checker can enforce OpenBCM init probe packaging"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then
@@ -198,6 +218,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/redstone-openbcm-bde-smoke.sh \
         scripts/check-openbcm-userland-init.sh \
         scripts/build-openbcm-init-probe.sh \
+        scripts/install-openbcm-init-probe.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -313,6 +334,15 @@ if command -v git >/dev/null 2>&1; then
         ok "build-openbcm-init-probe.sh is tracked executable"
     else
         fail "build-openbcm-init-probe.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/install-openbcm-init-probe.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "install-openbcm-init-probe.sh is tracked executable"
+    else
+        fail "install-openbcm-init-probe.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

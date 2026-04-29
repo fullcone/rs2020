@@ -161,6 +161,14 @@ bench system. The wrapper sets `BCM_CONFIG_FILE` and execs the OpenBCM demo
 init binary, but it is not itself a Broadcom SDK implementation and does not
 prove L2, L3, ACL, ECMP, or hardware offload.
 
+For Redstone rootfs builds, the probe is packaged only when the built binary is
+present under `output/openbcm-init/`. The helper
+`scripts/install-openbcm-init-probe.sh` installs it and its manifest into the
+rootfs, and `REQUIRE_OPENBCM_INIT_PROBE=1 ./scripts/check-redstone-image.sh`
+can make that packaging mandatory for lab images. First-boot capture and
+validation record `redstone-openbcm-init-probe --dry-run` evidence only; they
+do not call the reset-risk-gated execution path.
+
 ## Why 6.5.27
 
 The local OpenBCM 6.5.27 tree has the pieces a Redstone SDK proof needs:

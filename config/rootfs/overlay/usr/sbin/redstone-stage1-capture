@@ -124,6 +124,7 @@ capture_shell net 'ip addr 2>/dev/null || ifconfig -a 2>/dev/null || true; echo;
 capture_shell i2c_list 'if command -v i2cdetect >/dev/null 2>&1; then i2cdetect -l; else echo "i2cdetect unavailable"; fi; echo; ls -la /sys/bus/i2c/devices 2>/dev/null || true'
 capture_shell switchd 'switchd-init status 2>/dev/null || true; echo; ps w 2>/dev/null || ps 2>/dev/null || true; echo; ls -la /etc/switchd 2>/dev/null || true; echo; ls -la /run 2>/dev/null | grep -i switchd || true; ls -la /var/run 2>/dev/null | grep -i switchd || true; echo; for f in /etc/switchd/*.bcm /etc/switchd/config.bcm; do [ -f "$f" ] || continue; echo "## $f"; sed -n "1,220p" "$f"; done'
 capture_shell bde_devices 'ls -l /dev 2>/dev/null | grep -iE "bde|bcm|uk|proxy" || true'
+capture_shell openbcm_init_probe 'if command -v redstone-openbcm-init-probe >/dev/null 2>&1; then redstone-openbcm-init-probe --dry-run; else echo "redstone-openbcm-init-probe unavailable"; fi; echo; if [ -f /usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest ]; then cat /usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest; else echo "redstone-openbcm-init-probe manifest unavailable"; fi'
 capture_shell logs 'if command -v journalctl >/dev/null 2>&1; then journalctl -b --no-pager; fi; for f in /var/log/messages /var/log/syslog /var/log/dmesg; do [ -f "$f" ] || continue; echo "## $f"; cat "$f"; done'
 
 capture_sysfs_files /sys/class/eeprom sys_class_eeprom 2

@@ -61,3 +61,7 @@ echo "edgenos" > "${TARGET_DIR}/etc/hostname"
 # Record board profile for runtime init scripts.
 mkdir -p "${TARGET_DIR}/etc/edgenos"
 printf '%s\n' "$EDGENOS_BOARD" > "${TARGET_DIR}/etc/edgenos/board"
+
+if [ -x "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" ]; then
+    "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" "$TARGET_DIR"
+fi
