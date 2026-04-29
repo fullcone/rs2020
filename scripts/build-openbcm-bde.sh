@@ -11,6 +11,7 @@ OPENBCM_TREE="${OPENBCM_TREE:-$OPENBCM_WORKDIR/OpenBCM}"
 OPENBCM_SDK="${OPENBCM_SDK:-$OPENBCM_TREE/sdk-$OPENBCM_VERSION}"
 OPENBCM_TARGET="${OPENBCM_TARGET:-linux-redstone-5_10}"
 OPENBCM_BDE_OUT="${OPENBCM_BDE_OUT:-$OPENBCM_WORKDIR/redstone-bde}"
+OPENBCM_BDE_BUNDLE="${OPENBCM_BDE_BUNDLE:-$TOPDIR/output/openbcm-bde}"
 
 REDSTONE_KERNEL_DIR="${REDSTONE_KERNEL_DIR:-$TOPDIR/build/linux-5.10.224}"
 ARCH="${ARCH:-powerpc}"
@@ -27,8 +28,9 @@ Commands:
   kernel     Build linux-kernel-bde.ko for Redstone Linux 5.10
   user       Build linux-user-bde.ko for Redstone Linux 5.10
   all        Build both BDE modules, kernel first
+  bundle     Copy built BDE modules into a hardware-load bundle
   print-env  Print the resolved build paths
-  clean      Remove generated OpenBCM BDE build outputs and target file
+  clean      Remove generated OpenBCM BDE build outputs, bundle, and target file
 
 Environment overrides:
   OPENBCM_VERSION=$OPENBCM_VERSION
@@ -36,6 +38,7 @@ Environment overrides:
   OPENBCM_SDK=$OPENBCM_SDK
   OPENBCM_TARGET=$OPENBCM_TARGET
   OPENBCM_BDE_OUT=$OPENBCM_BDE_OUT
+  OPENBCM_BDE_BUNDLE=$OPENBCM_BDE_BUNDLE
   REDSTONE_KERNEL_DIR=$REDSTONE_KERNEL_DIR
   ARCH=$ARCH
   CROSS_COMPILE=$CROSS_COMPILE
@@ -86,6 +89,17 @@ check_file() {
         ok "$check_desc"
     else
         fail "$check_desc"
+    fi
+}
+
+require_file() {
+    check_desc=$1
+    check_path=$2
+
+    if [ -f "$check_path" ]; then
+        ok "$check_desc"
+    else
+        die "$check_desc missing: $check_path"
     fi
 }
 
@@ -311,6 +325,77 @@ build_user_bde() {
         "$OPENBCM_BDE_OUT/linux-kernel-bde-src/Module.symvers"
 }
 
+openbcm_head() {
+    if command -v git >/dev/null 2>&1 && [ -d "$OPENBCM_TREE/.git" ]; then
+        git -C "$OPENBCM_TREE" rev-parse HEAD 2>/dev/null || printf 'unknown'
+    else
+        printf 'unknown'
+    fi
+}
+
+kernel_release() {
+    if [ -f "$REDSTONE_KERNEL_DIR/include/config/kernel.release" ]; then
+        cat "$REDSTONE_KERNEL_DIR/include/config/kernel.release"
+    else
+        printf 'unknown'
+    fi
+}
+
+manifest_module() {
+    module_path=$1
+    module_name=$(basename "$module_path")
+
+    printf '\n[module %s]\n' "$module_name"
+    printf 'path=%s\n' "$module_path"
+    printf 'bytes=%s\n' "$(wc -c < "$module_path" | tr -d ' ')"
+    if command -v sha256sum >/dev/null 2>&1; then
+        printf 'sha256='
+        sha256sum "$module_path" | awk '{print $1}'
+    fi
+    if command -v file >/dev/null 2>&1; then
+        printf 'file='
+        file -b "$module_path"
+    fi
+    if command -v modinfo >/dev/null 2>&1; then
+        vermagic=$(modinfo -F vermagic "$module_path" 2>/dev/null || true)
+        if [ -n "$vermagic" ]; then
+            printf 'vermagic=%s\n' "$vermagic"
+        fi
+    fi
+}
+
+bundle_bde() {
+    kernel_module="$OPENBCM_BDE_OUT/linux-kernel-bde.ko"
+    user_module="$OPENBCM_BDE_OUT/linux-user-bde.ko"
+    manifest="$OPENBCM_BDE_BUNDLE/redstone-openbcm-bde.manifest"
+
+    require_file "OpenBCM kernel BDE module exists" "$kernel_module"
+    require_file "OpenBCM user BDE module exists" "$user_module"
+
+    mkdir -p "$OPENBCM_BDE_BUNDLE"
+    cp "$kernel_module" "$OPENBCM_BDE_BUNDLE/"
+    cp "$user_module" "$OPENBCM_BDE_BUNDLE/"
+
+    {
+        printf 'redstone_openbcm_bde_bundle=1\n'
+        printf 'openbcm_version=%s\n' "$OPENBCM_VERSION"
+        printf 'openbcm_head=%s\n' "$(openbcm_head)"
+        printf 'openbcm_sdk=%s\n' "$OPENBCM_SDK"
+        printf 'openbcm_target=%s\n' "$OPENBCM_TARGET"
+        printf 'redstone_kernel_dir=%s\n' "$REDSTONE_KERNEL_DIR"
+        printf 'kernel_release=%s\n' "$(kernel_release)"
+        printf 'arch=%s\n' "$ARCH"
+        printf 'cross_compile=%s\n' "$CROSS_COMPILE"
+        printf 'load_order=linux-kernel-bde.ko linux-user-bde.ko\n'
+        printf 'hardware_smoke=insmod ./linux-kernel-bde.ko dma_size=4; insmod ./linux-user-bde.ko; ls -l /dev/linux-*-bde; lspci -nn | grep -i "14e4:b846"\n'
+        manifest_module "$OPENBCM_BDE_BUNDLE/linux-kernel-bde.ko"
+        manifest_module "$OPENBCM_BDE_BUNDLE/linux-user-bde.ko"
+    } > "$manifest"
+
+    ok "bundled OpenBCM BDE modules under $OPENBCM_BDE_BUNDLE"
+    ok "wrote $manifest"
+}
+
 print_env() {
     print_var OPENBCM_VERSION
     print_var OPENBCM_WORKDIR
@@ -318,6 +403,7 @@ print_env() {
     print_var OPENBCM_SDK
     print_var OPENBCM_TARGET
     print_var OPENBCM_BDE_OUT
+    print_var OPENBCM_BDE_BUNDLE
     print_var REDSTONE_KERNEL_DIR
     print_var ARCH
     print_var CROSS_COMPILE
@@ -341,11 +427,15 @@ case "${1:-check}" in
         build_kernel_bde
         build_user_bde
         ;;
+    bundle)
+        bundle_bde
+        ;;
     print-env)
         print_env
         ;;
     clean)
         rm -rf "$OPENBCM_BDE_OUT"
+        rm -rf "$OPENBCM_BDE_BUNDLE"
         rm -f "$(target_file)"
         ok "removed OpenBCM BDE outputs"
         ;;

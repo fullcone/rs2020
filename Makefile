@@ -28,7 +28,8 @@ IMGDIR    := $(OUTDIR)/images
 PLATFORM_MODS := platform/cpld platform/retimer
 
 .PHONY: all clean toolchain kernel modules rootfs-base rootfs image installer \
-        switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde help
+        switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
+        openbcm-bde-bundle help
 
 all: image
 
@@ -44,6 +45,7 @@ help:
 	@echo "  openbcm-source - Fetch/check OpenBCM 6.5.27 source seed"
 	@echo "  openbcm-bde-check - Check OpenBCM BDE build prerequisites"
 	@echo "  openbcm-bde  - Build OpenBCM BDE modules for Redstone Linux 5.10"
+	@echo "  openbcm-bde-bundle - Copy OpenBCM BDE modules into a hardware-load bundle"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -114,6 +116,10 @@ openbcm-bde-check:
 openbcm-bde: openbcm-source
 	@echo "==> Building OpenBCM Linux BDE modules for Redstone"
 	@$(TOPDIR)/scripts/build-openbcm-bde.sh all
+
+openbcm-bde-bundle:
+	@echo "==> Bundling OpenBCM Linux BDE modules for Redstone hardware smoke testing"
+	@$(TOPDIR)/scripts/build-openbcm-bde.sh bundle
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

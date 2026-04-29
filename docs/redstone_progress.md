@@ -561,3 +561,34 @@ Next checkpoint:
 - Load `linux-kernel-bde.ko` and `linux-user-bde.ko` on Redstone hardware.
 - Confirm BCM56846 appears through BDE device nodes before starting any
   OpenBCM userland SDK init work.
+
+### Stage-3 OpenBCM BDE Hardware Bundle
+
+Completed:
+
+- Added a `bundle` command to `scripts/build-openbcm-bde.sh` that copies the
+  built OpenBCM BDE module pair into `output/openbcm-bde/`.
+- The bundle writes `redstone-openbcm-bde.manifest` with the OpenBCM tree head,
+  Redstone kernel release, target name, module metadata, optional hashes, and
+  the hardware smoke-test load order.
+- Wired `make openbcm-bde-bundle` into the top-level build system.
+- Extended Redstone source preflight to keep the OpenBCM BDE bundle path
+  visible as part of the stage-3 SDK proof trail.
+- Documented that the bundle is a lab artifact and does not replace the
+  default stage-1 image BDE modules until Redstone hardware proves load and
+  BCM56846 enumeration.
+
+Verified:
+
+- `wsl sh -n scripts/build-openbcm-bde.sh`
+- `wsl sh scripts/build-openbcm-bde.sh bundle`
+- `wsl make openbcm-bde-bundle`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Copy `output/openbcm-bde/` to the Redstone bench system.
+- Load `linux-kernel-bde.ko` first with `dma_size=4`, then
+  `linux-user-bde.ko`.
+- Capture `/dev/linux-*-bde`, `dmesg`, and `lspci -nn` evidence showing
+  `14e4:b846` before starting any OpenBCM userland SDK init work.

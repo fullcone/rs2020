@@ -119,6 +119,8 @@ check_grep 'config/rootfs/overlay' "scripts/build-rootfs.sh" \
     "build-rootfs applies the rootfs overlay"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
+check_grep 'bundle' "scripts/build-openbcm-bde.sh" \
+    "OpenBCM BDE helper can bundle hardware-load artifacts"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then
