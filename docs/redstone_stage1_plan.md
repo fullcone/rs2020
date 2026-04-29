@@ -128,6 +128,30 @@ Use `--capture` when the same run should also produce the larger
 redstone-stage1-validate --iface swp1 --peer 192.0.2.2 --strict --capture
 ```
 
+## Evidence Analysis
+
+After a hardware run, copy the validation directory or capture tarball back to
+the build host and run the evidence analyzer:
+
+```sh
+./scripts/analyze-redstone-stage1-evidence.sh /path/to/validate-20260429T000000Z
+./scripts/analyze-redstone-stage1-evidence.sh /path/to/20260429T000000Z.tar.gz
+```
+
+For an acceptance bundle, use `--strict`. Strict mode exits nonzero when
+required Stage-1 evidence is missing, including a missing validation log or a
+skipped ping:
+
+```sh
+./scripts/analyze-redstone-stage1-evidence.sh --strict /path/to/validate-20260429T000000Z
+```
+
+The analyzer is host-side only. It does not replace the live hardware run; it
+turns the collected `validate-*` directory or capture tarball into a repeatable
+PASS/WARN/FAIL checklist for board selection, BCM56846 PCIe enumeration, BDE
+modules and device nodes, `switchd`, `swp` interfaces, link-up, and ping
+evidence.
+
 ## Source Preflight
 
 Before spending time on a full Redstone rootfs or installer build, run the
@@ -139,10 +163,10 @@ EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh
 
 This verifies that the Redstone aliases resolve to `redstone-stage1.dtb` and
 `edgenos-redstone-stage1.bin`, that the rootfs overlay contains the capture,
-validation, and `switchd-init` scripts, that `switchd.service` uses the common
-init path, and that `redstone-stage1.bcm` still exposes 52 front-panel port
-mappings. If `dtc` is installed, the script also compiles the Redstone DTS
-skeleton.
+validation, and `switchd-init` scripts, that the host evidence analyzer is
+tracked and executable, that `switchd.service` uses the common init path, and
+that `redstone-stage1.bcm` still exposes 52 front-panel port mappings. If `dtc`
+is installed, the script also compiles the Redstone DTS skeleton.
 
 The kernel source download and extraction path is generated under `build/` and
 is intentionally ignored by git. To seed the Linux 5.10 source tree and install

@@ -446,3 +446,36 @@ Next checkpoint:
   `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`.
 - If that passes, rerun with `--capture` and attach the validation directory
   plus capture tarball to the next DTS/platform-driver increment.
+
+### Stage-1 Evidence Analyzer
+
+Completed:
+
+- Added `scripts/analyze-redstone-stage1-evidence.sh` as a host-side analyzer
+  for `redstone-stage1-validate` directories and `redstone-stage1-capture`
+  `.tar.gz` bundles.
+- The analyzer reports a repeatable PASS/WARN/FAIL checklist for board
+  selection, `redstone-stage1.bcm`, BDE modules, BDE device nodes, BCM56846
+  PCIe evidence, `switchd`, `swp` interfaces, link-up, ping, focused dmesg,
+  and platform sysfs evidence.
+- Added `--strict` so an acceptance bundle exits nonzero when required
+  evidence is missing, including a missing validation log or skipped ping.
+- Extended the source preflight so the analyzer must be present, shell-valid,
+  and tracked executable.
+- Updated the stage-1 plan with the evidence-analysis workflow.
+
+Verified:
+
+- `sh -n scripts/analyze-redstone-stage1-evidence.sh`
+- `./scripts/analyze-redstone-stage1-evidence.sh /tmp/redstone-validate-ok`
+- `./scripts/analyze-redstone-stage1-evidence.sh --strict /tmp/redstone-validate-ok`
+- `./scripts/analyze-redstone-stage1-evidence.sh /tmp/redstone-capture-ok.tar.gz`
+- `EDGENOS_BOARD=redstone ./scripts/check-redstone-stage1.sh`
+
+Next checkpoint:
+
+- Use `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict` on
+  hardware and analyze the resulting `validate-*` directory before changing DTS
+  or platform drivers.
+- If the validation run also produces a capture tarball, analyze the tarball and
+  keep both outputs attached to the next hardware-focused change.
