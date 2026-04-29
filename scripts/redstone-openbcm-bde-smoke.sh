@@ -237,8 +237,8 @@ detect_bcm56846() {
 
     if have_cmd lspci; then
         lspci -nn > "$out" 2>&1 || true
-        if grep -qiE '14e4.*(b846|56846)|b846|56846' "$out"; then
-            pass "BCM56846 PCIe device detected by lspci"
+        if grep -qiE '(^|[^[:xdigit:]])14e4:b846([^[:xdigit:]]|$)' "$out"; then
+            pass "BCM56846 PCIe device detected by lspci as 14e4:b846"
             return
         fi
     else

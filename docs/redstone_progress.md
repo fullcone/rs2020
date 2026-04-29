@@ -628,3 +628,22 @@ Next checkpoint:
   bench system.
 - Use the smoke evidence directory as the input for the next OpenBCM userland
   SDK init increment.
+
+### Stage-3 OpenBCM BDE Smoke PCI-ID Specificity Fix
+
+Completed:
+
+- Tightened the BDE smoke helper `lspci` path so it only accepts the exact
+  Broadcom BCM56846 PCI ID pair `14e4:b846`.
+- Added Redstone preflight coverage to keep vendorless `b846` or `56846`
+  `lspci` matches from satisfying the smoke helper.
+
+Verified:
+
+- `wsl sh -n scripts/redstone-openbcm-bde-smoke.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --check`
+- Temporary `lspci` fixture with `[8086:b846] BCM56846 text` did not satisfy
+  the `lspci` BCM56846 detection path.
+- Temporary `lspci` fixture with `[14e4:b846]` satisfied the exact BCM56846
+  detection path.

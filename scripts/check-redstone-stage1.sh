@@ -43,6 +43,18 @@ check_grep() {
     fi
 }
 
+check_no_fixed() {
+    needle=$1
+    rel=$2
+    desc=$3
+
+    if grep -Fq "$needle" "$TOPDIR/$rel"; then
+        fail "$desc"
+    else
+        ok "$desc"
+    fi
+}
+
 check_alias() {
     alias=$1
     result=$(
@@ -124,6 +136,10 @@ check_grep 'bundle' "scripts/build-openbcm-bde.sh" \
     "OpenBCM BDE helper can bundle hardware-load artifacts"
 check_grep 'redstone-openbcm-bde-smoke\.sh' "scripts/build-openbcm-bde.sh" \
     "OpenBCM BDE bundle includes the hardware smoke helper"
+check_grep '14e4:b846' "scripts/redstone-openbcm-bde-smoke.sh" \
+    "OpenBCM BDE smoke helper requires exact BCM56846 PCI ID"
+check_no_fixed '14e4.*(b846|56846)|b846|56846' "scripts/redstone-openbcm-bde-smoke.sh" \
+    "OpenBCM BDE smoke helper avoids vendorless lspci matches"
 
 portmaps=$(grep -Ec '^portmap_[0-9]+=' "$TOPDIR/config/bcm/redstone-stage1.bcm" || true)
 if [ "$portmaps" -eq 52 ]; then

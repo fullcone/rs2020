@@ -69,8 +69,8 @@ The bundle is written to `output/openbcm-bde/` by default and contains:
 The manifest records the OpenBCM tree head, target name, Redstone kernel
 release, module sizes, optional hashes, and the first hardware smoke-test
 command. The smoke helper loads the bundle modules in order, checks
-`/dev/linux-*-bde`, captures focused `dmesg`, and verifies BCM56846 as
-`14e4:b846` through `lspci` or PCI sysfs.
+`/dev/linux-*-bde`, captures focused `dmesg`, and verifies BCM56846 through
+the exact `14e4:b846` PCI ID pair from `lspci` or PCI sysfs.
 
 Run the helper from the bundle directory on a bench Redstone system:
 

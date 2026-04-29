@@ -354,9 +354,10 @@ kernel release, module metadata, and the hardware smoke-test command:
 
 The smoke helper writes a timestamped evidence directory under
 `/var/log/redstone-stage1/`, checks the BDE character devices, captures focused
-module and `dmesg` output, and verifies BCM56846 as `14e4:b846` through
-`lspci` or PCI sysfs. If same-named BDE modules are already loaded from the
-default stage-1 image, the helper fails by default; stop `switchd` and pass
+module and `dmesg` output, and verifies BCM56846 through the exact
+`14e4:b846` PCI ID pair from `lspci` or PCI sysfs. If same-named BDE modules
+are already loaded from the default stage-1 image, the helper fails by default;
+stop `switchd` and pass
 `--reload-existing` when intentionally replacing the in-image BDE modules with
 the OpenBCM bundle on a bench system.
 
