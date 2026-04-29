@@ -112,6 +112,7 @@ prove L3 routing, ACL, ECMP, or full hardware offload.
 - host-tools/analyze-redstone-stage1-evidence.sh
 - host-tools/analyze-redstone-handoff-capture.sh
 - host-tools/verify-redstone-hardware-handoff.sh
+- host-tools/prepare-redstone-bench-note.sh
 - bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md
 
 ## ONIE Install
@@ -149,12 +150,11 @@ run:
 Create one completed result note per hardware run outside this verified handoff
 directory and keep it with the returned validation bundle and console log:
 
-RESULT_DIR=\${REDSTONE_RESULT_DIR:-../redstone-bench-results}
-mkdir -p "\$RESULT_DIR"
-cp bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md "\$RESULT_DIR/\$(date -u +%Y%m%dT%H%M%SZ)-stage1.md"
+./host-tools/prepare-redstone-bench-note.sh . "\${REDSTONE_RESULT_DIR:-../redstone-bench-results}"
 
 Do not write per-run notes into this handoff directory. The manifest verifier
-rejects files that are not listed in MANIFEST.txt.
+rejects files that are not listed in MANIFEST.txt. The helper above refuses
+destinations inside this handoff directory.
 
 ## Optional OpenBCM BDE Smoke
 
@@ -215,6 +215,7 @@ package() {
     require_file "$TOPDIR/scripts/analyze-redstone-stage1-evidence.sh"
     require_file "$TOPDIR/scripts/analyze-redstone-handoff-capture.sh"
     require_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh"
+    require_file "$TOPDIR/scripts/prepare-redstone-bench-note.sh"
     require_file "$TOPDIR/docs/redstone_bench_result_template.md"
 
     REQUIRE_OPENBCM_INIT_PROBE=1 \
@@ -237,6 +238,8 @@ package() {
         "$OUTDIR/host-tools/analyze-redstone-handoff-capture.sh"
     copy_file "$TOPDIR/scripts/verify-redstone-hardware-handoff.sh" \
         "$OUTDIR/host-tools/verify-redstone-hardware-handoff.sh"
+    copy_file "$TOPDIR/scripts/prepare-redstone-bench-note.sh" \
+        "$OUTDIR/host-tools/prepare-redstone-bench-note.sh"
     copy_file "$TOPDIR/docs/redstone_bench_result_template.md" \
         "$OUTDIR/bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md"
 

@@ -1302,3 +1302,40 @@ Next checkpoint:
 
 - Commit, request PR review, then continue with the next Redstone stage-1
   hardware-run prep item.
+
+### Stage-3 Bench Note Helper
+
+Completed:
+
+- Added `prepare-redstone-bench-note.sh` as a packaged host-side helper for
+  creating timestamped bench result notes outside the manifest-verified handoff
+  directory.
+- Updated the generated handoff runbook to use the helper instead of a manual
+  copy command, so operators get the same external result-directory guard every
+  run.
+- Updated the handoff verifier, source preflight, and stage plan so the helper
+  is required in the package and documented as the supported note creation path.
+
+Verified:
+
+- `wsl sh -n scripts/prepare-redstone-bench-note.sh`
+- `wsl sh -n scripts/package-redstone-hardware-handoff.sh`
+- `wsl sh -n scripts/verify-redstone-hardware-handoff.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+  passed with `0 warning(s)`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/package-redstone-hardware-handoff.sh`
+  regenerated `output/redstone-handoff` and
+  `output/redstone-stage1-hardware-handoff.tar.gz`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-handoff`
+  reported `55 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh scripts/verify-redstone-hardware-handoff.sh output/redstone-stage1-hardware-handoff.tar.gz`
+  reported `56 pass, 0 warning(s), 0 failure(s)`.
+- `wsl sh output/redstone-handoff/host-tools/prepare-redstone-bench-note.sh output/redstone-handoff output/redstone-bench-results-test`
+  created an external timestamped note.
+- `wsl sh -c 'if sh output/redstone-handoff/host-tools/prepare-redstone-bench-note.sh output/redstone-handoff output/redstone-handoff/bench-results/notes; then echo unexpected-success; exit 1; else echo refusal-path-passed; fi'`
+  confirmed the helper refuses handoff-internal result paths.
+
+Next checkpoint:
+
+- Commit, request PR review, then continue with the next Redstone stage-1
+  hardware-run prep item.

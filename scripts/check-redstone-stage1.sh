@@ -118,6 +118,7 @@ check_file "scripts/build-all.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
 check_file "scripts/verify-redstone-hardware-handoff.sh"
+check_file "scripts/prepare-redstone-bench-note.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
 check_file "scripts/analyze-redstone-handoff-capture.sh"
 check_file "scripts/analyze-redstone-openbcm-bde-smoke.sh"
@@ -197,18 +198,30 @@ check_grep 'analyze-redstone-handoff-capture\.sh' \
 check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package bundles the bench result template"
+check_grep 'host-tools/prepare-redstone-bench-note\.sh' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff package bundles the bench note helper"
+check_grep 'prepare-redstone-bench-note\.sh[[:space:]]+[.]' \
+    "scripts/package-redstone-hardware-handoff.sh" \
+    "Redstone handoff runbook uses the bench note helper"
 check_grep 'REDSTONE_RESULT_DIR' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook writes per-run bench notes outside the verified package"
 check_no_regex 'cp[[:space:]]+bench-results/REDSTONE-BENCH-RESULT-TEMPLATE[.]md[[:space:]]+bench-results/' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook does not add per-run notes into the verified package"
+check_grep 'refusing to write bench notes inside the manifest-verified handoff directory' \
+    "scripts/prepare-redstone-bench-note.sh" \
+    "bench note helper refuses handoff-internal result paths"
 check_grep 'bench-results/REDSTONE-BENCH-RESULT-TEMPLATE\.md' \
     "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier requires the bench result template"
 check_grep 'host-tools/analyze-redstone-handoff-capture\.sh' \
     "scripts/verify-redstone-hardware-handoff.sh" \
     "Redstone handoff verifier requires the combined host capture analyzer"
+check_grep 'host-tools/prepare-redstone-bench-note\.sh' \
+    "scripts/verify-redstone-hardware-handoff.sh" \
+    "Redstone handoff verifier requires the bench note helper"
 check_grep 'analyze-redstone-handoff-capture\.sh[[:space:]]+[.][[:space:]]+PATH_TO_VALIDATION_BUNDLE_OR_DIR' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook verifies handoff and validation bundle through one host command"
@@ -378,6 +391,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
         scripts/verify-redstone-hardware-handoff.sh \
+        scripts/prepare-redstone-bench-note.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
         scripts/analyze-redstone-handoff-capture.sh \
         scripts/analyze-redstone-openbcm-bde-smoke.sh \
@@ -458,6 +472,15 @@ if command -v git >/dev/null 2>&1; then
         ok "verify-redstone-hardware-handoff.sh is tracked executable"
     else
         fail "verify-redstone-hardware-handoff.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/prepare-redstone-bench-note.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "prepare-redstone-bench-note.sh is tracked executable"
+    else
+        fail "prepare-redstone-bench-note.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

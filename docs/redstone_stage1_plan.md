@@ -490,11 +490,13 @@ placeholders such as `REDSTONE_IFACE=swpN`,
 `REDSTONE_LOCAL_CIDR=192.0.2.1/24`, and `REDSTONE_PEER=192.0.2.2`, then
 running `redstone-stage1-bench-run --iface "$REDSTONE_IFACE" --local-cidr "$REDSTONE_LOCAL_CIDR" --peer "$REDSTONE_PEER"`.
 The package also includes
-`bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md`; copy it for each bench run
-to a results directory outside the verified handoff package, then keep the
-completed note beside the returned strict validation bundle and console log.
-Do not write per-run notes back into an unpacked handoff directory, because the
-manifest verifier rejects files that are not listed in `MANIFEST.txt`.
+`bench-results/REDSTONE-BENCH-RESULT-TEMPLATE.md` and
+`host-tools/prepare-redstone-bench-note.sh`; run the helper for each bench run
+to create a timestamped note in a results directory outside the verified
+handoff package, then keep the completed note beside the returned strict
+validation bundle and console log. The helper refuses result directories inside
+an unpacked handoff directory, because the manifest verifier rejects files that
+are not listed in `MANIFEST.txt`.
 Before using an unpacked handoff directory on the bench host, run
 `./host-tools/verify-redstone-hardware-handoff.sh .` from the package root, or
 verify the tarball from the source tree with:
