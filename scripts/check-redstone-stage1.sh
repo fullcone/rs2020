@@ -102,6 +102,7 @@ check_file "scripts/build-modules.sh"
 check_file "scripts/build-all.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/analyze-redstone-stage1-evidence.sh"
+check_file "scripts/prepare-openbcm.sh"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -135,6 +136,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-all.sh \
         scripts/check-redstone-image.sh \
         scripts/analyze-redstone-stage1-evidence.sh \
+        scripts/prepare-openbcm.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -196,6 +198,15 @@ if command -v git >/dev/null 2>&1; then
         ok "analyze-redstone-stage1-evidence.sh is tracked executable"
     else
         fail "analyze-redstone-stage1-evidence.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/prepare-openbcm.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "prepare-openbcm.sh is tracked executable"
+    else
+        fail "prepare-openbcm.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

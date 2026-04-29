@@ -28,7 +28,7 @@ IMGDIR    := $(OUTDIR)/images
 PLATFORM_MODS := platform/cpld platform/retimer
 
 .PHONY: all clean toolchain kernel modules rootfs-base rootfs image installer \
-        switchd bde openmdk help
+        switchd bde openmdk openbcm-source help
 
 all: image
 
@@ -41,6 +41,7 @@ help:
 	@echo "  modules      - Build platform kernel modules (CPLD, retimer)"
 	@echo "  bde          - Build BDE kernel modules"
 	@echo "  openmdk      - Build OpenMDK libraries (CDK, BMD, PHY)"
+	@echo "  openbcm-source - Fetch/check OpenBCM 6.5.27 source seed"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -99,6 +100,11 @@ bde: kernel
 openmdk:
 	@echo "==> Building OpenMDK (CDK/BMD/PHY)"
 	@$(TOPDIR)/scripts/build-sdk.sh
+
+openbcm-source:
+	@echo "==> Preparing OpenBCM 6.5.27 source seed"
+	@$(TOPDIR)/scripts/prepare-openbcm.sh fetch
+	@$(TOPDIR)/scripts/prepare-openbcm.sh check
 
 # ── Switch daemon ──────────────────────────────────────────────────
 

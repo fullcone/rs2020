@@ -8,6 +8,24 @@ This is a source and integration target, not a claim that OpenBCM 6.5.27 is
 already hardware-proven on Redstone. Stage 1 remains independent of OpenBCM and
 continues to target boot, BCM56846 detection, one port link-up, and one ping.
 
+## Source Seed
+
+The Redstone fork keeps OpenBCM as a generated source input, not vendored SDK
+code. The default source seed is pinned to OpenBCM commit
+`6d2330ce1b4fc49d681cffcf09af408661be4c62` and sparse-checks out only
+`sdk-6.5.27` under the ignored `build/openbcm/` tree.
+
+```sh
+./scripts/prepare-openbcm.sh fetch
+./scripts/prepare-openbcm.sh check
+./scripts/prepare-openbcm.sh print-env
+```
+
+`OPENBCM_REF`, `OPENBCM_REPO_URL`, `OPENBCM_VERSION`, and
+`OPENBCM_WORKDIR` can be overridden for intentional refreshes or local mirrors,
+but refreshes should be explicit commits because the SDK source seed is part of
+the proof trail.
+
 ## Why 6.5.27
 
 The local OpenBCM 6.5.27 tree has the pieces a Redstone SDK proof needs:

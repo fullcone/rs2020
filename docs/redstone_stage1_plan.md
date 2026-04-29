@@ -309,6 +309,20 @@ not prove that OpenBCM 6.5.27 is already a drop-in fit for EdgeNOS on a
 P2020/PowerPC32 big-endian target. That proof requires building and loading the
 BDE modules and userland on Redstone hardware.
 
+Seed the public SDK source under the ignored build tree before starting SDK
+proof work:
+
+```sh
+./scripts/prepare-openbcm.sh fetch
+./scripts/prepare-openbcm.sh check
+```
+
+The default seed is pinned to OpenBCM commit
+`6d2330ce1b4fc49d681cffcf09af408661be4c62` and sparse-checks out
+`sdk-6.5.27` under `build/openbcm/OpenBCM/`. The `check` command only proves
+that the source baseline has expected BCM56846, Trident, Linux BDE, L3, and FP
+source evidence. It does not prove a Redstone hardware offload path.
+
 The original Redstone firmware evidence points to Broadcom XGS Robo SDK 5.10.2.
 That makes SDK 5.10.x the best compatibility reference for board facts, PHY
 setup expectations, and regression triage. If an authorized SDK 5.10.x tree is
@@ -341,6 +355,8 @@ available, it remains the lowest-risk way to compare Redstone-specific behavior.
 ### Stage 3: SDK Proof
 
 - Use OpenBCM 6.5.27 as the primary open SDK proof target.
+- Keep OpenBCM 6.5.27 as an ignored generated source seed from
+  `scripts/prepare-openbcm.sh`; do not vendor SDK source into this fork.
 - Use SDK 5.10.x-era evidence as the compatibility reference because it matches
   the original Redstone firmware lineage.
 - Prove the OpenBCM 6.5.27 BDE kernel modules and userland build for Linux 5.10

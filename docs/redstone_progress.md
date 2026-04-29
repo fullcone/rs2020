@@ -503,3 +503,30 @@ Next checkpoint:
 - Keep using `redstone-stage1-validate --iface <swpN> --peer <peer-ip> --strict`
   for acceptance; capture-only bundles remain diagnostic unless strict validation
   output is present.
+
+### Stage-3 OpenBCM Source Seed
+
+Completed:
+
+- Added `scripts/prepare-openbcm.sh` to fetch, pin, and sanity-check the
+  OpenBCM 6.5.27 source seed under the ignored `build/openbcm/` tree.
+- Wired `make openbcm-source` to fetch and check the source seed.
+- Extended Redstone source preflight so the OpenBCM source-seed script must be
+  present, shell-valid, and tracked executable.
+- Updated the SDK decision and stage plan to document that OpenBCM is a
+  generated source input, not vendored SDK code.
+
+Verified:
+
+- `sh -n scripts/prepare-openbcm.sh`
+- `./scripts/prepare-openbcm.sh print-env`
+- `./scripts/prepare-openbcm.sh fetch`
+- `./scripts/prepare-openbcm.sh check`
+- `make openbcm-source`
+
+Next checkpoint:
+
+- Use the pinned source seed to build the OpenBCM Linux BDE modules for Linux
+  5.10 and PowerPC32 big-endian.
+- Do not claim L3/ACL/ECMP offload until OpenBCM userland and BDE have run on
+  Redstone hardware.
