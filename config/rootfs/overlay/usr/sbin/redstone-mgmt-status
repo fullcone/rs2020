@@ -1,0 +1,204 @@
+#!/bin/sh
+# Emit a read-only JSON status snapshot for Redstone stage-1 management.
+
+set -u
+
+BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
+SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
+CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
+BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-bench}
+
+read_first() {
+    file=$1
+    value=
+    if [ -r "$file" ]; then
+        IFS= read -r value < "$file" || true
+    fi
+    printf '%s' "$value"
+}
+
+json_escape() {
+    printf '%s' "$1" | tr '\r\n' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+bool_file() {
+    if [ -e "$1" ]; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+bool_cmd() {
+    if command -v "$1" >/dev/null 2>&1; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+bool_httpd() {
+    if command -v httpd >/dev/null 2>&1; then
+        printf true
+    elif command -v busybox >/dev/null 2>&1 && busybox httpd --help >/dev/null 2>&1; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+module_loaded() {
+    name_a=$1
+    name_b=$2
+    if [ -r /proc/modules ] && grep -Eq "^($name_a|$name_b)[[:space:]]" /proc/modules; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+sha256_file() {
+    file=$1
+    if [ ! -f "$file" ]; then
+        printf ''
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" 2>/dev/null | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" 2>/dev/null | awk '{print $1}'
+    else
+        printf ''
+    fi
+}
+
+latest_entry() {
+    base=$1
+    if [ -d "$base" ]; then
+        ls -1dt "$base"/* 2>/dev/null | head -n 1
+    fi
+}
+
+board=$(read_first "$BOARD_FILE")
+[ -n "$board" ] || board=unknown
+
+if [ -n "${REDSTONE_MGMT_CONFIG:-}" ]; then
+    selected_config=$REDSTONE_MGMT_CONFIG
+else
+    case "$board" in
+        redstone|rs2020|r0678)
+            selected_config="$SWITCHD_CONFIG_DIR/redstone-stage1.bcm"
+            ;;
+        *)
+            selected_config="$SWITCHD_CONFIG_DIR/config.bcm"
+            ;;
+    esac
+fi
+
+config_exists=false
+config_sha256=
+portmap_count=0
+split_mode=missing
+if [ -f "$selected_config" ]; then
+    config_exists=true
+    config_sha256=$(sha256_file "$selected_config")
+    portmap_count=$(grep -Ec '^portmap_[0-9]+=' "$selected_config" 2>/dev/null || true)
+    [ -n "$portmap_count" ] || portmap_count=0
+    if grep -Eq '^portmap_49=61:10$' "$selected_config" 2>/dev/null && \
+        grep -Eq '^portmap_61=65:40$' "$selected_config" 2>/dev/null; then
+        split_mode=original-active-split-49-50-51
+    elif grep -Eq '^portmap_49=61:40$' "$selected_config" 2>/dev/null; then
+        split_mode=stage1-skeleton-4x40g
+    else
+        split_mode=custom-or-unknown
+    fi
+fi
+
+eth=eth1
+eth_dir="/sys/class/net/$eth"
+eth_present=false
+[ -d "$eth_dir" ] && eth_present=true
+eth_address=$(read_first "$eth_dir/address")
+eth_operstate=$(read_first "$eth_dir/operstate")
+eth_carrier=$(read_first "$eth_dir/carrier")
+eth_speed=$(read_first "$eth_dir/speed")
+eth_duplex=$(read_first "$eth_dir/duplex")
+
+bcm_present=false
+bcm_slot=
+bcm_driver=
+for dev in /sys/bus/pci/devices/*; do
+    [ -d "$dev" ] || continue
+    vendor=$(read_first "$dev/vendor")
+    device=$(read_first "$dev/device")
+    if [ "$vendor" = "0x14e4" ] && [ "$device" = "0xb846" ]; then
+        bcm_present=true
+        bcm_slot=${dev##*/}
+        if [ -L "$dev/driver" ]; then
+            bcm_driver=$(basename "$(readlink "$dev/driver")")
+        fi
+        break
+    fi
+done
+
+switchd_pids=$(pidof switchd 2>/dev/null || true)
+switchd_running=false
+[ -n "$switchd_pids" ] && switchd_running=true
+
+capture_latest=$(latest_entry "$CAPTURE_BASE")
+bench_latest=$(latest_entry "$BENCH_BASE")
+
+cat <<EOF
+{
+  "schema": "redstone-mgmt-status.v1",
+  "generated_at": $(json_str "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true)"),
+  "hostname": $(json_str "$(hostname 2>/dev/null || true)"),
+  "board": $(json_str "$board"),
+  "selected_config": {
+    "path": $(json_str "$selected_config"),
+    "exists": $config_exists,
+    "sha256": $(json_str "$config_sha256"),
+    "portmap_count": $portmap_count,
+    "split_mode": $(json_str "$split_mode")
+  },
+  "management_eth1": {
+    "present": $eth_present,
+    "address": $(json_str "$eth_address"),
+    "operstate": $(json_str "$eth_operstate"),
+    "carrier": $(json_str "$eth_carrier"),
+    "speed": $(json_str "$eth_speed"),
+    "duplex": $(json_str "$eth_duplex")
+  },
+  "bcm56846": {
+    "pci_present": $bcm_present,
+    "slot": $(json_str "$bcm_slot"),
+    "driver": $(json_str "$bcm_driver")
+  },
+  "bde": {
+    "kernel_node": $(bool_file /dev/linux-kernel-bde),
+    "user_node": $(bool_file /dev/linux-user-bde),
+    "kernel_module": $(module_loaded linux-kernel-bde linux_kernel_bde),
+    "user_module": $(module_loaded linux-user-bde linux_user_bde)
+  },
+  "switchd": {
+    "running": $switchd_running,
+    "pids": $(json_str "$switchd_pids")
+  },
+  "tools": {
+    "redstone_stage1_capture": $(bool_cmd redstone-stage1-capture),
+    "redstone_stage1_validate": $(bool_cmd redstone-stage1-validate),
+    "redstone_stage1_bench_run": $(bool_cmd redstone-stage1-bench-run),
+    "redstone_openbcm_bde_smoke": $(bool_cmd redstone-openbcm-bde-smoke.sh),
+    "redstone_openbcm_init_probe": $(bool_cmd redstone-openbcm-init-probe),
+    "busybox_httpd": $(bool_httpd)
+  },
+  "evidence": {
+    "capture_base": $(json_str "$CAPTURE_BASE"),
+    "latest_capture": $(json_str "$capture_latest"),
+    "bench_base": $(json_str "$BENCH_BASE"),
+    "latest_bench": $(json_str "$bench_latest")
+  }
+}
+EOF

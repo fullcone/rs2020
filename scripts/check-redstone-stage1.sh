@@ -107,6 +107,12 @@ check_file "config/bcm/redstone-stage1.bcm"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run"
+check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-status"
+check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
+check_file "config/rootfs/overlay/www/cgi-bin/redstone-status"
+check_file "config/rootfs/overlay/www/redstone/index.html"
+check_file "config/rootfs/overlay/www/redstone/redstone.css"
+check_file "config/rootfs/overlay/www/redstone/redstone.js"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
 check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
@@ -136,6 +142,7 @@ check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 check_file "docs/redstone_bench_result_template.md"
 check_file "docs/redstone_stage1_plan.md"
 check_file "docs/redstone_progress.md"
+check_file "docs/redstone_web_mgmt_plan.md"
 check_file "docs/redstone_usb_stage1_operator_checklist.md"
 check_file "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch"
 check_file "kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch"
@@ -148,6 +155,10 @@ check_grep 'BR2_TOOLCHAIN_BUILDROOT_GLIBC=y' "config/rootfs/buildroot_defconfig"
     "shared rootfs defconfig preserves AS5610 glibc"
 check_grep 'BR2_INIT_SYSTEMD=y' "config/rootfs/buildroot_defconfig" \
     "shared rootfs defconfig preserves AS5610 systemd"
+check_grep 'CONFIG_HTTPD=y' "config/rootfs/busybox-fragment.config" \
+    "BusyBox fragment enables optional Redstone management httpd"
+check_grep 'CONFIG_FEATURE_HTTPD_CGI=y' "config/rootfs/busybox-fragment.config" \
+    "BusyBox fragment enables optional Redstone management CGI"
 check_grep 'if \[ "\$EDGENOS_BOARD" = "redstone" \]' "scripts/build-rootfs.sh" \
     "build-rootfs gates Redstone rootfs defconfig overrides on selected board"
 check_grep 'BR2_powerpc_8548=y' "scripts/build-rootfs.sh" \
@@ -170,6 +181,10 @@ check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
     "build-rootfs installs optional Redstone OpenBCM init probe"
 check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone bench runner executable mode"
+check_grep 'redstone-mgmt-status' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone management status executable mode"
+check_grep 'www/cgi-bin/redstone-status' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone management CGI executable mode"
 check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
     "Buildroot post-build installs optional Redstone OpenBCM init probe"
 check_grep 'sed -i.*s/\\r\$//' "config/rootfs/post-build.sh" \
@@ -178,6 +193,10 @@ check_grep 'Redstone stage-1 manual management links' "config/rootfs/post-build.
     "Redstone post-build keeps eTSEC management links manual"
 check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" \
     "Redstone post-build repairs sshd /var/empty permissions at runtime"
+check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
+    "Redstone post-build normalizes management status script"
+check_grep 'www/cgi-bin/redstone-status' "config/rootfs/post-build.sh" \
+    "Redstone post-build marks management CGI executable"
 check_grep 'mktemp -d.*redstone-b2-fit' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder uses a Linux temporary workspace"
 check_grep 'unsafe FIT image name' "scripts/build-redstone-b2-tftp-fit.sh" \
@@ -526,6 +545,9 @@ check_grep 'sdk_baseline=openbcm-6\.5\.27' "scripts/build-openbcm-init-probe.sh"
 check_grep 'redstone-openbcm-init-probe --dry-run' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
     "capture records OpenBCM init probe dry-run evidence"
+check_grep 'capture_shell redstone_mgmt_status' \
+    "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+    "capture records Redstone management status JSON"
 check_grep 'Usage: redstone-stage1-capture \[--scan-i2c\] \[--verbose\]' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
     "capture supports verbose progress output for hardware runs"
@@ -628,6 +650,29 @@ check_grep 'redstone-openbcm-bde-smoke\.sh' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner does not invoke reset-risk init probe exec path"
+check_grep 'redstone-mgmt-status' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-status" \
+    "management CGI delegates to the read-only status provider"
+check_grep '127[.]0[.]0[.]1:8080' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-web" \
+    "management web launcher binds to loopback by default"
+check_no_regex 'redstone-mgmt-web|httpd' \
+    "config/rootfs/overlay/etc/init.d/S20edgenos" \
+    "management web UI is not auto-started by BusyBox init"
+check_no_regex 'redstone-mgmt-web|httpd' \
+    "config/rootfs/overlay/etc/systemd/system/switchd.service" \
+    "management web UI is not auto-started by switchd service"
+check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management web UI does not expose destructive actions"
+check_grep 'redstone-mgmt-status' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the read-only status provider"
+check_grep '127[.]0[.]0[.]1:8080' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents loopback default bind"
+check_grep 'must not:' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan records safety boundaries"
+check_grep 'redstone-mgmt-web' "docs/redstone_stage1_plan.md" \
+    "stage plan documents manual web management launcher"
 
 check_unusable_explicit_dir() {
     label=$1
@@ -712,6 +757,9 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-status \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-web \
+        config/rootfs/overlay/www/cgi-bin/redstone-status \
         config/rootfs/overlay/usr/sbin/switchd-init
     do
         if sh -n "$TOPDIR/$script"; then
@@ -931,6 +979,33 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-stage1-bench-run is tracked executable"
     else
         fail "redstone-stage1-bench-run git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-status |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-mgmt-status is tracked executable"
+    else
+        fail "redstone-mgmt-status git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-web |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-mgmt-web is tracked executable"
+    else
+        fail "redstone-mgmt-web git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/www/cgi-bin/redstone-status |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-status CGI is tracked executable"
+    else
+        fail "redstone-status CGI git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

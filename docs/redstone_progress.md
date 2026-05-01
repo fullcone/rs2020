@@ -5,6 +5,30 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Web Management Scaffold
+
+Completed:
+
+- Added a read-only Redstone management status contract through
+  `redstone-mgmt-status`, covering board selection, BCM config source/hash,
+  eth1 state, BCM56846 PCI presence, BDE nodes/modules, switchd state, and
+  latest evidence paths.
+- Added a static management page under `/www/redstone/` plus
+  `/cgi-bin/redstone-status` for the JSON endpoint.
+- Added `redstone-mgmt-web` as a manual BusyBox httpd launcher. It binds to
+  `127.0.0.1:8080` by default and is not wired into boot.
+- Enabled BusyBox httpd/CGI in the Redstone rootfs fragment so the management
+  page can run on the target without adding a large web stack.
+- Documented the Web safety boundary in `docs/redstone_web_mgmt_plan.md`: no
+  browser-triggered SDK exec, reset-risk acceptance, flash writes, ONIE install,
+  or U-Boot environment writes in the first web slice.
+
+Next checkpoint:
+
+- After the read-only page is verified on hardware, add CGI actions in this
+  order: capture-only, strict validation, BDE smoke, OpenBCM init-probe dry-run,
+  then any SDK exec path only after another hardware-risk review.
+
 ### Stage-5 Original SDK Follow-Up Intelligence
 
 Completed:

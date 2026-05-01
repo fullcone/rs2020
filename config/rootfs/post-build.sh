@@ -72,6 +72,9 @@ for text_file in \
     "${TARGET_DIR}/usr/sbin/redstone-stage1-bench-run" \
     "${TARGET_DIR}/usr/sbin/redstone-stage1-capture" \
     "${TARGET_DIR}/usr/sbin/redstone-stage1-validate" \
+    "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
+    "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
+    "${TARGET_DIR}/www/cgi-bin/redstone-status" \
     "${TARGET_DIR}/usr/sbin/switchd-init"
 do
     [ -f "$text_file" ] && sed -i 's/\r$//' "$text_file"
@@ -135,6 +138,14 @@ esac
 exit 0
 EOF
 chmod 0755 "${TARGET_DIR}/etc/init.d/S39loopback"
+
+for script in \
+    "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
+    "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
+    "${TARGET_DIR}/www/cgi-bin/redstone-status"
+do
+    [ -f "$script" ] && chmod 0755 "$script"
+done
 
 if [ -x "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" ]; then
     "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" "$TARGET_DIR"

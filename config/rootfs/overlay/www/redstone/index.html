@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redstone Management</title>
+  <link rel="stylesheet" href="/redstone/redstone.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">EdgeNOS Stage-1</p>
+        <h1>Redstone Management</h1>
+      </div>
+      <button id="refresh" type="button">Refresh</button>
+    </header>
+
+    <section class="status-strip" aria-label="Current status">
+      <div class="status-item">
+        <span class="label">Board</span>
+        <strong id="board">unknown</strong>
+      </div>
+      <div class="status-item">
+        <span class="label">Config</span>
+        <strong id="split-mode">unknown</strong>
+      </div>
+      <div class="status-item">
+        <span class="label">Management</span>
+        <strong id="mgmt-link">unknown</strong>
+      </div>
+      <div class="status-item">
+        <span class="label">BCM56846</span>
+        <strong id="bcm-state">unknown</strong>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Management Port</h2>
+        <dl>
+          <div><dt>Interface</dt><dd>eth1</dd></div>
+          <div><dt>MAC</dt><dd id="eth-address">unknown</dd></div>
+          <div><dt>State</dt><dd id="eth-state">unknown</dd></div>
+          <div><dt>Speed</dt><dd id="eth-speed">unknown</dd></div>
+        </dl>
+      </article>
+
+      <article class="panel">
+        <h2>ASIC Bring-Up</h2>
+        <dl>
+          <div><dt>PCI Slot</dt><dd id="bcm-slot">unknown</dd></div>
+          <div><dt>Driver</dt><dd id="bcm-driver">unknown</dd></div>
+          <div><dt>Kernel BDE</dt><dd id="kernel-bde">unknown</dd></div>
+          <div><dt>User BDE</dt><dd id="user-bde">unknown</dd></div>
+        </dl>
+      </article>
+
+      <article class="panel wide">
+        <h2>Switch Config</h2>
+        <dl>
+          <div><dt>Path</dt><dd id="config-path">unknown</dd></div>
+          <div><dt>SHA256</dt><dd id="config-sha">unknown</dd></div>
+          <div><dt>Portmaps</dt><dd id="config-portmaps">0</dd></div>
+          <div><dt>Switchd</dt><dd id="switchd">unknown</dd></div>
+        </dl>
+      </article>
+
+      <article class="panel wide">
+        <h2>Evidence</h2>
+        <dl>
+          <div><dt>Latest Capture</dt><dd id="latest-capture">none</dd></div>
+          <div><dt>Latest Bench</dt><dd id="latest-bench">none</dd></div>
+          <div><dt>Updated</dt><dd id="generated-at">unknown</dd></div>
+        </dl>
+      </article>
+    </section>
+  </main>
+  <script src="/redstone/redstone.js"></script>
+</body>
+</html>

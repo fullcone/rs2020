@@ -229,7 +229,8 @@ capture_dt_prop aliases/pci0
 capture_dt_prop aliases/pci1
 
 capture_shell uname 'uname -a'
-capture_shell command_inventory 'for c in sh uname dmesg lspci lsmod modinfo insmod rmmod ip ifconfig ethtool phytool mii-diag mdio devmem tc ss ping i2cdetect i2cdump i2cget journalctl systemctl switchd switchd-init redstone-openbcm-init-probe redstone-stage1-validate redstone-stage1-bench-run tar gzip awk sed grep find readlink stat; do printf "%s=" "$c"; command -v "$c" 2>/dev/null || echo unavailable; done'
+capture_shell command_inventory 'for c in sh uname dmesg lspci lsmod modinfo insmod rmmod ip ifconfig ethtool phytool mii-diag mdio devmem tc ss ping i2cdetect i2cdump i2cget journalctl systemctl switchd switchd-init redstone-mgmt-status redstone-mgmt-web redstone-openbcm-init-probe redstone-stage1-validate redstone-stage1-bench-run tar gzip awk sed grep find readlink stat httpd; do printf "%s=" "$c"; command -v "$c" 2>/dev/null || echo unavailable; done'
+capture_shell redstone_mgmt_status 'if command -v redstone-mgmt-status >/dev/null 2>&1; then redstone-mgmt-status; else echo "redstone-mgmt-status unavailable"; fi'
 capture_shell cmdline 'cat /proc/cmdline'
 capture_shell cpuinfo 'cat /proc/cpuinfo'
 capture_shell memory 'cat /proc/meminfo'

@@ -75,6 +75,15 @@ not the Redstone EdgeNOS stage-1 image. Likewise,
 not a raw USB disk image that can be written directly with `dd` and booted by
 the Redstone U-Boot.
 
+The rootfs also carries a manual, read-only Web management scaffold for the
+follow-up work. It is not started at boot. On a bench system, an operator can
+run `redstone-mgmt-web` to serve `/www/redstone/` on `127.0.0.1:8080`; the page
+uses `redstone-mgmt-status` through `/cgi-bin/redstone-status` to show eth1,
+BCM56846, BDE, switchd, selected BCM config, and evidence paths. Browser
+actions that run SDK reset-risk, flash, ONIE install, or U-Boot environment
+writes remain out of scope until explicitly reviewed. See
+`docs/redstone_web_mgmt_plan.md`.
+
 The recommended first bench sequence is:
 
 1. Keep a known-good General UDisk 4G recovery USB available before touching

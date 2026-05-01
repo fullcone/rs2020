@@ -165,7 +165,10 @@ assemble() {
         usr/sbin/switchd-init \
         usr/sbin/redstone-stage1-capture \
         usr/sbin/redstone-stage1-validate \
-        usr/sbin/redstone-stage1-bench-run
+        usr/sbin/redstone-stage1-bench-run \
+        usr/sbin/redstone-mgmt-status \
+        usr/sbin/redstone-mgmt-web \
+        www/cgi-bin/redstone-status
     do
         [ -f "$STAGING/$script" ] && chmod 755 "$STAGING/$script"
     done
