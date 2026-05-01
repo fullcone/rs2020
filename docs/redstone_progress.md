@@ -5,6 +5,38 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Original SDK Follow-Up Intelligence
+
+Completed:
+
+- Moved the current follow-up away from USB/flash direct boot and toward
+  original firmware BCM/SDK parity work.
+- Added `docs/redstone_followup_intel.md` as the durable reference for the
+  original Redstone startup chain: BDE/user proxy/diag modules, `split.sh`,
+  `mmu.sh`, `bcm.user.proxy < startup`, SOC fixups, PHY programming, LED
+  programming, SFP support, and HSL module loading.
+- Confirmed the original active config is not the simple 48x10G + 4x40G shape:
+  saved ZebOS config and show-tech evidence both indicate `fxe49`, `fxe50`, and
+  `fxe51` split, with `fxe52` left as a normal 40G interface.
+- Recorded that the current `config/bcm/redstone-stage1.bcm` is only a
+  stage-1 portmap skeleton and still uses the 4x40G 49-52 shape. It should not
+  be treated as original-config parity until a non-default original-active
+  config or generator is added and validated.
+- Added `config/bcm/redstone-original-active-portmap.bcm` as a non-default
+  reference for the original active split mode. It captures the `split.sh`
+  result for `fxe49`/`fxe50`/`fxe51` split plus `fxe52` 40G, including the
+  corrected `portmap_61=65:40` assignment after the three split groups.
+- Recorded original SDK facts for later BDE/OpenBCM work: vendor modules are
+  tied to `2.6.32.57_redstone_t`, Broadcom diag strings reference
+  `sdk-xgs-robo-5.10.2`, original BDE startup uses `dmasize=32M himem=1`, and
+  the Linux 5.10 capture sees PCI `14e4:b846` but not usable BDE nodes yet.
+
+Next checkpoint:
+
+- Extend the non-default original-active portmap reference into a full generated
+  SDK config or checked reference, then use that as the input to BDE/OpenBCM
+  smoke and dry-run init tests.
+
 ### Stage-4 BCM54616S Receive-Path Diagnostics
 
 Completed:

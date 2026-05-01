@@ -16,9 +16,20 @@ stage 1.
 
 ## What This Adds
 
-`config/bcm/redstone-stage1.bcm` contains a Redstone port map for the 48x10G +
-4x40G BCM56846 layout. The file is not installed as the default
-`/etc/switchd/config.bcm`; the existing AS5610 default remains unchanged.
+`config/bcm/redstone-stage1.bcm` contains a Redstone stage-1 port map skeleton
+for the 48x10G + 4x40G BCM56846 layout. The file is not installed as the
+default `/etc/switchd/config.bcm`; the existing AS5610 default remains
+unchanged.
+
+Original-firmware evidence now shows the deployed Redstone config was more
+specific than this skeleton: `fxe49`, `fxe50`, and `fxe51` were split into
+4x10G groups, while `fxe52` stayed as a 40G interface. The original startup
+chain also adds PHY addresses, lane maps, polarity flips, MDI pair maps, MMU
+fixups, BCM84848 PHY programming, and LED programs. Keep the current skeleton
+unchanged until a separate non-default original-active config or generator is
+tested. `config/bcm/redstone-original-active-portmap.bcm` now records the
+non-default active portmap reference; see `docs/redstone_followup_intel.md` for
+the remaining SDK gaps.
 
 To build a rootfs that selects it at boot:
 
