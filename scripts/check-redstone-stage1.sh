@@ -669,6 +669,9 @@ check_grep 'redstone-stage1-capture --verbose' \
 check_grep 'mkdir "\$LOCK_DIR"' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI uses a single-action lock"
+check_grep '\[ -d "\$LOCK_DIR" \]' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI reports running only for existing lock directories"
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI does not expose destructive actions"
@@ -945,6 +948,20 @@ EOF
         ok "management action CGI reports an already-running action"
     else
         fail "management action CGI did not report an already-running action"
+    fi
+
+    : > "$tmpdir/not-a-lock-dir"
+    REQUEST_METHOD=POST \
+        QUERY_STRING=action=capture \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/lock-failed-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/not-a-lock-dir" \
+        REDSTONE_CAPTURE_CMD="sh $fake_capture" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/lock-failed.json"
+    if grep -q '"status": "failed"' "$tmpdir/lock-failed.json" && \
+        grep -q '"message": "cannot create action lock"' "$tmpdir/lock-failed.json"; then
+        ok "management action CGI reports lock creation failures explicitly"
+    else
+        fail "management action CGI masks lock creation failures as running"
     fi
 
     rm -rf "$tmpdir"
