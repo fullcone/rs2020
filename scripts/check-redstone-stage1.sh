@@ -170,6 +170,16 @@ check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone bench runner executable mode"
 check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
     "Buildroot post-build installs optional Redstone OpenBCM init probe"
+check_grep 'sed -i.*s/\\r\$//' "config/rootfs/post-build.sh" \
+    "Buildroot post-build strips CRLF from text overlays"
+check_grep 'Redstone stage-1 manual management links' "config/rootfs/post-build.sh" \
+    "Redstone post-build keeps eTSEC management links manual"
+check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" \
+    "Redstone post-build repairs sshd /var/empty permissions at runtime"
+check_grep 'mktemp -d.*redstone-b2-fit' "scripts/build-redstone-b2-tftp-fit.sh" \
+    "B2 TFTP FIT builder uses a Linux temporary workspace"
+check_grep 'cpio .* -R 0:0' "scripts/build-redstone-b2-tftp-fit.sh" \
+    "B2 TFTP FIT builder writes root-owned initramfs entries"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \

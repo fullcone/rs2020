@@ -62,6 +62,33 @@ echo "edgenos" > "${TARGET_DIR}/etc/hostname"
 mkdir -p "${TARGET_DIR}/etc/edgenos"
 printf '%s\n' "$EDGENOS_BOARD" > "${TARGET_DIR}/etc/edgenos/board"
 
+# Windows checkouts can inject CRLF into overlay scripts and ifupdown config.
+# BusyBox ifupdown treats a trailing carriage return as part of the method
+# name, which turns "dhcp\r" into an unknown method on hardware.
+for text_file in \
+    "${TARGET_DIR}/etc/network/interfaces" \
+    "${TARGET_DIR}/usr/sbin/platform-diag.sh" \
+    "${TARGET_DIR}/usr/sbin/platform-init.sh" \
+    "${TARGET_DIR}/usr/sbin/redstone-stage1-bench-run" \
+    "${TARGET_DIR}/usr/sbin/redstone-stage1-capture" \
+    "${TARGET_DIR}/usr/sbin/redstone-stage1-validate" \
+    "${TARGET_DIR}/usr/sbin/switchd-init"
+do
+    [ -f "$text_file" ] && sed -i 's/\r$//' "$text_file"
+done
+
+# Redstone stage-1 is a serial-console bring-up image. Keep the management
+# eTSEC ports manual so boot scripts do not trigger eth0/eth2 watchdog noise
+# while we isolate the eth1 SGMII/TBI path.
+if [ "$EDGENOS_BOARD" = "redstone" ]; then
+    cat > "${TARGET_DIR}/etc/network/interfaces" <<'EOF'
+# /etc/network/interfaces - Redstone stage-1 manual management links
+#
+# Do not auto-start eTSEC interfaces during hardware bring-up. Isolate eth1
+# from the serial console and assign the test address manually.
+EOF
+fi
+
 # Ensure /etc/fstab mounts devtmpfs on /dev. Without this, busybox init's
 # `mount -a` does not populate /dev, so /dev/null and /dev/ttyS0 are missing
 # until devices are created lazily, breaking getty respawn and stdio redirect.
@@ -77,8 +104,19 @@ if [ -d "${TARGET_DIR}/var/empty" ]; then
     chown 0:0 "${TARGET_DIR}/var/empty" 2>/dev/null || true
 fi
 
-# busybox's ifupdown without CONFIG_FEATURE_IFUPDOWN_IPV4 doesn't support
-# the "loopback" method, so we bring lo up via a small init script.
+# Some stage-1 FITs are generated from a Windows-mounted workspace where cpio
+# metadata can drift. Repair the OpenSSH privilege-separation directory at
+# runtime too, immediately before sshd starts.
+if [ -f "${TARGET_DIR}/etc/init.d/S50sshd" ] && \
+    ! grep -q 'Redstone var-empty permission repair' "${TARGET_DIR}/etc/init.d/S50sshd"; then
+    sed -i '/printf "Starting sshd:/i\
+\t# Redstone var-empty permission repair for initramfs built from Windows workspaces.\
+\t[ -d /var/empty ] && { chown 0:0 /var/empty 2>/dev/null || true; chmod 0755 /var/empty 2>/dev/null || true; }' \
+        "${TARGET_DIR}/etc/init.d/S50sshd"
+fi
+
+# Keep loopback independent from ifupdown so stage-1 remains usable even when
+# management interfaces are intentionally left manual.
 cat > "${TARGET_DIR}/etc/init.d/S39loopback" <<'EOF'
 #!/bin/sh
 # Bring up loopback (busybox ifupdown can't do "loopback" method).

@@ -21,7 +21,7 @@ case "$FIT_NAME" in
 esac
 
 FIT_STEM=${FIT_NAME%.itb}
-WORK="$IMAGE_DIR/$FIT_STEM-work"
+PUBLISH_WORK="$IMAGE_DIR/$FIT_STEM-work"
 FIT_OUT="$IMAGE_DIR/$FIT_NAME"
 
 require_file() {
@@ -42,6 +42,7 @@ require_cmd cpio
 require_cmd dtc
 require_cmd gzip
 require_cmd md5sum
+require_cmd mktemp
 require_cmd mkimage
 require_cmd sha256sum
 require_cmd tar
@@ -49,15 +50,30 @@ require_file "$KERNEL_BIN"
 require_file "$ROOTFS_TAR"
 require_file "$DTS"
 
-case "$WORK" in
-"$IMAGE_DIR"/*) ;;
-*)
-    echo "ERROR: refusing to clean unexpected work directory: $WORK" >&2
-    exit 1
-    ;;
-esac
+if [ -n "${REDSTONE_TFTP_WORKDIR:-}" ]; then
+    WORK=$REDSTONE_TFTP_WORKDIR
+    case "$WORK" in
+    /*) ;;
+    *)
+        echo "ERROR: REDSTONE_TFTP_WORKDIR must be absolute: $WORK" >&2
+        exit 1
+        ;;
+    esac
+    rm -rf "$WORK"
+    mkdir -p "$WORK"
+    CLEAN_WORK=0
+else
+    WORK=$(mktemp -d "${TMPDIR:-/tmp}/redstone-b2-fit.XXXXXX")
+    CLEAN_WORK=1
+fi
 
-rm -rf "$WORK"
+cleanup() {
+    if [ "${CLEAN_WORK:-0}" = "1" ]; then
+        rm -rf "$WORK"
+    fi
+}
+trap cleanup EXIT
+
 mkdir -p "$WORK/root"
 
 cp "$KERNEL_BIN" "$WORK/kernel.bin"
@@ -70,7 +86,7 @@ fi
 
 (
     cd "$WORK/root"
-    find . -print | LC_ALL=C sort | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio
+    find . -print | LC_ALL=C sort | cpio -o -H newc -R 0:0 2>/dev/null | gzip -9 > ../initramfs.cpio
 )
 
 cat > "$WORK/$FIT_STEM.its" <<'ITS'
@@ -133,5 +149,9 @@ ITS
 md5sum "$FIT_OUT" > "$FIT_OUT.md5"
 sha256sum "$FIT_OUT" > "$FIT_OUT.sha256"
 
+rm -rf "$PUBLISH_WORK"
+mkdir -p "$PUBLISH_WORK"
+cp "$WORK/initramfs.cpio" "$WORK/redstone-stage1-b2.dtb" "$WORK/$FIT_STEM.its" "$PUBLISH_WORK/"
+
 echo "Built: $FIT_OUT"
-ls -lh "$FIT_OUT" "$WORK/initramfs.cpio" "$WORK/redstone-stage1-b2.dtb"
+ls -lh "$FIT_OUT" "$PUBLISH_WORK/initramfs.cpio" "$PUBLISH_WORK/redstone-stage1-b2.dtb"

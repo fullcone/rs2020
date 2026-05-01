@@ -1855,14 +1855,43 @@ Verified:
   last bootable `uImage-b2-origphy-nopci0.itb`, includes `phytool`, and embeds
   the enhanced `redstone-stage1-capture` script. SHA256:
   `3039856d8e71a9c691d2b1d061ac36a4df5a81da75ac82a3eed060141c05a36e`.
+- Hardware boot of the first `uImage-b2-phytool.itb` reached userspace and
+  proved the same management-Ethernet failure with better tooling present:
+  eth1 reported carrier `1`, speed `1000`, duplex `full`; switch-side TFTP
+  still timed out; `ip neigh` stayed `10.188.2.243 dev eth1 INCOMPLETE`;
+  eth1 TX counters and `eth1_g0_tx` interrupts increased; eth1 RX counters and
+  `eth1_g0_rx` stayed zero. The verbose capture completed and wrote evidence
+  to `/var/log/redstone-stage1/20030304T143603Z`.
+- The same boot exposed two rootfs packaging issues unrelated to the
+  management Ethernet datapath: BusyBox `ifup` saw `dhcp` as an unknown method
+  because the overlay `interfaces` file carried CRLF line endings, and sshd
+  rejected `/var/empty` because the B2 initramfs was generated from a
+  Windows-mounted work directory and cpio metadata drifted.
+- Updated the Redstone post-build hook to strip CRLF from text overlays, write
+  a Redstone-only manual `/etc/network/interfaces` profile with no automatic
+  eTSEC bring-up, and repair `/var/empty` ownership/mode immediately before
+  `sshd` starts.
+- Updated `scripts/build-redstone-b2-tftp-fit.sh` to build the cpio initramfs
+  in a Linux temporary directory and force root-owned cpio entries, while still
+  publishing the generated initramfs/DTB/ITS under `output/images/*-work/` for
+  inspection.
+- Regenerated `output/images/uImage-b2-phytool.itb` with those boot hygiene
+  fixes. SHA256:
+  `f6d4c2e99c88b4e4a678b030a3fc0fa782dcdd5ac96e9ecbfac66305cd61d491`.
+  The generated initramfs now contains:
+  - `etc/network/interfaces` as LF-only manual Redstone stage-1 config with no
+    `auto` entries.
+  - `etc/init.d/S50sshd` with the `/var/empty` permission repair.
+  - `var/empty` as `root:root 0755`.
+  - `/usr/bin/phytool` and the enhanced `redstone-stage1-capture`.
 
 Next checkpoint:
 
-- Boot `output/images/uImage-b2-phytool.itb` over U-Boot TFTP, isolate `eth1`,
-  then use a switch-side TFTP GET as the primary data-plane test. The expected
-  useful failure evidence is the combination of `ip neigh`, eth1 TX/RX
-  counters, eth1 interrupts, `phytool` register dumps, and eTSEC register
-  snapshots from `redstone-stage1-capture`.
+- Boot the regenerated `output/images/uImage-b2-phytool.itb` over U-Boot TFTP,
+  isolate `eth1`, then repeat the switch-side TFTP GET. If the ARP/TFTP failure
+  persists, return the completed capture directory or tarball from
+  `/var/log/redstone-stage1/`; the expected decisive evidence is the
+  combination of `phytool` register dumps and eTSEC register snapshots.
 - The next debug target remains the gianfar TX/SGMII/TBI path, not IP
   addressing, Windows firewall, TFTP service, or PHY placement.
 

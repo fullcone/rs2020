@@ -139,15 +139,30 @@ returned no matches. The remaining management-Ethernet blocker is therefore
 inside the gianfar MAC-to-BCM54616S SGMII/TBI path, not the Windows host, IP
 assignment, or external PHY placement.
 
-The next hardware image is `output/images/uImage-b2-phytool.itb`. It preserves
-the DTB bytes from the last bootable `uImage-b2-origphy-nopci0.itb`, but
-rebuilds the rootfs/initramfs with `/usr/bin/phytool` and the enhanced
-`redstone-stage1-capture` script. Use a switch-side TFTP GET as the primary
-management-Ethernet test because it exercises ARP plus UDP on the same host
-path as U-Boot TFTP. Ping is still useful as secondary evidence, but TFTP is
-the better bench signal for the current failure. After the TFTP attempt, run
-`redstone-stage1-capture --verbose` so the returned bundle contains PHY/TBI
-registers and raw eTSEC register snapshots for the gianfar TX/SGMII follow-up.
+The first `output/images/uImage-b2-phytool.itb` boot reached userspace and
+captured the same management-Ethernet failure with better instrumentation:
+eth1 carrier was `1`, speed was `1000`, duplex was `full`, but switch-side TFTP
+timed out with `10.188.2.243 dev eth1 INCOMPLETE`; eth1 TX and `eth1_g0_tx`
+advanced, while eth1 RX and `eth1_g0_rx` stayed at zero. The capture completed
+at `/var/log/redstone-stage1/20030304T143603Z`.
+
+That same boot exposed rootfs packaging noise, not datapath evidence:
+`ifup: unknown method "dhcp"` came from CRLF in `/etc/network/interfaces`, and
+sshd rejected `/var/empty` after cpio metadata drift from a Windows-mounted FIT
+build workspace. The regenerated `output/images/uImage-b2-phytool.itb`
+preserves the same DTB topology but fixes those boot hygiene issues: Redstone
+stage-1 now uses a manual-only `/etc/network/interfaces`, the B2 FIT builder
+creates cpio in a Linux temporary workspace with root-owned entries, and
+`S50sshd` repairs `/var/empty` immediately before starting sshd. The current
+image SHA256 is
+`f6d4c2e99c88b4e4a678b030a3fc0fa782dcdd5ac96e9ecbfac66305cd61d491`.
+
+Use a switch-side TFTP GET as the primary management-Ethernet test because it
+exercises ARP plus UDP on the same host path as U-Boot TFTP. Ping is still
+useful as secondary evidence, but TFTP is the better bench signal for the
+current failure. After the TFTP attempt, run `redstone-stage1-capture --verbose`
+so the returned bundle contains PHY/TBI registers and raw eTSEC register
+snapshots for the gianfar TX/SGMII follow-up.
 
 ## First Hardware-Capture Checklist
 
