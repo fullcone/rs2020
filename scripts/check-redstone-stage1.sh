@@ -137,6 +137,7 @@ check_file "docs/redstone_bench_result_template.md"
 check_file "docs/redstone_stage1_plan.md"
 check_file "docs/redstone_progress.md"
 check_file "docs/redstone_usb_stage1_operator_checklist.md"
+check_file "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -178,8 +179,19 @@ check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" 
     "Redstone post-build repairs sshd /var/empty permissions at runtime"
 check_grep 'mktemp -d.*redstone-b2-fit' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder uses a Linux temporary workspace"
+check_grep 'unsafe FIT image name' "scripts/build-redstone-b2-tftp-fit.sh" \
+    "B2 TFTP FIT builder rejects path traversal in image names"
+check_grep 'REDSTONE_TFTP_WORKDIR must be under' "scripts/build-redstone-b2-tftp-fit.sh" \
+    "B2 TFTP FIT builder constrains custom work directories before deletion"
 check_grep 'cpio .* -R 0:0' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder writes root-owned initramfs entries"
+check_grep 'patch -p1 --forward --dry-run' "scripts/build-kernel.sh" \
+    "build-kernel applies kernel patches idempotently"
+check_grep 'vmlinux\.bin' "scripts/build-kernel.sh" \
+    "build-kernel exports the raw PowerPC kernel payload for B2 FIT tests"
+check_grep 'Redstone TBI.*0xffff|BMSR read returned all ones' \
+    "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch" \
+    "Redstone kernel patch forces TBI programming after invalid all-ones reads"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \

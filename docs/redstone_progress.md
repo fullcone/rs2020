@@ -1925,3 +1925,121 @@ diff -u /tmp/eth1.irq.before /tmp/eth1.irq.after | head -80
 
 redstone-stage1-capture --verbose
 ```
+
+### Stage-4 TFTP FIT Gianfar TBI Instrumentation
+
+Completed:
+
+- Analyzed the returned hardware capture from
+  `/var/log/redstone-stage1/20030304T143603Z`, saved locally as
+  `logs/logs.txt` in the extracted Redstone workspace.
+- Confirmed the external management PHY path is alive:
+  `phytool print eth1/3` reports Broadcom BCM54616S ID `0x03625d12`, while
+  eth1 reaches carrier `1`, speed `1000`, and duplex `full`.
+- Confirmed the internal TBI/PCS endpoint is the suspicious side of the link:
+  `phytool print eth1/11` reports ID `0xffffffff`, and every sampled
+  `eth1/11/*` register reads `0xffff`.
+- Confirmed the failed TFTP GET is still an L2 egress problem: eth1 TX counters
+  and `eth1_g0_tx` interrupts increase, but eth1 RX counters and `eth1_g0_rx`
+  remain zero, and `ip neigh` stays `10.188.2.243 dev eth1 FAILED` or
+  `INCOMPLETE`.
+- Rechecked the extracted original firmware evidence:
+  - `boot_original/p2020rdb.dtb` uses the same cross-MDIO topology for eth1:
+    `ethernet@25000` points at external `ethernet-phy@3` under
+    `ethernet@24000/mdio@520` and owns `tbi-phy@11`.
+  - `backup_info/info/dmesg.txt` shows the stock kernel using the vendor
+    gianfar driver string `Gianfar Ethernet Controller Version 1.4-skbr1.1.4`.
+  - IDA/string triage of the extracted stock kernel found the same SGMII/TBI
+    diagnostics and bindings, including `tbi-handle`, `fsl,gianfar-mdio`,
+    `fsl,gianfar-tbi`, and `fsl,etsec2-tbi`.
+- Added `kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch`.
+  The patch changes Linux 5.10 gianfar SerDes setup so a TBI BMSR read of
+  `0xffff` is treated as an invalid all-ones read, not as valid link-up. It
+  then forces the existing SerDes programming path and logs pre/post TBI
+  register values with the `Redstone TBI:` prefix.
+- Updated `scripts/build-kernel.sh` so kernel patches are applied idempotently
+  even when `build/linux-5.10.224` already exists. The script now also exports
+  a raw `output/kernel/vmlinux.bin` by running `powerpc-linux-gnu-objcopy -O
+  binary` on the rebuilt kernel, matching the B2 FIT kernel payload format.
+- Restored `kernel/dts/redstone-stage1.dts` `ethernet@26000/mdio@520` to
+  `compatible = "fsl,gianfar-mdio"`, matching the original Redstone DTB.
+- Fixed the open PR review blocker in `scripts/build-redstone-b2-tftp-fit.sh`:
+  unsafe FIT names containing path traversal are rejected, and
+  `REDSTONE_TFTP_WORKDIR` is only accepted under `output/images` with a
+  work-directory-style basename before any `rm -rf` is allowed.
+- Rebuilt the Redstone kernel and generated
+  `output/images/uImage-b2-gfar-tbi.itb`. SHA256:
+  `4ee7d09078c9ef724e2f8c884fe6cea45e6d81a94cf65ebc550587de182fce1e`.
+
+Verified:
+
+- `wsl env EDGENOS_BOARD=redstone bash scripts/build-kernel.sh download`
+  applies the new kernel patch to an existing source tree and reinstalls the
+  Redstone DTS.
+- `wsl env EDGENOS_BOARD=redstone bash scripts/build-kernel.sh build`
+  rebuilds `drivers/net/ethernet/freescale/gianfar.o`, `vmlinux`, `uImage`,
+  modules, and the Redstone DTB successfully.
+- `output/kernel/vmlinux.bin` is a raw 10,326,444-byte PowerPC kernel payload,
+  matching the old B2 FIT kernel payload size and header pattern.
+- `strings output/kernel/vmlinux.bin | grep 'Redstone TBI'` shows all new
+  TBI diagnostics embedded in the test kernel.
+- `wsl sh scripts/build-redstone-b2-tftp-fit.sh uImage-b2-gfar-tbi.itb`
+  builds the new FIT with an uncompressed 10,326,444-byte kernel subimage and
+  the existing Redstone capture rootfs.
+- `wsl sh -lc "... scripts/build-redstone-b2-tftp-fit.sh ../bad"` fails with
+  `ERROR: unsafe FIT image name: ../bad.itb`, proving the PR review safety
+  guard is active.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passes
+  with `0 warning(s)`.
+
+Next checkpoint:
+
+- Boot `output/images/uImage-b2-gfar-tbi.itb` over U-Boot TFTP and capture the
+  full serial log around the `Redstone TBI:` lines.
+- If `Redstone TBI: BMSR read returned all ones` appears and the post-program
+  readback still shows `0xffff`, the next target is MDIO/TBIPA/TBI access
+  ordering rather than the external BCM54616S PHY.
+- If the post-program readback becomes sane, repeat the isolated eth1 TFTP GET
+  and return `redstone-stage1-capture --verbose` so we can compare TBI state,
+  TX/RX counters, and interrupts after the forced SerDes setup.
+
+Suggested next hardware boot:
+
+```sh
+setenv ipaddr 10.188.2.16
+setenv serverip 10.188.2.243
+setenv ethaddr 00:E0:EC:53:B8:22
+setenv ethact eTSEC2
+setenv bootargs "console=ttyS0,115200 loglevel=8 cache-sram-size=0x10000"
+
+tftp 2000000 uImage-b2-gfar-tbi.itb
+bootm 2000000#accton_as5610_52x
+```
+
+Suggested userspace test after boot:
+
+```sh
+dmesg | grep 'Redstone TBI'
+dmesg -n 1
+ip link set eth0 down 2>/dev/null
+ip link set eth2 down 2>/dev/null
+ip addr flush dev eth1
+ip link set eth1 down
+sleep 2
+ip link set eth1 up
+sleep 8
+
+cat /sys/class/net/eth1/carrier
+cat /sys/class/net/eth1/speed
+cat /sys/class/net/eth1/duplex
+ip addr add 10.188.2.16/24 dev eth1
+ip neigh flush dev eth1 2>/dev/null
+
+rm -f /tmp/redstone-tftp-test.bin
+tftp -g -r redstone-tftp-test.bin -l /tmp/redstone-tftp-test.bin 10.188.2.243
+echo "tftp_rc=$?"
+ip neigh show
+ip -s link show eth1
+cat /proc/interrupts | grep -E "CPU|eth1"
+redstone-stage1-capture --verbose
+```

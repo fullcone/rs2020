@@ -297,7 +297,7 @@
 			mdio@520 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,gianfar-tbi";
+				compatible = "fsl,gianfar-mdio";
 				reg = <0x520 0x20>;
 
 				enet2_tbi: tbi-phy@12 {

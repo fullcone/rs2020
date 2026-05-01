@@ -29,9 +29,31 @@ install_dts() {
     fi
 }
 
+apply_patches() {
+    if [ ! -d "$TOPDIR/kernel/patches" ]; then
+        return
+    fi
+
+    echo "==> Applying kernel patches..."
+    local p
+    for p in "$TOPDIR/kernel/patches"/*.patch; do
+        [ -f "$p" ] || continue
+        echo "  Checking $(basename "$p")..."
+        if (cd "$KSRC" && patch -p1 --forward --dry-run < "$p" >/dev/null 2>&1); then
+            (cd "$KSRC" && patch -p1 < "$p")
+        elif (cd "$KSRC" && patch -p1 --reverse --dry-run < "$p" >/dev/null 2>&1); then
+            echo "    already applied"
+        else
+            echo "ERROR: kernel patch does not apply cleanly and is not already applied: $p"
+            exit 1
+        fi
+    done
+}
+
 download() {
     if [ -d "$KSRC" ]; then
         echo "Kernel source already present at $KSRC"
+        apply_patches
         install_dts
         return
     fi
@@ -49,15 +71,7 @@ download() {
     echo "==> Extracting kernel source..."
     tar -xf "$TARBALL" -C "$TOPDIR/build/"
 
-    # Apply patches
-    if [ -d "$TOPDIR/kernel/patches" ]; then
-        echo "==> Applying kernel patches..."
-        for p in "$TOPDIR/kernel/patches"/*.patch; do
-            [ -f "$p" ] || continue
-            echo "  Applying $(basename "$p")..."
-            (cd "$KSRC" && patch -p1 < "$p")
-        done
-    fi
+    apply_patches
 
     install_dts
 }
@@ -68,6 +82,7 @@ build() {
         exit 1
     fi
 
+    apply_patches
     install_dts
 
     # Copy defconfig if .config doesn't exist.
@@ -85,6 +100,7 @@ build() {
     # Collect outputs
     mkdir -p "$OUTDIR/kernel"
     cp "$KSRC/arch/powerpc/boot/uImage" "$OUTDIR/kernel/"
+    "${CROSS}objcopy" -O binary "$KSRC/vmlinux" "$OUTDIR/kernel/vmlinux.bin"
     cp "$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dtb" "$OUTDIR/kernel/" 2>/dev/null || true
     cp "$KSRC/vmlinux" "$OUTDIR/kernel/"
 

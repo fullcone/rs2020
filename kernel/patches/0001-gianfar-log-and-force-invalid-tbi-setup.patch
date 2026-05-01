@@ -1,0 +1,53 @@
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1637,6 +1637,7 @@ static void gfar_configure_serdes(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct phy_device *tbiphy;
++	int bmsr, bmcr, adv, tbicon;
+ 
+ 	if (!priv->tbi_node) {
+ 		dev_warn(&dev->dev, "error: SGMII mode requires that the "
+@@ -1654,11 +1655,25 @@ static void gfar_configure_serdes(struct net_device *dev)
+ 	 * everything for us?  Resetting it takes the link down and requires
+ 	 * several seconds for it to come back.
+ 	 */
+-	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS) {
++	bmsr = phy_read(tbiphy, MII_BMSR);
++	if (bmsr < 0) {
++		netdev_warn(dev,
++			    "Redstone TBI: BMSR read failed (%d), forcing SerDes programming\n",
++			    bmsr);
++	} else if (bmsr == 0xffff) {
++		netdev_warn(dev,
++			    "Redstone TBI: BMSR read returned all ones, forcing SerDes programming\n");
++	} else if (bmsr & BMSR_LSTATUS) {
++		netdev_info(dev,
++			    "Redstone TBI: BMSR %#x already reports link; keeping firmware SerDes setup\n",
++			    bmsr);
+ 		put_device(&tbiphy->mdio.dev);
+ 		return;
+ 	}
+ 
++	netdev_info(dev, "Redstone TBI: programming SerDes, initial BMSR=%#x\n",
++		    bmsr);
++
+ 	/* Single clk mode, mii mode off(for serdes communication) */
+ 	phy_write(tbiphy, MII_TBICON, TBICON_CLK_SELECT);
+ 
+@@ -1670,6 +1685,14 @@ static void gfar_configure_serdes(struct net_device *dev)
+ 		  BMCR_ANENABLE | BMCR_ANRESTART | BMCR_FULLDPLX |
+ 		  BMCR_SPEED1000);
+ 
++	bmcr = phy_read(tbiphy, MII_BMCR);
++	bmsr = phy_read(tbiphy, MII_BMSR);
++	adv = phy_read(tbiphy, MII_ADVERTISE);
++	tbicon = phy_read(tbiphy, MII_TBICON);
++	netdev_info(dev,
++		    "Redstone TBI: post-program BMCR=%#x BMSR=%#x ADV=%#x TBICON=%#x\n",
++		    bmcr, bmsr, adv, tbicon);
++
+ 	put_device(&tbiphy->mdio.dev);
+ }
+ 

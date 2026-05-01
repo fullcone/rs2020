@@ -11,7 +11,6 @@ TOPDIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUTDIR="$TOPDIR/output"
 IMAGE_DIR="$OUTDIR/images"
 FIT_NAME=${1:-uImage-b2-phytool.itb}
-KERNEL_BIN=${REDSTONE_TFTP_KERNEL_BIN:-$IMAGE_DIR/b2-origphy-nopci0-work/kernel.bin}
 ROOTFS_TAR=${REDSTONE_TFTP_ROOTFS_TAR:-$OUTDIR/rootfs/rootfs.tar}
 DTS=${REDSTONE_TFTP_DTS:-$TOPDIR/kernel/dts/redstone-stage1.dts}
 
@@ -19,10 +18,22 @@ case "$FIT_NAME" in
 *.itb) ;;
 *) FIT_NAME="$FIT_NAME.itb" ;;
 esac
+case "$FIT_NAME" in
+""|.*|*..*|*/*|*\\*|*[!A-Za-z0-9._-]*)
+    echo "ERROR: unsafe FIT image name: $FIT_NAME" >&2
+    exit 1
+    ;;
+esac
 
 FIT_STEM=${FIT_NAME%.itb}
 PUBLISH_WORK="$IMAGE_DIR/$FIT_STEM-work"
 FIT_OUT="$IMAGE_DIR/$FIT_NAME"
+
+DEFAULT_KERNEL_BIN="$OUTDIR/kernel/vmlinux.bin"
+if [ ! -f "$DEFAULT_KERNEL_BIN" ]; then
+    DEFAULT_KERNEL_BIN="$IMAGE_DIR/b2-origphy-nopci0-work/kernel.bin"
+fi
+KERNEL_BIN=${REDSTONE_TFTP_KERNEL_BIN:-$DEFAULT_KERNEL_BIN}
 
 require_file() {
     if [ ! -f "$1" ]; then
@@ -50,12 +61,37 @@ require_file "$KERNEL_BIN"
 require_file "$ROOTFS_TAR"
 require_file "$DTS"
 
+mkdir -p "$IMAGE_DIR"
+IMAGE_DIR_REAL=$(CDPATH= cd -- "$IMAGE_DIR" && pwd -P)
+
 if [ -n "${REDSTONE_TFTP_WORKDIR:-}" ]; then
     WORK=$REDSTONE_TFTP_WORKDIR
     case "$WORK" in
     /*) ;;
     *)
         echo "ERROR: REDSTONE_TFTP_WORKDIR must be absolute: $WORK" >&2
+        exit 1
+        ;;
+    esac
+    WORK_PARENT=${WORK%/*}
+    WORK_BASE=${WORK##*/}
+    case "$WORK_BASE" in
+    ""|"."|".."|.*|*..*|*[!A-Za-z0-9._-]*)
+        echo "ERROR: unsafe REDSTONE_TFTP_WORKDIR basename: $WORK" >&2
+        exit 1
+        ;;
+    esac
+    if [ ! -d "$WORK_PARENT" ]; then
+        echo "ERROR: REDSTONE_TFTP_WORKDIR parent does not exist: $WORK_PARENT" >&2
+        exit 1
+    fi
+    WORK_PARENT_REAL=$(CDPATH= cd -- "$WORK_PARENT" && pwd -P)
+    WORK="$WORK_PARENT_REAL/$WORK_BASE"
+    case "$WORK" in
+    "$IMAGE_DIR_REAL"/redstone-b2-fit-work-*|"$IMAGE_DIR_REAL"/*-work) ;;
+    *)
+        echo "ERROR: REDSTONE_TFTP_WORKDIR must be under $IMAGE_DIR_REAL and named *-work or redstone-b2-fit-work-*:" >&2
+        echo "       $WORK" >&2
         exit 1
         ;;
     esac

@@ -164,6 +164,16 @@ current failure. After the TFTP attempt, run `redstone-stage1-capture --verbose`
 so the returned bundle contains PHY/TBI registers and raw eTSEC register
 snapshots for the gianfar TX/SGMII follow-up.
 
+The returned `20030304T143603Z` capture narrows the fault further. The external
+eth1 PHY at MDIO address `0x03` is a valid BCM54616S (`phy_id=0x03625d12`) and
+reports 1000/full link, but the eth1 TBI endpoint at address `0x11` reads as
+all ones (`0xffff`) for every sampled register. Linux 5.10 gianfar previously
+treated `BMSR=0xffff` as link-up and skipped SerDes programming, so the next
+test image carries a kernel patch that forces TBI programming on invalid
+all-ones reads and logs `Redstone TBI:` diagnostics before and after the write.
+That image is `output/images/uImage-b2-gfar-tbi.itb`, SHA256
+`4ee7d09078c9ef724e2f8c884fe6cea45e6d81a94cf65ebc550587de182fce1e`.
+
 ## First Hardware-Capture Checklist
 
 Run the packaged capture first on a live Redstone boot before turning pending
