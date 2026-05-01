@@ -2099,6 +2099,41 @@ diff -u /tmp/eth1.irq.before /tmp/eth1.irq.after | head -80
 redstone-stage1-capture --verbose
 ```
 
+## 2026-05-02 Web Capture Action
+
+Added the first safe web action for the Redstone management page:
+
+- `/cgi-bin/redstone-action?action=capture` accepts only `POST` capture
+  requests.
+- The action runs `redstone-stage1-capture --verbose`, writes `action.log`,
+  `result.env`, and `result.json` under
+  `/var/log/redstone-stage1/web-actions`, and returns the same result as JSON.
+- A directory lock prevents overlapping web-triggered actions.
+- `redstone-mgmt-status` now reports the latest web action result for the UI.
+- The browser page now has a `Run Capture` button plus latest action log,
+  evidence directory, message, and finish time fields.
+
+Safety boundaries retained:
+
+- The web UI is still operator-started through `redstone-mgmt-web`.
+- The default bind remains `127.0.0.1:8080`.
+- No browser path exposes `redstone-openbcm-init-probe --exec`,
+  `i-accept-hardware-reset-risk`, `saveenv`, `onie-nos-install`, flash writes,
+  or U-Boot environment writes.
+
+Verified:
+
+- `node --check config/rootfs/overlay/www/redstone/redstone.js`
+- `wsl sh -n config/rootfs/overlay/www/cgi-bin/redstone-action`
+- `wsl sh -n config/rootfs/overlay/usr/sbin/redstone-mgmt-status`
+- `wsl sh -n scripts/check-redstone-stage1.sh`
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh`
+- `git diff --cached --check`
+- `wsl sh -c 'config/rootfs/overlay/usr/sbin/redstone-mgmt-status | python3 -m json.tool >/dev/null'`
+
+The full preflight includes fake-CGI regression coverage for successful
+capture, unsupported action rejection, and already-running lock reporting.
+
 ### Stage-4 Follow-Up: Original Kernel IDA and ECNTRL/TBI Ordering
 
 Completed:

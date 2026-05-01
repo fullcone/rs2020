@@ -168,7 +168,8 @@ assemble() {
         usr/sbin/redstone-stage1-bench-run \
         usr/sbin/redstone-mgmt-status \
         usr/sbin/redstone-mgmt-web \
-        www/cgi-bin/redstone-status
+        www/cgi-bin/redstone-status \
+        www/cgi-bin/redstone-action
     do
         [ -f "$STAGING/$script" ] && chmod 755 "$STAGING/$script"
     done

@@ -75,6 +75,7 @@ for text_file in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
     "${TARGET_DIR}/www/cgi-bin/redstone-status" \
+    "${TARGET_DIR}/www/cgi-bin/redstone-action" \
     "${TARGET_DIR}/usr/sbin/switchd-init"
 do
     [ -f "$text_file" ] && sed -i 's/\r$//' "$text_file"
@@ -142,7 +143,8 @@ chmod 0755 "${TARGET_DIR}/etc/init.d/S39loopback"
 for script in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
-    "${TARGET_DIR}/www/cgi-bin/redstone-status"
+    "${TARGET_DIR}/www/cgi-bin/redstone-status" \
+    "${TARGET_DIR}/www/cgi-bin/redstone-action"
 do
     [ -f "$script" ] && chmod 0755 "$script"
 done

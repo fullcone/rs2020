@@ -9,6 +9,7 @@ SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-orig
 CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
 VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
 BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
 
 read_first() {
     file=$1
@@ -300,6 +301,30 @@ if [ -n "$probe_file" ]; then
     fi
 fi
 
+web_action_latest=$(latest_dir "$ACTION_BASE" '*')
+web_action_result=
+web_action_action=
+web_action_status=
+web_action_exit=
+web_action_started_at=
+web_action_finished_at=
+web_action_run_dir=
+web_action_log=
+web_action_evidence_dir=
+web_action_message=
+if [ -n "$web_action_latest" ]; then
+    web_action_result="$web_action_latest/result.env"
+    web_action_action=$(kv_last_value "$web_action_result" action)
+    web_action_status=$(kv_last_value "$web_action_result" status)
+    web_action_exit=$(kv_last_value "$web_action_result" exit)
+    web_action_started_at=$(kv_last_value "$web_action_result" started_at)
+    web_action_finished_at=$(kv_last_value "$web_action_result" finished_at)
+    web_action_run_dir=$(kv_last_value "$web_action_result" run_dir)
+    web_action_log=$(kv_last_value "$web_action_result" log)
+    web_action_evidence_dir=$(kv_last_value "$web_action_result" evidence_dir)
+    web_action_message=$(kv_last_value "$web_action_result" message)
+fi
+
 cat <<EOF
 {
   "schema": "redstone-mgmt-status.v1",
@@ -357,6 +382,20 @@ cat <<EOF
     "redstone_openbcm_bde_smoke": $(bool_cmd redstone-openbcm-bde-smoke.sh),
     "redstone_openbcm_init_probe": $(bool_cmd redstone-openbcm-init-probe),
     "busybox_httpd": $(bool_httpd)
+  },
+  "web_action": {
+    "base": $(json_str "$ACTION_BASE"),
+    "latest_dir": $(json_str "$web_action_latest"),
+    "result": $(json_str "$web_action_result"),
+    "action": $(json_str "$web_action_action"),
+    "status": $(json_str "$web_action_status"),
+    "exit": $(json_str "$web_action_exit"),
+    "started_at": $(json_str "$web_action_started_at"),
+    "finished_at": $(json_str "$web_action_finished_at"),
+    "run_dir": $(json_str "$web_action_run_dir"),
+    "log": $(json_str "$web_action_log"),
+    "evidence_dir": $(json_str "$web_action_evidence_dir"),
+    "message": $(json_str "$web_action_message")
   },
   "evidence": {
     "capture_base": $(json_str "$CAPTURE_BASE"),

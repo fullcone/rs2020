@@ -1,4 +1,5 @@
 const statusUrl = "/cgi-bin/redstone-status";
+const actionUrl = "/cgi-bin/redstone-action";
 
 const text = (id, value) => {
   const node = document.getElementById(id);
@@ -36,6 +37,20 @@ const probeLabel = (probe) => {
   return exitLabel(probe.exit);
 };
 
+const actionLabel = (action) => {
+  if (!action || !action.status) return "none";
+  const name = action.action || "action";
+  const exit = action.exit === undefined || action.exit === "" ? "" : ` (${exitLabel(action.exit)})`;
+  return `${name} ${action.status}${exit}`;
+};
+
+const actionState = (action) => {
+  if (!action || !action.status) return "warn";
+  if (action.status === "success") return "ok";
+  if (action.status === "failed" || action.status === "rejected") return "bad";
+  return "warn";
+};
+
 async function refresh() {
   const response = await fetch(statusUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`status ${response.status}`);
@@ -52,6 +67,7 @@ async function refresh() {
   const validation = evidence.validation_summary || {};
   const bench = evidence.bench_summary || {};
   const probe = evidence.init_probe_dry_run || {};
+  const webAction = data.web_action || {};
 
   text("board", data.board);
   text("split-mode", cfg.split_mode);
@@ -83,6 +99,12 @@ async function refresh() {
   text("bde-smoke", exitLabel(bench.bde_smoke_exit));
   text("init-probe", probeLabel(probe));
   text("capture-summary", captureSummary.exists ? captureSummary.path : "none");
+  text("action-state", actionLabel(webAction));
+  text("latest-action", actionLabel(webAction));
+  text("action-log", pathOrNone(webAction.log));
+  text("action-evidence", pathOrNone(webAction.evidence_dir));
+  text("action-message", pathOrNone(webAction.message));
+  text("action-finished", pathOrNone(webAction.finished_at));
   text("generated-at", data.generated_at);
 
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
@@ -93,6 +115,41 @@ async function refresh() {
   stateClass("bench-validate-exit", bench.validate_exit === "0" ? "ok" : bench.validate_exit ? "bad" : "warn");
   stateClass("bde-smoke", bench.bde_smoke_exit === "0" ? "ok" : bench.bde_smoke_exit ? "bad" : "warn");
   stateClass("init-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : probe.exists ? "warn" : "warn");
+  stateClass("action-state", actionState(webAction));
+  stateClass("latest-action", actionState(webAction));
+}
+
+const runCapture = document.getElementById("run-capture");
+if (runCapture) {
+  runCapture.addEventListener("click", async () => {
+    runCapture.disabled = true;
+    text("action-state", "capture running");
+    stateClass("action-state", "warn");
+
+    try {
+      const response = await fetch(`${actionUrl}?action=capture`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(`action ${response.status}`);
+
+      text("action-state", actionLabel(result));
+      text("latest-action", actionLabel(result));
+      text("action-log", pathOrNone(result.log));
+      text("action-evidence", pathOrNone(result.evidence_dir));
+      text("action-message", pathOrNone(result.message));
+      text("action-finished", pathOrNone(result.finished_at));
+      stateClass("action-state", actionState(result));
+      stateClass("latest-action", actionState(result));
+      await refresh();
+    } catch (error) {
+      text("action-state", `action failed: ${error.message}`);
+      stateClass("action-state", "bad");
+    } finally {
+      runCapture.disabled = false;
+    }
+  });
 }
 
 document.getElementById("refresh").addEventListener("click", () => {

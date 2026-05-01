@@ -1,0 +1,164 @@
+#!/bin/sh
+# Safe action endpoint for the Redstone web management page.
+
+set -u
+
+SCHEMA=redstone-mgmt-action.v1
+ACTION_DIR=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+LOCK_DIR=${REDSTONE_WEB_ACTION_LOCK:-/run/redstone-mgmt-action.lock}
+
+json_escape() {
+    printf '%s' "$1" | tr '\r\n' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+http_headers() {
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+}
+
+emit_body() {
+    cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "action": $(json_str "$ACTION"),
+  "status": $(json_str "$STATUS"),
+  "exit": $(json_str "$EXIT_CODE"),
+  "started_at": $(json_str "$STARTED_AT"),
+  "finished_at": $(json_str "$FINISHED_AT"),
+  "run_dir": $(json_str "$RUN_DIR"),
+  "log": $(json_str "$LOG_PATH"),
+  "evidence_dir": $(json_str "$EVIDENCE_DIR"),
+  "message": $(json_str "$MESSAGE")
+}
+EOF
+}
+
+emit_response() {
+    http_headers
+    emit_body
+}
+
+finish_with() {
+    ACTION=$1
+    STATUS=$2
+    EXIT_CODE=$3
+    STARTED_AT=$4
+    FINISHED_AT=$5
+    RUN_DIR=$6
+    LOG_PATH=$7
+    EVIDENCE_DIR=$8
+    MESSAGE=$9
+    emit_response
+    exit 0
+}
+
+stamp_utc() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true
+}
+
+stamp_path() {
+    date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s 2>/dev/null || true
+}
+
+method=${REQUEST_METHOD:-POST}
+if [ "$method" != "POST" ]; then
+    finish_with "" rejected "" "" "" "" "" "" "POST required"
+fi
+
+query="&${QUERY_STRING:-}&"
+case "$query" in
+    *"&action=capture&"*)
+        action=capture
+        ;;
+    *"&action="*)
+        finish_with "" rejected "" "" "" "" "" "" "unsupported action"
+        ;;
+    *)
+        finish_with "" rejected "" "" "" "" "" "" "missing action"
+        ;;
+esac
+
+if ! mkdir -p "$ACTION_DIR" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create REDSTONE_WEB_ACTION_DIR"
+fi
+
+lock_parent=${LOCK_DIR%/*}
+[ "$lock_parent" = "$LOCK_DIR" ] && lock_parent=.
+if ! mkdir -p "$lock_parent" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create lock parent"
+fi
+
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    finish_with "$action" running "" "" "" "" "" "" "another action is running"
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+
+stamp=$(stamp_path)
+[ -n "$stamp" ] || stamp=unknown
+run_dir="$ACTION_DIR/$stamp-$action"
+suffix=1
+while [ -e "$run_dir" ]; do
+    suffix=$((suffix + 1))
+    run_dir="$ACTION_DIR/$stamp-$action-$suffix"
+done
+
+if ! mkdir "$run_dir" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create action run directory"
+fi
+
+log_path="$run_dir/action.log"
+result_env="$run_dir/result.env"
+result_json="$run_dir/result.json"
+started_at=$(stamp_utc)
+
+(
+    printf '$ redstone-stage1-capture --verbose\n\n'
+    if [ -n "${REDSTONE_CAPTURE_CMD:-}" ]; then
+        sh -c "$REDSTONE_CAPTURE_CMD"
+    else
+        redstone-stage1-capture --verbose
+    fi
+    rc=$?
+    printf '\nexit=%s\n' "$rc"
+    exit "$rc"
+) > "$log_path" 2>&1
+rc=$?
+
+finished_at=$(stamp_utc)
+evidence_dir=$(sed -n 's/^Redstone stage-1 capture written to //p' "$log_path" 2>/dev/null | tail -n 1)
+if [ "$rc" -eq 0 ]; then
+    status=success
+    message="capture completed"
+else
+    status=failed
+    message="capture failed"
+fi
+
+cat > "$result_env" <<EOF
+action=$action
+status=$status
+exit=$rc
+started_at=$started_at
+finished_at=$finished_at
+run_dir=$run_dir
+log=$log_path
+evidence_dir=$evidence_dir
+message=$message
+EOF
+
+ACTION=$action
+STATUS=$status
+EXIT_CODE=$rc
+STARTED_AT=$started_at
+FINISHED_AT=$finished_at
+RUN_DIR=$run_dir
+LOG_PATH=$log_path
+EVIDENCE_DIR=$evidence_dir
+MESSAGE=$message
+emit_body > "$result_json"
+emit_response
