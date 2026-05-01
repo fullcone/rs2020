@@ -693,6 +693,9 @@ check_grep 'latest_validate_dir' \
 check_grep 'validation_summary' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports validation summary counts"
+check_grep 'log_exists' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports validation log existence"
 check_grep 'init_probe_dry_run' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports init-probe dry-run evidence"
@@ -717,6 +720,9 @@ check_grep 'run-capture' \
 check_grep 'validationLabel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI formats validation summary"
+check_grep 'log_exists' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI gates validation state on log existence"
 check_grep 'probeLabel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI formats init-probe dry-run status"
@@ -844,6 +850,7 @@ EOF
     if grep -q '"latest_capture_dir":' "$tmpdir/status.json" && \
         grep -q '"latest_validate_dir":' "$tmpdir/status.json" && \
         grep -q '"latest_bench_dir":' "$tmpdir/status.json" && \
+        grep -q '"log_exists": true' "$tmpdir/status.json" && \
         grep -q '"pass_count": 1' "$tmpdir/status.json" && \
         grep -q '"warn_count": 1' "$tmpdir/status.json" && \
         grep -q '"fail_count": 1' "$tmpdir/status.json" && \
@@ -856,6 +863,33 @@ EOF
         ok "management status indexes capture, validation, bench, web action, and dry-run evidence"
     else
         fail "management status does not index evidence outputs"
+    fi
+
+    rm -rf "$tmpdir"
+}
+
+check_mgmt_status_missing_validation_log() {
+    tmpdir=$(mktemp -d)
+    evidence="$tmpdir/evidence"
+    mkdir -p "$tmpdir/switchd" "$evidence/validate-20260304T020304Z"
+    cat > "$tmpdir/switchd/redstone-stage1.bcm" <<EOF
+portmap_1=1:10
+EOF
+    printf 'redstone\n' > "$tmpdir/board"
+
+    REDSTONE_BOARD_FILE="$tmpdir/board" \
+        REDSTONE_SWITCHD_CONFIG_DIR="$tmpdir/switchd" \
+        REDSTONE_VALIDATE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
+
+    if grep -q '"latest_validate_dir":' "$tmpdir/status.json" && \
+        grep -q '"log_exists": false' "$tmpdir/status.json" && \
+        grep -q '"pass_count": 0' "$tmpdir/status.json" && \
+        grep -q '"warn_count": 0' "$tmpdir/status.json" && \
+        grep -q '"fail_count": 0' "$tmpdir/status.json"; then
+        ok "management status marks missing validation log explicitly"
+    else
+        fail "management status does not mark missing validation log explicitly"
     fi
 
     rm -rf "$tmpdir"
@@ -919,6 +953,7 @@ EOF
 if command -v mktemp >/dev/null 2>&1; then
     check_mgmt_status_portmap_formats
     check_mgmt_status_evidence_index
+    check_mgmt_status_missing_validation_log
     check_web_action_cgi
     check_unusable_explicit_dir \
         "bench runner" \

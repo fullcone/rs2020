@@ -250,6 +250,7 @@ fi
 validate_latest=$(latest_dir "$VALIDATE_BASE" 'validate-*')
 validate_bundle=$(latest_file "$VALIDATE_BASE" 'validate-*.tar.gz')
 validate_log=
+validate_log_exists=false
 validate_pass_count=0
 validate_warn_count=0
 validate_fail_count=0
@@ -258,6 +259,7 @@ validate_evidence_dir=
 validate_bundle_line=
 if [ -n "$validate_latest" ]; then
     validate_log="$validate_latest/validate.log"
+    [ -f "$validate_log" ] && validate_log_exists=true
     validate_pass_count=$(grep_count "$validate_log" '^PASS:')
     validate_warn_count=$(grep_count "$validate_log" '^WARN:')
     validate_fail_count=$(grep_count "$validate_log" '^FAIL:')
@@ -410,6 +412,7 @@ cat <<EOF
     "latest_validate_bundle": $(json_str "$validate_bundle"),
     "validation_summary": {
       "log": $(json_str "$validate_log"),
+      "log_exists": $validate_log_exists,
       "pass_count": $validate_pass_count,
       "warn_count": $validate_warn_count,
       "fail_count": $validate_fail_count,

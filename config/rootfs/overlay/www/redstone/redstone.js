@@ -25,10 +25,23 @@ const linkLabel = (eth) => {
 
 const validationLabel = (summary) => {
   if (!summary || !summary.log) return "none";
+  if (!summary.log_exists) return "missing log";
   const pass = Number(summary.pass_count || 0);
   const warn = Number(summary.warn_count || 0);
   const fail = Number(summary.fail_count || 0);
   return `${pass} pass, ${warn} warn, ${fail} fail`;
+};
+
+const validationState = (summary) => {
+  if (!summary || !summary.log_exists) return "warn";
+  if (Number(summary.fail_count || 0) > 0) return "bad";
+  if (Number(summary.warn_count || 0) > 0) return "warn";
+
+  const hasResults =
+    Number(summary.pass_count || 0) > 0 ||
+    Number(summary.warn_count || 0) > 0 ||
+    Number(summary.fail_count || 0) > 0;
+  return hasResults || summary.complete ? "ok" : "warn";
 };
 
 const probeLabel = (probe) => {
@@ -111,7 +124,7 @@ async function refresh() {
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
   stateClass("switchd", sw.running ? "ok" : "warn");
   stateClass("sdk-ref", sdk.exists ? "ok" : "warn");
-  stateClass("validation-summary", validation.fail_count > 0 ? "bad" : validation.warn_count > 0 ? "warn" : validation.log ? "ok" : "warn");
+  stateClass("validation-summary", validationState(validation));
   stateClass("bench-validate-exit", bench.validate_exit === "0" ? "ok" : bench.validate_exit ? "bad" : "warn");
   stateClass("bde-smoke", bench.bde_smoke_exit === "0" ? "ok" : bench.bde_smoke_exit ? "bad" : "warn");
   stateClass("init-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : probe.exists ? "warn" : "warn");
