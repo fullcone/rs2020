@@ -705,7 +705,30 @@ check_unusable_explicit_dir() {
     rm -rf "$tmpdir"
 }
 
+check_mgmt_status_portmap_formats() {
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/switchd"
+    cat > "$tmpdir/switchd/redstone-stage1.bcm" <<EOF
+portmap_1.0=1:10
+portmap_49.0=61:40
+EOF
+    printf 'redstone\n' > "$tmpdir/board"
+    REDSTONE_BOARD_FILE="$tmpdir/board" \
+        REDSTONE_SWITCHD_CONFIG_DIR="$tmpdir/switchd" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
+
+    if grep -q '"portmap_count": 2' "$tmpdir/status.json" && \
+        grep -q '"split_mode": "stage1-skeleton-4x40g"' "$tmpdir/status.json"; then
+        ok "management status counts portmap_N.0 config keys"
+    else
+        fail "management status does not count portmap_N.0 config keys"
+    fi
+
+    rm -rf "$tmpdir"
+}
+
 if command -v mktemp >/dev/null 2>&1; then
+    check_mgmt_status_portmap_formats
     check_unusable_explicit_dir \
         "bench runner" \
         REDSTONE_BENCH_DIR \

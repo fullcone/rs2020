@@ -113,12 +113,12 @@ split_mode=missing
 if [ -f "$selected_config" ]; then
     config_exists=true
     config_sha256=$(sha256_file "$selected_config")
-    portmap_count=$(grep -Ec '^portmap_[0-9]+=' "$selected_config" 2>/dev/null || true)
+    portmap_count=$(grep -Ec '^[[:space:]]*portmap_[0-9]+([.]0)?[[:space:]]*=' "$selected_config" 2>/dev/null || true)
     [ -n "$portmap_count" ] || portmap_count=0
-    if grep -Eq '^portmap_49=61:10$' "$selected_config" 2>/dev/null && \
-        grep -Eq '^portmap_61=65:40$' "$selected_config" 2>/dev/null; then
+    if grep -Eq '^[[:space:]]*portmap_49([.]0)?[[:space:]]*=[[:space:]]*61:10[[:space:]]*$' "$selected_config" 2>/dev/null && \
+        grep -Eq '^[[:space:]]*portmap_61([.]0)?[[:space:]]*=[[:space:]]*65:40[[:space:]]*$' "$selected_config" 2>/dev/null; then
         split_mode=original-active-split-49-50-51
-    elif grep -Eq '^portmap_49=61:40$' "$selected_config" 2>/dev/null; then
+    elif grep -Eq '^[[:space:]]*portmap_49([.]0)?[[:space:]]*=[[:space:]]*61:40[[:space:]]*$' "$selected_config" 2>/dev/null; then
         split_mode=stage1-skeleton-4x40g
     else
         split_mode=custom-or-unknown
