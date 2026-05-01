@@ -5,6 +5,30 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Web Evidence Browser And Safe Actions
+
+Completed:
+
+- Added `redstone-mgmt-evidence` plus `/cgi-bin/redstone-evidence` as a
+  read-only index for recent capture, validation, bench, and web-action runs.
+- Extended `/cgi-bin/redstone-action` beyond `capture` with
+  `validate-capture` (`redstone-stage1-validate --capture`) and
+  `bench-capture` (`redstone-stage1-bench-run --capture-only`).
+- Reworked `/www/redstone/` into Overview, Actions, Evidence, Hardware, and
+  Follow-Up sections so future OpenBCM/BDE gates can be managed from one page.
+- Kept the web safety boundary unchanged: no SDK exec, reset-risk acceptance,
+  flash write, ONIE install, or U-Boot environment write is reachable from the
+  browser.
+- Restated the management-port boot caveat: the current eth1 fix preserves the
+  U-Boot-good SGMII state; a later USB/flash path that bypasses U-Boot network
+  initialization still needs a dedicated Linux-side replication or proof gate.
+
+Next checkpoint:
+
+- Run the Web page and new evidence actions on hardware after the next FIT is
+  built, then use the evidence browser to drive OpenBCM BDE smoke and
+  init-probe dry-run work.
+
 ### Stage-5 Original SDK Reference Generator
 
 Completed:

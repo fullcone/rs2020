@@ -75,6 +75,12 @@ case "$query" in
     *"&action=capture&"*)
         action=capture
         ;;
+    *"&action=validate-capture&"*)
+        action=validate-capture
+        ;;
+    *"&action=bench-capture&"*)
+        action=bench-capture
+        ;;
     *"&action="*)
         finish_with "" rejected "" "" "" "" "" "" "unsupported action"
         ;;
@@ -119,12 +125,39 @@ result_env="$run_dir/result.env"
 result_json="$run_dir/result.json"
 started_at=$(stamp_utc)
 
+case "$action" in
+    capture)
+        command_label='redstone-stage1-capture --verbose'
+        command_override=${REDSTONE_CAPTURE_CMD:-}
+        command_default='redstone-stage1-capture --verbose'
+        success_message='capture completed'
+        failed_message='capture failed'
+        ;;
+    validate-capture)
+        command_label='redstone-stage1-validate --capture'
+        command_override=${REDSTONE_VALIDATE_CMD:-}
+        command_default='redstone-stage1-validate --capture'
+        success_message='validation capture completed'
+        failed_message='validation capture failed'
+        ;;
+    bench-capture)
+        command_label='redstone-stage1-bench-run --capture-only'
+        command_override=${REDSTONE_BENCH_CMD:-}
+        command_default='redstone-stage1-bench-run --capture-only'
+        success_message='bench capture completed'
+        failed_message='bench capture failed'
+        ;;
+    *)
+        finish_with "$action" rejected "" "" "" "$run_dir" "" "" "unsupported action"
+        ;;
+esac
+
 (
-    printf '$ redstone-stage1-capture --verbose\n\n'
-    if [ -n "${REDSTONE_CAPTURE_CMD:-}" ]; then
-        sh -c "$REDSTONE_CAPTURE_CMD"
+    printf '$ %s\n\n' "$command_label"
+    if [ -n "$command_override" ]; then
+        sh -c "$command_override"
     else
-        redstone-stage1-capture --verbose
+        sh -c "$command_default"
     fi
     rc=$?
     printf '\nexit=%s\n' "$rc"
@@ -133,13 +166,24 @@ started_at=$(stamp_utc)
 rc=$?
 
 finished_at=$(stamp_utc)
-evidence_dir=$(sed -n 's/^Redstone stage-1 capture written to //p' "$log_path" 2>/dev/null | tail -n 1)
+case "$action" in
+    capture)
+        evidence_dir=$(sed -n 's/^Redstone stage-1 capture written to //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+    validate-capture)
+        evidence_dir=$(sed -n 's/^Evidence directory: //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+    bench-capture)
+        evidence_dir=$(sed -n 's/^Return bench run evidence directory to the host: //p' "$log_path" 2>/dev/null | tail -n 1)
+        [ -n "$evidence_dir" ] || evidence_dir=$(sed -n 's/^Bench run evidence directory: //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+esac
 if [ "$rc" -eq 0 ]; then
     status=success
-    message="capture completed"
+    message=$success_message
 else
     status=failed
-    message="capture failed"
+    message=$failed_message
 fi
 
 cat > "$result_env" <<EOF

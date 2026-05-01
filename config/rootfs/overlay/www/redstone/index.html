@@ -35,85 +35,160 @@
       </div>
     </section>
 
-    <section class="grid">
-      <article class="panel">
-        <h2>Management Port</h2>
-        <dl>
-          <div><dt>Interface</dt><dd>eth1</dd></div>
-          <div><dt>MAC</dt><dd id="eth-address">unknown</dd></div>
-          <div><dt>State</dt><dd id="eth-state">unknown</dd></div>
-          <div><dt>Speed</dt><dd id="eth-speed">unknown</dd></div>
-        </dl>
-      </article>
+    <nav class="tabs" aria-label="Management sections">
+      <button class="tab active" type="button" data-view="overview">Overview</button>
+      <button class="tab" type="button" data-view="actions">Actions</button>
+      <button class="tab" type="button" data-view="evidence">Evidence</button>
+      <button class="tab" type="button" data-view="hardware">Hardware</button>
+      <button class="tab" type="button" data-view="followup">Follow-Up</button>
+    </nav>
 
-      <article class="panel">
-        <h2>ASIC Bring-Up</h2>
-        <dl>
-          <div><dt>PCI Slot</dt><dd id="bcm-slot">unknown</dd></div>
-          <div><dt>Driver</dt><dd id="bcm-driver">unknown</dd></div>
-          <div><dt>Kernel BDE</dt><dd id="kernel-bde">unknown</dd></div>
-          <div><dt>User BDE</dt><dd id="user-bde">unknown</dd></div>
-        </dl>
-      </article>
+    <section id="view-overview" class="view active">
+      <div class="grid">
+        <article class="panel">
+          <h2>Management Port</h2>
+          <dl>
+            <div><dt>Interface</dt><dd>eth1</dd></div>
+            <div><dt>MAC</dt><dd id="eth-address">unknown</dd></div>
+            <div><dt>State</dt><dd id="eth-state">unknown</dd></div>
+            <div><dt>Speed</dt><dd id="eth-speed">unknown</dd></div>
+          </dl>
+        </article>
 
-      <article class="panel wide">
-        <h2>Switch Config</h2>
-        <dl>
-          <div><dt>Path</dt><dd id="config-path">unknown</dd></div>
-          <div><dt>SHA256</dt><dd id="config-sha">unknown</dd></div>
-          <div><dt>Portmaps</dt><dd id="config-portmaps">0</dd></div>
-          <div><dt>Switchd</dt><dd id="switchd">unknown</dd></div>
-        </dl>
-      </article>
+        <article class="panel">
+          <h2>ASIC Bring-Up</h2>
+          <dl>
+            <div><dt>PCI Slot</dt><dd id="bcm-slot">unknown</dd></div>
+            <div><dt>Driver</dt><dd id="bcm-driver">unknown</dd></div>
+            <div><dt>Kernel BDE</dt><dd id="kernel-bde">unknown</dd></div>
+            <div><dt>User BDE</dt><dd id="user-bde">unknown</dd></div>
+          </dl>
+        </article>
 
-      <article class="panel wide">
-        <h2>Original SDK Reference</h2>
-        <dl>
-          <div><dt>Manifest</dt><dd id="sdk-ref">unknown</dd></div>
-          <div><dt>Split</dt><dd id="sdk-split">unknown</dd></div>
-          <div><dt>Generated Config</dt><dd id="sdk-config-sha">unknown</dd></div>
-          <div><dt>Generated PHY</dt><dd id="sdk-phy-sha">unknown</dd></div>
-        </dl>
-      </article>
+        <article class="panel wide">
+          <h2>Switch Config</h2>
+          <dl>
+            <div><dt>Path</dt><dd id="config-path">unknown</dd></div>
+            <div><dt>SHA256</dt><dd id="config-sha">unknown</dd></div>
+            <div><dt>Portmaps</dt><dd id="config-portmaps">0</dd></div>
+            <div><dt>Switchd</dt><dd id="switchd">unknown</dd></div>
+          </dl>
+        </article>
+      </div>
+    </section>
 
-      <article class="panel wide">
-        <div class="panel-heading">
-          <h2>Actions</h2>
-          <button id="run-capture" type="button">Run Capture</button>
-        </div>
-        <dl>
-          <div><dt>Current Action</dt><dd id="action-state">idle</dd></div>
-          <div><dt>Latest Action</dt><dd id="latest-action">none</dd></div>
-          <div><dt>Action Log</dt><dd id="action-log">none</dd></div>
-          <div><dt>Action Evidence</dt><dd id="action-evidence">none</dd></div>
-          <div><dt>Action Message</dt><dd id="action-message">none</dd></div>
-          <div><dt>Action Finished</dt><dd id="action-finished">none</dd></div>
-        </dl>
-      </article>
+    <section id="view-actions" class="view">
+      <div class="grid">
+        <article class="panel wide">
+          <div class="panel-heading">
+            <h2>Actions</h2>
+            <div class="button-row">
+              <button id="run-capture" type="button" data-action="capture">Capture</button>
+              <button id="run-validate" type="button" data-action="validate-capture">Validate</button>
+              <button id="run-bench" type="button" data-action="bench-capture">Bench Capture</button>
+            </div>
+          </div>
+          <dl>
+            <div><dt>Current Action</dt><dd id="action-state">idle</dd></div>
+            <div><dt>Latest Action</dt><dd id="latest-action">none</dd></div>
+            <div><dt>Action Log</dt><dd id="action-log">none</dd></div>
+            <div><dt>Action Evidence</dt><dd id="action-evidence">none</dd></div>
+            <div><dt>Action Message</dt><dd id="action-message">none</dd></div>
+            <div><dt>Action Finished</dt><dd id="action-finished">none</dd></div>
+          </dl>
+        </article>
 
-      <article class="panel wide">
-        <h2>Evidence Index</h2>
-        <dl>
-          <div><dt>Capture Dir</dt><dd id="latest-capture-dir">none</dd></div>
-          <div><dt>Capture Archive</dt><dd id="latest-capture-archive">none</dd></div>
-          <div><dt>Validate Dir</dt><dd id="latest-validate-dir">none</dd></div>
-          <div><dt>Validate Bundle</dt><dd id="latest-validate-bundle">none</dd></div>
-          <div><dt>Bench Dir</dt><dd id="latest-bench-dir">none</dd></div>
-          <div><dt>Updated</dt><dd id="generated-at">unknown</dd></div>
-        </dl>
-      </article>
+        <article class="panel wide">
+          <h2>Diagnostics</h2>
+          <dl>
+            <div><dt>Validation</dt><dd id="validation-summary">none</dd></div>
+            <div><dt>Validation Log</dt><dd id="validation-log">none</dd></div>
+            <div><dt>Bench Validate</dt><dd id="bench-validate-exit">none</dd></div>
+            <div><dt>BDE Smoke</dt><dd id="bde-smoke">none</dd></div>
+            <div><dt>Init Probe Dry Run</dt><dd id="init-probe">none</dd></div>
+            <div><dt>Capture Summary</dt><dd id="capture-summary">none</dd></div>
+          </dl>
+        </article>
+      </div>
+    </section>
 
-      <article class="panel wide">
-        <h2>Diagnostics</h2>
-        <dl>
-          <div><dt>Validation</dt><dd id="validation-summary">none</dd></div>
-          <div><dt>Validation Log</dt><dd id="validation-log">none</dd></div>
-          <div><dt>Bench Validate</dt><dd id="bench-validate-exit">none</dd></div>
-          <div><dt>BDE Smoke</dt><dd id="bde-smoke">none</dd></div>
-          <div><dt>Init Probe Dry Run</dt><dd id="init-probe">none</dd></div>
-          <div><dt>Capture Summary</dt><dd id="capture-summary">none</dd></div>
-        </dl>
-      </article>
+    <section id="view-evidence" class="view">
+      <div class="grid">
+        <article class="panel wide">
+          <div class="panel-heading">
+            <h2>Evidence Index</h2>
+            <button id="refresh-evidence" type="button">Refresh Evidence</button>
+          </div>
+          <dl>
+            <div><dt>Capture Dir</dt><dd id="latest-capture-dir">none</dd></div>
+            <div><dt>Capture Archive</dt><dd id="latest-capture-archive">none</dd></div>
+            <div><dt>Validate Dir</dt><dd id="latest-validate-dir">none</dd></div>
+            <div><dt>Validate Bundle</dt><dd id="latest-validate-bundle">none</dd></div>
+            <div><dt>Bench Dir</dt><dd id="latest-bench-dir">none</dd></div>
+            <div><dt>Updated</dt><dd id="generated-at">unknown</dd></div>
+          </dl>
+        </article>
+
+        <article class="panel wide">
+          <h2>Recent Runs</h2>
+          <div class="run-columns">
+            <section class="run-group">
+              <h3>Captures</h3>
+              <div id="capture-runs" class="run-list"></div>
+            </section>
+            <section class="run-group">
+              <h3>Validation</h3>
+              <div id="validation-runs" class="run-list"></div>
+            </section>
+            <section class="run-group">
+              <h3>Bench</h3>
+              <div id="bench-runs" class="run-list"></div>
+            </section>
+            <section class="run-group">
+              <h3>Actions</h3>
+              <div id="action-runs" class="run-list"></div>
+            </section>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="view-hardware" class="view">
+      <div class="grid">
+        <article class="panel wide">
+          <h2>Original SDK Reference</h2>
+          <dl>
+            <div><dt>Manifest</dt><dd id="sdk-ref">unknown</dd></div>
+            <div><dt>Split</dt><dd id="sdk-split">unknown</dd></div>
+            <div><dt>Generated Config</dt><dd id="sdk-config-sha">unknown</dd></div>
+            <div><dt>Generated PHY</dt><dd id="sdk-phy-sha">unknown</dd></div>
+          </dl>
+        </article>
+
+        <article class="panel wide">
+          <h2>Hardware Gates</h2>
+          <dl>
+            <div><dt>Management SGMII</dt><dd id="mgmt-sgmii">unknown</dd></div>
+            <div><dt>BCM56846 PCIe</dt><dd id="hardware-bcm">unknown</dd></div>
+            <div><dt>BDE Nodes</dt><dd id="hardware-bde">unknown</dd></div>
+            <div><dt>OpenBCM Probe</dt><dd id="hardware-probe">unknown</dd></div>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    <section id="view-followup" class="view">
+      <div class="grid">
+        <article class="panel wide">
+          <h2>Next Gates</h2>
+          <dl>
+            <div><dt>1</dt><dd>Capture evidence browser and safe action logs</dd></div>
+            <div><dt>2</dt><dd>OpenBCM BDE smoke evidence</dd></div>
+            <div><dt>3</dt><dd>Init-probe dry run with original-active config</dd></div>
+            <div><dt>4</dt><dd>Single front-panel link validation</dd></div>
+          </dl>
+        </article>
+      </div>
     </section>
   </main>
   <script src="/redstone/redstone.js"></script>

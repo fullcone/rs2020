@@ -1,19 +1,24 @@
 # Redstone Web Management Plan
 
 This is the management UI track for Redstone stage-1 and follow-up BCM work.
-It starts with status plus one safe evidence action: the current image can prove
-management Ethernet and collect evidence, but SDK reset-risk and flash actions
-are not ready to expose through a browser.
+It starts with read-only status, recent evidence browsing, and safe evidence
+actions. SDK reset-risk and flash actions are not ready to expose through a
+browser.
 
 ## Initial Scope
 
 - Serve a static page from `/www/redstone/`.
 - Serve status JSON through `/cgi-bin/redstone-status`.
+- Serve recent evidence JSON through `/cgi-bin/redstone-evidence`.
 - Serve the capture-only action through `/cgi-bin/redstone-action?action=capture`.
+- Serve non-strict validation capture through
+  `/cgi-bin/redstone-action?action=validate-capture`.
+- Serve bench capture-only evidence through
+  `/cgi-bin/redstone-action?action=bench-capture`.
 - Start the web UI only when an operator runs `redstone-mgmt-web`.
 - Bind to `127.0.0.1:8080` by default.
-- Reuse `redstone-mgmt-status` as the single data source for the page, capture
-  tool, and later action endpoints.
+- Reuse `redstone-mgmt-status` for status and `redstone-mgmt-evidence` for
+  recent run lists.
 - Store web action logs under `/var/log/redstone-stage1/web-actions`.
 
 ## Current Status Fields
@@ -37,6 +42,11 @@ are not ready to expose through a browser.
 - latest web-triggered capture action status, log path, and evidence directory,
 - availability of capture, validation, BDE smoke, and init-probe tools.
 
+`redstone-mgmt-evidence` reports recent capture, validation, bench, and web
+action runs from the configured Redstone evidence directories. It returns only
+fixed-directory indexes and log excerpts; it does not accept arbitrary path
+inputs.
+
 ## Safety Boundary
 
 The first web slice must not:
@@ -50,10 +60,15 @@ The first web slice must not:
 
 ## Next Web Actions
 
-The first explicit CGI action is now the capture-only evidence run. It is
-synchronous, protected by a single-action directory lock, and writes
-`result.env`, `result.json`, and `action.log` below
+The explicit CGI actions are synchronous, protected by a single-action
+directory lock, and write `result.env`, `result.json`, and `action.log` below
 `/var/log/redstone-stage1/web-actions`.
+
+Current actions:
+
+1. `capture`: runs `redstone-stage1-capture --verbose`.
+2. `validate-capture`: runs `redstone-stage1-validate --capture`.
+3. `bench-capture`: runs `redstone-stage1-bench-run --capture-only`.
 
 Remaining explicit CGI actions should be added in this order:
 

@@ -108,8 +108,10 @@ check_file "config/bcm/redstone-original-active-sdk.manifest"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run"
+check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-status"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
+check_file "config/rootfs/overlay/www/cgi-bin/redstone-evidence"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-status"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-action"
 check_file "config/rootfs/overlay/www/redstone/index.html"
@@ -184,8 +186,12 @@ check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
     "build-rootfs installs optional Redstone OpenBCM init probe"
 check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone bench runner executable mode"
+check_grep 'redstone-mgmt-evidence' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone evidence provider executable mode"
 check_grep 'redstone-mgmt-status' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone management status executable mode"
+check_grep 'www/cgi-bin/redstone-evidence' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone evidence CGI executable mode"
 check_grep 'www/cgi-bin/redstone-status' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone management CGI executable mode"
 check_grep 'www/cgi-bin/redstone-action' "scripts/build-rootfs.sh" \
@@ -200,6 +206,10 @@ check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" 
     "Redstone post-build repairs sshd /var/empty permissions at runtime"
 check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management status script"
+check_grep 'redstone-mgmt-evidence' "config/rootfs/post-build.sh" \
+    "Redstone post-build normalizes management evidence script"
+check_grep 'www/cgi-bin/redstone-evidence' "config/rootfs/post-build.sh" \
+    "Redstone post-build marks evidence CGI executable"
 check_grep 'www/cgi-bin/redstone-status' "config/rootfs/post-build.sh" \
     "Redstone post-build marks management CGI executable"
 check_grep 'www/cgi-bin/redstone-action' "config/rootfs/post-build.sh" \
@@ -660,12 +670,39 @@ check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space
 check_grep 'redstone-mgmt-status' \
     "config/rootfs/overlay/www/cgi-bin/redstone-status" \
     "management CGI delegates to the read-only status provider"
+check_grep 'redstone-mgmt-evidence' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-evidence" \
+    "evidence CGI delegates to the read-only evidence provider"
+check_grep 'capture_runs' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider lists capture runs"
+check_grep 'validation_runs' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider lists validation runs"
+check_grep 'bench_runs' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider lists bench runs"
+check_grep 'web_actions' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider lists web actions"
 check_grep 'action=capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI accepts the capture action"
+check_grep 'action=validate-capture' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI accepts validation capture"
+check_grep 'action=bench-capture' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI accepts bench capture"
 check_grep 'redstone-stage1-capture --verbose' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI runs the capture tool"
+check_grep 'redstone-stage1-validate --capture' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI runs non-strict validation capture"
+check_grep 'redstone-stage1-bench-run --capture-only' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI runs capture-only bench evidence"
 check_grep 'mkdir "\$LOCK_DIR"' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI uses a single-action lock"
@@ -687,6 +724,9 @@ check_no_regex 'redstone-mgmt-web|httpd' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management web UI does not expose destructive actions"
+check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider does not expose destructive actions"
 check_grep 'web_action' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports latest web action"
@@ -720,6 +760,24 @@ check_grep 'init-probe' \
 check_grep 'run-capture' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page exposes the capture action button"
+check_grep 'run-validate' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes the validation capture action button"
+check_grep 'run-bench' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes the bench capture action button"
+check_grep 'capture-runs' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays capture evidence runs"
+check_grep 'validation-runs' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays validation evidence runs"
+check_grep 'bench-runs' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays bench evidence runs"
+check_grep 'action-runs' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays web action evidence runs"
 check_grep 'validationLabel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI formats validation summary"
@@ -732,22 +790,47 @@ check_grep 'probeLabel' \
 check_grep 'redstone-action[?]action=capture|actionUrl' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI calls the capture action endpoint"
+check_grep 'redstone-evidence|evidenceUrl' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI calls the evidence endpoint"
+check_grep 'validate-capture' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management UI can run validation capture"
+check_grep 'bench-capture' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management UI can run bench capture"
 check_grep 'redstone-mgmt-status' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the read-only status provider"
+check_grep 'redstone-mgmt-evidence' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the read-only evidence provider"
+check_grep 'redstone-evidence' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the evidence CGI endpoint"
 check_grep 'redstone-action[?]action=capture' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the capture action endpoint"
+check_grep 'redstone-action[?]action=validate-capture' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the validation capture action endpoint"
+check_grep 'redstone-action[?]action=bench-capture' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the bench capture action endpoint"
 check_grep '127[.]0[.]0[.]1:8080' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents loopback default bind"
 check_grep 'must not:' "docs/redstone_web_mgmt_plan.md" \
     "web management plan records safety boundaries"
 check_grep 'redstone-mgmt-web' "docs/redstone_stage1_plan.md" \
     "stage plan documents manual web management launcher"
+check_grep 'redstone-mgmt-evidence' "docs/redstone_stage1_plan.md" \
+    "stage plan documents the web evidence provider"
+check_grep 'U-Boot-good BCM54616S/SerDes' "docs/redstone_stage1_plan.md" \
+    "stage plan records the management SGMII boot caveat"
 check_grep 'redstone-original-active-sdk' "docs/redstone_stage1_plan.md" \
     "stage plan documents the original-active SDK reference manifest"
 check_grep 'redstone-original-active-sdk' "docs/redstone_progress.md" \
     "progress log records the original-active SDK reference work"
 check_grep 'redstone-original-active-sdk' "docs/redstone_followup_intel.md" \
     "follow-up intelligence names the original-active SDK reference"
+check_grep 'validate-capture' "docs/redstone_progress.md" \
+    "progress log records the validation capture web action"
+check_grep 'ordinary U-Boot boot path' "docs/redstone_followup_intel.md" \
+    "follow-up intelligence records the direct-boot SGMII caveat"
 
 check_unusable_explicit_dir() {
     label=$1
@@ -871,6 +954,72 @@ EOF
     rm -rf "$tmpdir"
 }
 
+check_mgmt_evidence_index() {
+    tmpdir=$(mktemp -d)
+    evidence="$tmpdir/evidence"
+    mkdir -p \
+        "$evidence/20260304T010203Z" \
+        "$evidence/validate-20260304T010204Z" \
+        "$evidence/bench-run-20260304T010205Z" \
+        "$evidence/web-actions/20260304T010206Z-capture"
+
+    printf 'summary line\n' > "$evidence/20260304T010203Z/capture-summary.txt"
+    : > "$evidence/20260304T010203Z.tar.gz"
+    : > "$evidence/validate-20260304T010204Z.tar.gz"
+    cat > "$evidence/validate-20260304T010204Z/validate.log" <<EOF
+PASS: config present
+WARN: switchd stopped
+FAIL: bde missing
+Redstone stage-1 validation complete: 1 pass, 1 warning(s), 1 failure(s)
+Evidence directory: /var/log/redstone-stage1/validate-20260304T010204Z
+Validation bundle: /var/log/redstone-stage1/validate-20260304T010204Z.tar.gz
+EOF
+    cat > "$evidence/bench-run-20260304T010205Z/bench-run.log" <<EOF
+capture_only=1
+validate_exit=0
+validation_bundle=/var/log/redstone-stage1/validate-20260304T010204Z.tar.gz
+validation_evidence_dir=/var/log/redstone-stage1/validate-20260304T010204Z
+bde_smoke_exit=
+EOF
+    cat > "$evidence/web-actions/20260304T010206Z-capture/result.env" <<EOF
+action=capture
+status=success
+exit=0
+started_at=2026-03-04T01:02:06Z
+finished_at=2026-03-04T01:02:07Z
+run_dir=/var/log/redstone-stage1/web-actions/20260304T010206Z-capture
+log=$evidence/web-actions/20260304T010206Z-capture/action.log
+evidence_dir=/var/log/redstone-stage1/20260304T010203Z
+message=capture completed
+EOF
+    printf 'fake action log\n' > "$evidence/web-actions/20260304T010206Z-capture/action.log"
+
+    REDSTONE_CAPTURE_DIR="$evidence" \
+        REDSTONE_VALIDATE_DIR="$evidence" \
+        REDSTONE_BENCH_DIR="$evidence" \
+        REDSTONE_WEB_ACTION_DIR="$evidence/web-actions" \
+        REDSTONE_EVIDENCE_LIMIT=4 \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" > "$tmpdir/evidence.json"
+
+    if grep -q '"schema": "redstone-mgmt-evidence.v1"' "$tmpdir/evidence.json" && \
+        grep -q '"capture_runs":' "$tmpdir/evidence.json" && \
+        grep -q '"validation_runs":' "$tmpdir/evidence.json" && \
+        grep -q '"bench_runs":' "$tmpdir/evidence.json" && \
+        grep -q '"web_actions":' "$tmpdir/evidence.json" && \
+        grep -q '"pass_count": 1' "$tmpdir/evidence.json" && \
+        grep -q '"warn_count": 1' "$tmpdir/evidence.json" && \
+        grep -q '"fail_count": 1' "$tmpdir/evidence.json" && \
+        grep -q '"capture_only": "1"' "$tmpdir/evidence.json" && \
+        grep -q '"status": "success"' "$tmpdir/evidence.json" && \
+        grep -q '"log_tail":' "$tmpdir/evidence.json"; then
+        ok "management evidence provider indexes recent capture, validation, bench, and action runs"
+    else
+        fail "management evidence provider does not index recent runs"
+    fi
+
+    rm -rf "$tmpdir"
+}
+
 check_mgmt_status_missing_validation_log() {
     tmpdir=$(mktemp -d)
     evidence="$tmpdir/evidence"
@@ -901,10 +1050,24 @@ EOF
 check_web_action_cgi() {
     tmpdir=$(mktemp -d)
     fake_capture="$tmpdir/fake-capture.sh"
+    fake_validate="$tmpdir/fake-validate.sh"
+    fake_bench="$tmpdir/fake-bench.sh"
     cat > "$fake_capture" <<EOF
 #!/bin/sh
 echo "fake capture"
 echo "Redstone stage-1 capture written to /var/log/redstone-stage1/20260304T020000Z"
+EOF
+    cat > "$fake_validate" <<EOF
+#!/bin/sh
+echo "fake validation"
+echo "Redstone stage-1 validation complete: 1 pass, 0 warning(s), 0 failure(s)"
+echo "Evidence directory: /var/log/redstone-stage1/validate-20260304T020100Z"
+echo "Validation bundle: /var/log/redstone-stage1/validate-20260304T020100Z.tar.gz"
+EOF
+    cat > "$fake_bench" <<EOF
+#!/bin/sh
+echo "fake bench capture"
+echo "Return bench run evidence directory to the host: /var/log/redstone-stage1/bench-run-20260304T020200Z"
 EOF
 
     REQUEST_METHOD=POST \
@@ -923,6 +1086,34 @@ EOF
         ok "management action CGI runs capture and records action evidence"
     else
         fail "management action CGI did not record a successful capture action"
+    fi
+
+    REQUEST_METHOD=POST \
+        QUERY_STRING=action=validate-capture \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/validate-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/validate.lock" \
+        REDSTONE_VALIDATE_CMD="sh $fake_validate" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/validate.json"
+    if grep -q '"status": "success"' "$tmpdir/validate.json" && \
+        grep -q '"action": "validate-capture"' "$tmpdir/validate.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/validate-20260304T020100Z"' "$tmpdir/validate.json"; then
+        ok "management action CGI runs validation capture and returns evidence"
+    else
+        fail "management action CGI did not record validation capture evidence"
+    fi
+
+    REQUEST_METHOD=POST \
+        QUERY_STRING=action=bench-capture \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/bench-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/bench.lock" \
+        REDSTONE_BENCH_CMD="sh $fake_bench" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/bench.json"
+    if grep -q '"status": "success"' "$tmpdir/bench.json" && \
+        grep -q '"action": "bench-capture"' "$tmpdir/bench.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/bench-run-20260304T020200Z"' "$tmpdir/bench.json"; then
+        ok "management action CGI runs bench capture and returns evidence"
+    else
+        fail "management action CGI did not record bench capture evidence"
     fi
 
     REQUEST_METHOD=POST \
@@ -970,6 +1161,7 @@ EOF
 if command -v mktemp >/dev/null 2>&1; then
     check_mgmt_status_portmap_formats
     check_mgmt_status_evidence_index
+    check_mgmt_evidence_index
     check_mgmt_status_missing_validation_log
     check_web_action_cgi
     check_unusable_explicit_dir \
@@ -1054,8 +1246,10 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-status \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-web \
+        config/rootfs/overlay/www/cgi-bin/redstone-evidence \
         config/rootfs/overlay/www/cgi-bin/redstone-status \
         config/rootfs/overlay/www/cgi-bin/redstone-action \
         config/rootfs/overlay/usr/sbin/switchd-init
@@ -1289,6 +1483,15 @@ if command -v git >/dev/null 2>&1; then
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-mgmt-evidence is tracked executable"
+    else
+        fail "redstone-mgmt-evidence git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-status |
         awk '{print $1; exit}')
     if [ "$mode" = "100755" ]; then
@@ -1304,6 +1507,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-mgmt-web is tracked executable"
     else
         fail "redstone-mgmt-web git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/www/cgi-bin/redstone-evidence |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-evidence CGI is tracked executable"
+    else
+        fail "redstone-evidence CGI git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

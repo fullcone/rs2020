@@ -16,7 +16,10 @@ The root cause was stock Linux BCM54616S SGMII setup overwriting the U-Boot-good
 SerDes state. The current fix is the opt-in
 `brcm,redstone-preserve-uboot-sgmii` DTS property, which preserves U-Boot's
 working BCM54616S state. Direct USB/flash boot without U-Boot network
-initialization is not validated here.
+initialization is not validated here. If the final boot path starts from USB or
+flash without a prior U-Boot TFTP/network transaction, Linux must either
+replicate the original U-Boot BCM54616S/SerDes initialization or prove that the
+ordinary U-Boot boot path already performs the same setup before hand-off.
 
 ## Original Startup Chain
 
@@ -166,3 +169,9 @@ front-panel link validation.
    original-active config.
 4. Only after dry-run evidence is sane, run a controlled SDK exec test and then
    a single front-panel link test.
+
+The Web management page now supports the first evidence-management layer for
+that order: recent capture/validation/bench/action browsing plus three safe
+actions (`capture`, `validate-capture`, and `bench-capture`). Keep destructive
+SDK exec and persistent install actions out of the browser until the BDE smoke
+and dry-run gates have returned clean hardware evidence.

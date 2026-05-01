@@ -47,7 +47,8 @@ body {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -59,6 +60,11 @@ h1 {
 
 h2 {
   font-size: 17px;
+  line-height: 1.25;
+}
+
+h3 {
+  font-size: 14px;
   line-height: 1.25;
 }
 
@@ -89,6 +95,32 @@ button:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tab {
+  white-space: nowrap;
+}
+
+.tab.active {
+  border-color: var(--accent);
+  background: #e7f0f7;
+  color: var(--accent);
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
 }
 
 .status-item,
@@ -139,6 +171,13 @@ dt {
   gap: 12px;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -156,6 +195,53 @@ dd {
   margin: 5px 0 0;
   overflow-wrap: anywhere;
   font-weight: 650;
+}
+
+.run-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.run-group {
+  min-width: 0;
+}
+
+.run-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.run-row {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.run-row strong,
+.run-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.run-row span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.run-tail {
+  max-height: 110px;
+  margin: 8px 0 0;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  color: var(--muted);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
 }
 
 .ok {
@@ -186,12 +272,17 @@ dd {
     flex-direction: column;
   }
 
+  .button-row {
+    justify-content: flex-start;
+  }
+
   h1 {
     font-size: 26px;
   }
 
   .status-strip,
   .grid,
+  .run-columns,
   dl {
     grid-template-columns: 1fr;
   }

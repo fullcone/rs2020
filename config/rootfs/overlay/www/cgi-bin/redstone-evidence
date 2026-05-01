@@ -1,0 +1,8 @@
+#!/bin/sh
+# CGI wrapper for the read-only Redstone evidence index.
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+
+exec redstone-mgmt-evidence
