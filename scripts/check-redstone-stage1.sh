@@ -104,6 +104,7 @@ done
 check_file "$EDGENOS_DTS_SOURCE"
 check_file "$EDGENOS_KERNEL_DEFCONFIG"
 check_file "config/bcm/redstone-stage1.bcm"
+check_file "config/bcm/redstone-original-active-sdk.manifest"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run"
@@ -138,6 +139,7 @@ check_file "scripts/redstone-openbcm-bde-smoke.sh"
 check_file "scripts/check-openbcm-userland-init.sh"
 check_file "scripts/build-openbcm-init-probe.sh"
 check_file "scripts/install-openbcm-init-probe.sh"
+check_file "scripts/generate-redstone-original-active-sdk-reference.sh"
 check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
 check_file "docs/redstone_bench_result_template.md"
 check_file "docs/redstone_stage1_plan.md"
@@ -673,6 +675,12 @@ check_grep 'must not:' "docs/redstone_web_mgmt_plan.md" \
     "web management plan records safety boundaries"
 check_grep 'redstone-mgmt-web' "docs/redstone_stage1_plan.md" \
     "stage plan documents manual web management launcher"
+check_grep 'redstone-original-active-sdk' "docs/redstone_stage1_plan.md" \
+    "stage plan documents the original-active SDK reference manifest"
+check_grep 'redstone-original-active-sdk' "docs/redstone_progress.md" \
+    "progress log records the original-active SDK reference work"
+check_grep 'redstone-original-active-sdk' "docs/redstone_followup_intel.md" \
+    "follow-up intelligence names the original-active SDK reference"
 
 check_unusable_explicit_dir() {
     label=$1
@@ -727,6 +735,28 @@ else
     fail "Redstone port map has $portmaps entries, expected 52"
 fi
 
+check_grep '^generated_config_portmap_count=61$' \
+    "config/bcm/redstone-original-active-sdk.manifest" \
+    "original-active SDK manifest records the 61-entry active split port map"
+check_grep '^generated_config_split_10g_portmap_count=12$' \
+    "config/bcm/redstone-original-active-sdk.manifest" \
+    "original-active SDK manifest records twelve 10G split port maps"
+check_grep '^generated_has_unsplit_fxe52=true$' \
+    "config/bcm/redstone-original-active-sdk.manifest" \
+    "original-active SDK manifest records fxe52 as unsplit 40G"
+check_grep '^generated_has_l2xmsg_chunks=true$' \
+    "config/bcm/redstone-original-active-sdk.manifest" \
+    "original-active SDK manifest includes original SDK global tuning"
+if [ -d "$TOPDIR/../../startup_redstone_t/ZEBOS/bcm" ]; then
+    if sh "$TOPDIR/scripts/generate-redstone-original-active-sdk-reference.sh" check >/dev/null; then
+        ok "original-active SDK reference manifest regenerates from extracted source"
+    else
+        fail "original-active SDK reference manifest does not regenerate from extracted source"
+    fi
+else
+    ok "original-active SDK source tree is absent; manifest structural checks retained"
+fi
+
 if command -v sh >/dev/null 2>&1; then
     for script in \
         scripts/board-env.sh \
@@ -752,6 +782,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/check-openbcm-userland-init.sh \
         scripts/build-openbcm-init-probe.sh \
         scripts/install-openbcm-init-probe.sh \
+        scripts/generate-redstone-original-active-sdk-reference.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
@@ -952,6 +983,15 @@ if command -v git >/dev/null 2>&1; then
         ok "install-openbcm-init-probe.sh is tracked executable"
     else
         fail "install-openbcm-init-probe.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/generate-redstone-original-active-sdk-reference.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "generate-redstone-original-active-sdk-reference.sh is tracked executable"
+    else
+        fail "generate-redstone-original-active-sdk-reference.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

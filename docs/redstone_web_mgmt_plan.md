@@ -20,6 +20,7 @@ ready to expose through a browser.
 
 - selected board profile,
 - selected BCM config path, SHA256, portmap count, and detected split mode,
+- original SDK reference manifest presence plus generated config/PHY hashes,
 - eth1 management-port link state,
 - BCM56846 PCI presence and bound driver,
 - BDE device nodes and module presence,

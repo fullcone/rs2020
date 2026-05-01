@@ -122,6 +122,10 @@ fi
 check_file etc/switchd/redstone-stage1.bcm
 grep -q "portmap_52" "$STAGING/etc/switchd/redstone-stage1.bcm" || \
     fail "redstone-stage1.bcm does not contain the 52-port map"
+check_file etc/switchd/redstone-original-active-sdk.manifest
+grep -q "^generated_config_portmap_count=61$" \
+    "$STAGING/etc/switchd/redstone-original-active-sdk.manifest" || \
+    fail "original-active SDK reference manifest does not record 61 port maps"
 
 check_module linux-kernel-bde.ko
 check_module linux-user-bde.ko

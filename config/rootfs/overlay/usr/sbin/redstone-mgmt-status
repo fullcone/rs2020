@@ -5,6 +5,7 @@ set -u
 
 BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
 SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
+SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-original-active-sdk.manifest"}
 CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
 BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-bench}
 
@@ -81,6 +82,14 @@ latest_entry() {
     fi
 }
 
+manifest_value() {
+    key=$1
+    file=$2
+    if [ -r "$file" ]; then
+        sed -n "s/^$key=//p" "$file" | head -n 1
+    fi
+}
+
 board=$(read_first "$BOARD_FILE")
 [ -n "$board" ] || board=unknown
 
@@ -114,6 +123,31 @@ if [ -f "$selected_config" ]; then
     else
         split_mode=custom-or-unknown
     fi
+fi
+
+sdk_ref_exists=false
+sdk_ref_sha256=
+sdk_ref_schema=
+sdk_ref_split=
+sdk_ref_portmaps=
+sdk_ref_config_sha=
+sdk_ref_phy_sha=
+sdk_ref_fixup_sha=
+sdk_ref_globals=
+sdk_ref_phy84848=
+sdk_ref_unsplit=
+if [ -f "$SDK_REF_MANIFEST" ]; then
+    sdk_ref_exists=true
+    sdk_ref_sha256=$(sha256_file "$SDK_REF_MANIFEST")
+    sdk_ref_schema=$(manifest_value schema "$SDK_REF_MANIFEST")
+    sdk_ref_split=$(manifest_value split_interfaces "$SDK_REF_MANIFEST")
+    sdk_ref_portmaps=$(manifest_value generated_config_portmap_count "$SDK_REF_MANIFEST")
+    sdk_ref_config_sha=$(manifest_value generated_config_bcm_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_phy_sha=$(manifest_value generated_phy_soc_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_fixup_sha=$(manifest_value generated_fixup_soc_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_globals=$(manifest_value generated_has_l2xmsg_chunks "$SDK_REF_MANIFEST")
+    sdk_ref_phy84848=$(manifest_value generated_has_phy_84848 "$SDK_REF_MANIFEST")
+    sdk_ref_unsplit=$(manifest_value generated_has_unsplit_fxe52 "$SDK_REF_MANIFEST")
 fi
 
 eth=eth1
@@ -162,6 +196,20 @@ cat <<EOF
     "sha256": $(json_str "$config_sha256"),
     "portmap_count": $portmap_count,
     "split_mode": $(json_str "$split_mode")
+  },
+  "original_sdk_reference": {
+    "manifest_path": $(json_str "$SDK_REF_MANIFEST"),
+    "exists": $sdk_ref_exists,
+    "sha256": $(json_str "$sdk_ref_sha256"),
+    "schema": $(json_str "$sdk_ref_schema"),
+    "split_interfaces": $(json_str "$sdk_ref_split"),
+    "generated_portmap_count": $(json_str "$sdk_ref_portmaps"),
+    "generated_config_sha256": $(json_str "$sdk_ref_config_sha"),
+    "generated_phy_sha256": $(json_str "$sdk_ref_phy_sha"),
+    "generated_fixup_sha256": $(json_str "$sdk_ref_fixup_sha"),
+    "has_original_global_tuning": $(json_str "$sdk_ref_globals"),
+    "has_phy_84848": $(json_str "$sdk_ref_phy84848"),
+    "fxe52_unsplit": $(json_str "$sdk_ref_unsplit")
   },
   "management_eth1": {
     "present": $eth_present,

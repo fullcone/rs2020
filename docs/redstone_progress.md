@@ -5,6 +5,30 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Original SDK Reference Generator
+
+Completed:
+
+- Added `scripts/generate-redstone-original-active-sdk-reference.sh` to
+  regenerate the original-active Redstone SDK reference from the extracted
+  `startup_redstone_t/ZEBOS/bcm` files and saved active split config.
+- Kept the generated vendor SDK config bodies out of Git; `generate` writes
+  them under ignored `output/redstone-original-active-sdk/`.
+- Added `config/bcm/redstone-original-active-sdk.manifest` as the committed
+  fingerprint for the generated reference. It records the original source
+  hashes, generated output hashes, 61 generated port maps, twelve 10G split
+  maps for `fxe49`/`fxe50`/`fxe51`, and `fxe52` as unsplit 40G.
+- Wired `make redstone-original-active-sdk-reference-check` and
+  `make redstone-original-active-sdk-reference` so later BDE/OpenBCM work has
+  a reproducible config input.
+- Extended `redstone-mgmt-status` and the read-only web page to expose the
+  original SDK reference manifest and generated config/PHY hashes.
+
+Next checkpoint:
+
+- Use the generated reference as the selected BCM config for the OpenBCM
+  init-probe dry-run after BDE smoke confirms usable BDE device nodes.
+
 ### Stage-5 Web Management Scaffold
 
 Completed:

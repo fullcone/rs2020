@@ -30,6 +30,7 @@ async function refresh() {
   const bcm = data.bcm56846 || {};
   const bde = data.bde || {};
   const sw = data.switchd || {};
+  const sdk = data.original_sdk_reference || {};
   const evidence = data.evidence || {};
 
   text("board", data.board);
@@ -47,6 +48,10 @@ async function refresh() {
   text("config-sha", cfg.sha256 || "unavailable");
   text("config-portmaps", String(cfg.portmap_count || 0));
   text("switchd", sw.running ? `running ${sw.pids || ""}`.trim() : "stopped");
+  text("sdk-ref", sdk.exists ? `${sdk.generated_portmap_count || "unknown"} portmaps` : "missing");
+  text("sdk-split", sdk.split_interfaces || "unknown");
+  text("sdk-config-sha", sdk.generated_config_sha256 || "unavailable");
+  text("sdk-phy-sha", sdk.generated_phy_sha256 || "unavailable");
   text("latest-capture", evidence.latest_capture || "none");
   text("latest-bench", evidence.latest_bench || "none");
   text("generated-at", data.generated_at);
@@ -54,6 +59,7 @@ async function refresh() {
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
   stateClass("switchd", sw.running ? "ok" : "warn");
+  stateClass("sdk-ref", sdk.exists ? "ok" : "warn");
 }
 
 document.getElementById("refresh").addEventListener("click", () => {

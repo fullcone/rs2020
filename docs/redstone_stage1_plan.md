@@ -28,8 +28,12 @@ chain also adds PHY addresses, lane maps, polarity flips, MDI pair maps, MMU
 fixups, BCM84848 PHY programming, and LED programs. Keep the current skeleton
 unchanged until a separate non-default original-active config or generator is
 tested. `config/bcm/redstone-original-active-portmap.bcm` now records the
-non-default active portmap reference; see `docs/redstone_followup_intel.md` for
-the remaining SDK gaps.
+non-default active portmap reference. `scripts/generate-redstone-original-active-sdk-reference.sh`
+now regenerates the fuller original-active SDK reference into ignored
+`output/redstone-original-active-sdk/`, while
+`config/bcm/redstone-original-active-sdk.manifest` tracks the hashes and
+structural checks without committing the vendor SDK config bodies. See
+`docs/redstone_followup_intel.md` for the remaining hardware validation order.
 
 To build a rootfs that selects it at boot:
 
@@ -79,10 +83,10 @@ The rootfs also carries a manual, read-only Web management scaffold for the
 follow-up work. It is not started at boot. On a bench system, an operator can
 run `redstone-mgmt-web` to serve `/www/redstone/` on `127.0.0.1:8080`; the page
 uses `redstone-mgmt-status` through `/cgi-bin/redstone-status` to show eth1,
-BCM56846, BDE, switchd, selected BCM config, and evidence paths. Browser
-actions that run SDK reset-risk, flash, ONIE install, or U-Boot environment
-writes remain out of scope until explicitly reviewed. See
-`docs/redstone_web_mgmt_plan.md`.
+BCM56846, BDE, switchd, selected BCM config, original SDK reference manifest,
+and evidence paths. Browser actions that run SDK reset-risk, flash, ONIE
+install, or U-Boot environment writes remain out of scope until explicitly
+reviewed. See `docs/redstone_web_mgmt_plan.md`.
 
 The recommended first bench sequence is:
 

@@ -97,6 +97,15 @@ reference or generated config is added and tested.
 reference for this active split map. It is not selected by the Redstone board
 selector and does not claim full SDK parity.
 
+`scripts/generate-redstone-original-active-sdk-reference.sh` extends that
+reference into a reproducible local SDK config set by replaying the original
+`split.sh` and `mmu.sh` rules against the extracted `config.bcm.in`,
+`phy.soc.in`, `fixup.soc.in`, `rc.soc`, `qsfp_led.soc`, and `startup` files.
+The generated files stay under ignored `output/redstone-original-active-sdk/`.
+The committed `config/bcm/redstone-original-active-sdk.manifest` records hashes
+and structural checks for the generated config, PHY script, fixups, LED script,
+and startup chain without storing the vendor SDK config bodies in Git.
+
 ## BCM Config Gaps
 
 The original `config.bcm.in` includes more than port maps:
@@ -149,13 +158,11 @@ front-panel link validation.
 
 ## Next Non-USB Order
 
-1. Extend the non-default original-active portmap reference into either a full
-   generated SDK config or a checked reference that includes the original
-   globals, PHY, MMU, and LED dependencies.
-2. Extend the Redstone validation scripts so captures record the intended
+1. Extend the Redstone validation scripts so captures record the intended
    split mode and exact BCM config source.
-3. Run the OpenBCM BDE smoke helper on hardware and require BDE device nodes,
+2. Run the OpenBCM BDE smoke helper on hardware and require BDE device nodes,
    `14e4:b846`, and a clean evidence bundle before loading SDK userland.
-4. Run the OpenBCM init probe in dry-run mode with the original-active config.
-5. Only after dry-run evidence is sane, run a controlled SDK exec test and then
+3. Run the OpenBCM init probe in dry-run mode with the generated
+   original-active config.
+4. Only after dry-run evidence is sane, run a controlled SDK exec test and then
    a single front-panel link test.
