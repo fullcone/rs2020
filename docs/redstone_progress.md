@@ -1722,3 +1722,177 @@ Next checkpoint:
   Redstone through the temporary U-Boot FIT command from the operator checklist,
   then return the serial log, validation bundle, and matching `bench-run-*`
   directory.
+
+### Stage-4 TFTP FIT First-Boot Management Ethernet Retest
+
+Completed:
+
+- Booted a Redstone stage-1 FIT over U-Boot TFTP instead of USB to shorten the
+  hardware-debug loop.
+- Confirmed the FIT loads and verifies kernel, initramfs, and
+  `accton_as5610_52x_dtb`, then reaches Linux userspace as
+  `5.10.224-edgenos`.
+- Confirmed `/etc/edgenos/board` reports `redstone`.
+- Confirmed PCIe enumerates BCM56846 as PCI vendor/device `14e4:b846`.
+- Confirmed the previous DTS/rootfs boot-noise fixes removed:
+  - `gianfar_driver: Device model property missing`
+  - `usb@22000: Invalid 'dr_mode' property`
+  - BusyBox `ifup: unknown method "loopback"`
+- Confirmed the remaining `switchd-init: FATAL: BDE device not found` is the
+  expected stage-1 stop point before BDE/OpenBCM bring-up.
+- Tested Linux `eth1` (`ethernet@25000`, MAC `00:e0:ec:53:b8:23`) against the
+  Windows TFTP host at `10.188.2.243`. It reports 1 Gbps/full carrier, but ARP
+  does not leave Redstone according to a Windows `pktmon` capture pinned to the
+  physical X722 NIC.
+- Captured U-Boot MII evidence that `eTSEC2` has an external PHY at address
+  `0x03` and a TBI/1000baseX endpoint at address `0x11`.
+- Tested a DTS hypothesis that moved `ethernet-phy@3` under
+  `ethernet@25000/mdio@520`. Hardware invalidated that hypothesis: Linux then
+  created `mdio@ffe25520:03`, but read it as `phy_id=0x00000000`, 10M/half,
+  no autonegotiation, and no carrier.
+- Restored the original Redstone cross-MDIO topology from the extracted
+  `p2020rdb.dtb`: `ethernet@25000` keeps `phy-handle = <&enet0_phy>`, where
+  `enet0_phy` lives under `ethernet@24000/mdio@520/ethernet-phy@3`; `eth1`
+  still keeps its own `tbi-phy@11`.
+- Preserved the Accton U-Boot compatibility alias `serial1 = &serial0`; the
+  failed `uImage-b2-eth1phy.itb` retest reached U-Boot DTB fixup and stopped
+  before Linux with `could not set linux,stdout-path FDT_ERR_NOTFOUND` because
+  that FIT lacked the alias present in the previous bootable B2-clean FIT.
+- Updated the hardware inventory with the live TFTP and management Ethernet
+  evidence.
+
+Verified:
+
+- Current hardware evidence:
+  - U-Boot `ethact=eTSEC2`
+  - U-Boot `mii info`: `PHY 0x03` is 1000baseT full duplex, `PHY 0x11` is the
+    TBI/1000baseX endpoint.
+  - Linux `eth1` maps to `/sys/devices/platform/soc@ffe00000/ffe25000.ethernet`.
+  - Linux `eth1_g0_tx` interrupt increments during ARP attempts while
+    `eth1_g0_rx` remains zero.
+- Windows physical X722 `pktmon` capture sees other ARP traffic but not
+  Redstone `00:e0:ec:53:b8:23` or `10.188.2.16`.
+- `uImage-b2-clean.itb` contains `/aliases/serial1 =
+  /soc@ffe00000/serial@4600`; the first `uImage-b2-eth1phy.itb` did not.
+- Regenerated the next TFTP test image as
+  `output/images/uImage-b2-eth1phy-fixed.itb` with the revised eth1 PHY/TBI
+  DTB and the restored `serial1` alias. SHA256:
+  `94bf227c76e8874804bb5f275aac0607da14d5357646a5933a7e285d3f32ea90`.
+- Retested `uImage-b2-eth1phy-fixed.itb` on hardware. The FIT now passes the
+  Accton U-Boot `linux,stdout-path` fixup and boots Linux successfully.
+- The revised DTB now creates the expected Linux MDIO devices for the
+  management port:
+  - `mdio@ffe25520:03`
+  - `mdio@ffe25520:11`
+- The Linux eth1 ping test on the moved-PHY DTB still failed, but the failure
+  mode changed: `eth1` reported `NO-CARRIER`, TX counters stayed at zero, and
+  `eth1_g0_rx` incremented. That proved the moved-PHY DTB was reading the wrong
+  MDIO endpoint, not that Windows firewall or TFTP host behavior blocked ARP.
+- The Windows physical X722 capture saw ARP from U-Boot MAC
+  `00:E0:EC:53:B8:22` during the TFTP stage, but not Linux eth1 MAC
+  `00:E0:EC:53:B8:23` after Linux reported `NO-CARRIER`.
+- Generated the next TFTP test image as
+  `output/images/uImage-b2-origphy-serial1.itb`. It preserves the original
+  cross-MDIO PHY topology and the Accton U-Boot `serial1` alias. SHA256:
+  `0bbaceaba7dbfe7cd36297ed37ff2975941c9bdd4b6608b99ff1fb5a973b831d`.
+- Hardware boot of `uImage-b2-origphy-serial1.itb` failed before userspace
+  because this image re-enabled `pcie@ffe09000`; Linux crashed in early PCI
+  initialization at `pci_bus_read_config_word` while scanning the empty/invalid
+  controller. This was not a PHY result.
+- Updated `kernel/dts/redstone-stage1.dts` to disable `pcie@ffe09000` and keep
+  `pcie@ffe0a000` enabled, matching the previously bootable path that
+  enumerated BCM56846.
+- Generated replacement TFTP image
+  `output/images/uImage-b2-origphy-nopci0.itb` with original cross-MDIO PHY,
+  `serial1`, and `pcie@ffe09000` disabled. SHA256:
+  `f55f605f459c022c264548e55b5f3c703322f6a8d015f2632609b15f16f7c68d`.
+- Hardware boot of `uImage-b2-origphy-nopci0.itb` reached Linux. The external
+  PHY is now back under `mdio@ffe24520:03`, reads non-zero ID
+  `0x03625d12`, and binds to `Broadcom BCM54616S`.
+- Bringing up all three eTSEC interfaces together is noisy and can trigger
+  `NETDEV WATCHDOG` on `eth0`. `eth0` and `eth2` are fixed-link style test
+  nodes and should stay down during the management-port ping test. `eth1` is
+  the real external PHY path; it initially reported no carrier but later logged
+  `fsl-gianfar ffe25000.ethernet eth1: Link is Up - 1Gbps/Full`.
+- Isolated eth1 after taking eth0 and eth2 down. The BCM54616S path reached
+  link again after roughly six seconds:
+  `fsl-gianfar ffe25000.ethernet eth1: Link is Up - 1Gbps/Full`. The attempted
+  ping was not a valid network result because the serial paste was interleaved
+  with console output and corrupted the `ip addr add` command; Linux reported
+  `Network is unreachable` because `10.188.2.16/24` was not actually assigned.
+- Re-ran the isolated eth1 test with a clean `10.188.2.16/24` assignment and a
+  TFTP client request to the Windows TFTP host at `10.188.2.243`. The result is
+  now a valid network failure: TFTP timed out, `ip neigh` stayed
+  `10.188.2.243 dev eth1 INCOMPLETE`, eth1 TX counters increased from Linux,
+  `eth1_g0_tx` interrupts increased, while eth1 RX counters and `eth1_g0_rx`
+  stayed at zero.
+- Converted the Windows `pktmon` capture from the physical X722 TFTP NIC and
+  searched for Redstone evidence. The capture contains unrelated ARP traffic
+  to and from Windows MAC `6C-92-BF-9C-2E-53`, but exact searches for
+  `00-E0-EC-53-B8-23`, `00:e0:ec:53:b8:23`, `10.188.2.16`,
+  `Request who-has 10.188.2.243 tell 10.188.2.16`, and
+  `redstone-tftp-test.bin` all returned zero matches. This confirms the Linux
+  eth1 ARP/TFTP frames are not reaching the host-side wire capture even though
+  gianfar reports TX completion.
+- Enabled `phytool` in the Redstone rootfs configuration and extended
+  `redstone-stage1-capture` to collect `phytool` dumps for the eth1 external
+  PHY/TBI addresses plus raw eTSEC register snapshots through `devmem`.
+- Fixed the Redstone Buildroot defconfig generation on Windows checkouts:
+  `scripts/build-rootfs.sh` now normalizes CRLF in the generated defconfig
+  before applying the exact-line Redstone rewrite, so
+  `EDGENOS_BOARD=redstone` produces `BR2_powerpc_8548`,
+  `BR2_powerpc_SPE`, `BR2_TOOLCHAIN_BUILDROOT_UCLIBC`, and
+  `BR2_INIT_BUSYBOX` instead of leaving the generic e500v2/glibc/systemd
+  settings in place.
+- Rebuilt the Redstone rootfs with `phytool` present at `/usr/bin/phytool` and
+  verified the packed `rootfs.sqsh` with `scripts/check-redstone-image.sh`.
+- Added `scripts/build-redstone-b2-tftp-fit.sh` so the hardware-tested B2 TFTP
+  FIT shape can be rebuilt repeatably from the current Redstone rootfs tarball,
+  current `kernel/dts/redstone-stage1.dts`, and the already-tested raw kernel
+  payload.
+- Generated the next TFTP test image as
+  `output/images/uImage-b2-phytool.itb`. It keeps the same DTB bytes as the
+  last bootable `uImage-b2-origphy-nopci0.itb`, includes `phytool`, and embeds
+  the enhanced `redstone-stage1-capture` script. SHA256:
+  `3039856d8e71a9c691d2b1d061ac36a4df5a81da75ac82a3eed060141c05a36e`.
+
+Next checkpoint:
+
+- Boot `output/images/uImage-b2-phytool.itb` over U-Boot TFTP, isolate `eth1`,
+  then use a switch-side TFTP GET as the primary data-plane test. The expected
+  useful failure evidence is the combination of `ip neigh`, eth1 TX/RX
+  counters, eth1 interrupts, `phytool` register dumps, and eTSEC register
+  snapshots from `redstone-stage1-capture`.
+- The next debug target remains the gianfar TX/SGMII/TBI path, not IP
+  addressing, Windows firewall, TFTP service, or PHY placement.
+
+Suggested next hardware commands after booting `uImage-b2-phytool.itb`:
+
+```sh
+dmesg -n 1
+ip link set eth0 down 2>/dev/null
+ip link set eth2 down 2>/dev/null
+ip addr flush dev eth1
+ip link set eth1 down
+sleep 2
+ip link set eth1 up
+sleep 8
+
+cat /sys/class/net/eth1/carrier
+cat /sys/class/net/eth1/speed
+cat /sys/class/net/eth1/duplex
+ip addr add 10.188.2.16/24 dev eth1
+ip neigh flush dev eth1 2>/dev/null
+
+ip -s link show eth1
+cat /proc/interrupts | grep -E "CPU|eth1" > /tmp/eth1.irq.before
+rm -f /tmp/redstone-tftp-test.bin
+tftp -g -r redstone-tftp-test.bin -l /tmp/redstone-tftp-test.bin 10.188.2.243
+echo "tftp_rc=$?"
+ip neigh show
+ip -s link show eth1
+cat /proc/interrupts | grep -E "CPU|eth1" > /tmp/eth1.irq.after
+diff -u /tmp/eth1.irq.before /tmp/eth1.irq.after | head -80
+
+redstone-stage1-capture --verbose
+```

@@ -1,7 +1,9 @@
 # /etc/network/interfaces - EdgeNOS management interface config
-
-auto lo
-iface lo inet loopback
+#
+# NOTE: loopback is brought up by /etc/init.d/S39loopback because
+# Buildroot's busybox config does not include CONFIG_FEATURE_IFUPDOWN_IPV4,
+# so ifup does not understand the "loopback" method. Listing it here would
+# fail with `ifup: unknown method "loopback"`.
 
 # Management Ethernet (P2020 eTSEC)
 # Kernel 5.10+ names it end0, older kernels use eth0

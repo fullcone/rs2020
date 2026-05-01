@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # switchd-init - Start/stop EdgeNOS switch daemon
 #
 # Boot sequence (from Cumulus RE):

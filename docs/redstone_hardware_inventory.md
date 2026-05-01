@@ -49,7 +49,7 @@ Status meanings:
 | I2C controller 0 | Original DTB has `i2c@3000` with `rtc@68` (`dallas,ds1339`), `thermal@4b` (`cel,ambient2`), `eyeopen@41` (`cel,eyeopen`), and `eeprom@50` (`cel,eeprom`). | Convert these to Linux 5.10-compatible nodes and identify whether `cel,*` devices need custom drivers or generic bindings. | Confirmed |
 | I2C controller 1 | Original DTB has `i2c@3100` with `thermal@4f` (`cel,ambient1`). | Convert thermal sensor handling after identifying the real chip behind the custom compatible. | Confirmed |
 | EEPROM identity | Original scripts use `/sys/class/eeprom/pro_name`; `hsl_module.ko` strings reference `/sys/class/eeprom/switch1_mac`. | Add product EEPROM and switch MAC exposure before services depend on board identity. | Confirmed path, implementation pending |
-| Management Ethernet | Original DTB exposes three `gianfar` eTSEC nodes at `ethernet@24000`, `ethernet@25000`, and `ethernet@26000`; `ethernet@24000` has a fixed 1G RGMII path. | Keep all three nodes in the DTS skeleton until hardware boot logs identify the active management port. | Confirmed nodes, live port proof pending |
+| Management Ethernet | Original DTB exposes three `gianfar` eTSEC nodes at `ethernet@24000`, `ethernet@25000`, and `ethernet@26000`. It wires `ethernet@25000` to external PHY `ethernet-phy@3` under `ethernet@24000/mdio@520`, while `ethernet@25000` owns TBI `tbi-phy@11`. Redstone U-Boot reports PHY `0x03` plus TBI `0x11` on the TFTP MII device, but the U-Boot `ethaddr` value is operator-provided and must not be used alone to map U-Boot names to Linux `ethN`. | Preserve the original cross-MDIO `phy-handle` topology while debugging Linux 5.10 gianfar link/TX behavior. Do not move PHY `0x03` under `ethernet@25000/mdio@520`; hardware reads that endpoint as `phy_id=0x00000000`. | Confirmed original topology, Linux TX/link proof pending |
 | PCIe | Original DTB exposes `pcie@ffe09000` and `pcie@ffe0a000`, compatible `fsl,mpc8548-pcie`, with memory windows at `0xa0000000` and `0xc0000000`. | Keep both PCIe controllers in the DTS skeleton, then use `lspci -nn` on hardware to bind BCM56846 to the correct controller. | Confirmed controllers, ASIC bus proof pending |
 | Optics | `sfp.ko` describes "Redstone sfp info" and strings reference SFP/QSFP EEPROM fields plus Broadcom callbacks. Current `platform/onlp/sfpi.c` is AS5610-derived and assumes AS5610 mux/PCA GPIO topology. | Treat Redstone optics presence and EEPROM routing as reverse-engineering work. Do not copy AS5610 bus numbers into Redstone DTS until proven. | Original optics module confirmed, routing pending |
 | Fans, PSU, thermal | The feasibility note flags CPLD, fan, PSU, SFP, and temperature as ONLP/platform work. Original DTB only proves the two custom thermal compatibles listed above. | Reverse CPLD registers and original diagnostic paths before implementing fan and PSU nodes. | Partial evidence |
@@ -69,6 +69,85 @@ Redstone hardware proof:
 captures only extracted original `../../boot_original/p2020rdb.dtb` facts and
 keeps AS5610-specific mux, optics, fan, and CPLD assumptions out until hardware
 output proves them.
+
+## Live TFTP Stage-1 Management Ethernet Evidence
+
+The first TFTP FIT boot on Redstone proved that U-Boot can transfer the
+stage-1 image through `eTSEC2`:
+
+```text
+ethact=eTSEC2
+eth1addr=00:E0:EC:53:B8:23
+eth2addr=00:E0:EC:53:B8:24
+mii device: eTSEC2, eTSEC3
+mii info on eTSEC2:
+  PHY 0x03: OUI = 0xD897, Model = 0x11, Rev = 0x02, 1000baseT, FDX
+  PHY 0x11: OUI = 0x0000, Model = 0x00, Rev = 0x00, 1000baseX, HDX
+```
+
+Linux 5.10 stage-1 booted the FIT, identified `/etc/edgenos/board` as
+`redstone`, and enumerated BCM56846 as PCI `14e4:b846`. The first Linux
+management-port test showed `eth1` (`ethernet@25000`, MAC
+`00:e0:ec:53:b8:23`) reaching carrier at 1 Gbps full duplex, but ARP from
+Redstone did not appear on a Windows `pktmon` capture pinned to the physical
+X722 TFTP NIC. The broken DTS binding at that point pointed `eth1` at a PHY
+node under `ethernet@24000`.
+
+The first rebuilt `uImage-b2-eth1phy.itb` did not reach Linux because it missed
+the Accton U-Boot compatibility alias `serial1 = /soc@ffe00000/serial@4600`;
+U-Boot stopped while fixing `linux,stdout-path`. The corrected retest image is
+`uImage-b2-eth1phy-fixed.itb`.
+
+The `uImage-b2-eth1phy-fixed.itb` retest reached Linux but invalidated the
+moved-PHY hypothesis: Linux exposed `mdio@ffe25520:03`, read
+`phy_id=0x00000000`, reported eth1 as 10M/half with no autonegotiation and no
+carrier, and therefore transmitted no ARP. A Windows physical X722 capture saw
+the U-Boot TFTP-stage ARP from the manually supplied MAC
+`00:E0:EC:53:B8:22`, but not a Linux eth1 ARP from MAC
+`00:E0:EC:53:B8:23`.
+
+The `uImage-b2-origphy-serial1.itb` image kept the Accton U-Boot `serial1`
+alias and restored the original Redstone cross-MDIO PHY topology, but it
+re-enabled `pcie@ffe09000` and crashed in early Linux PCI initialization before
+network testing. The replacement image is `uImage-b2-origphy-nopci0.itb`: it
+keeps external PHY `0x03` under `ethernet@24000/mdio@520`, referenced by
+`ethernet@25000`, keeps TBI `0x11` under `ethernet@25000/mdio@520`, and disables
+`pcie@ffe09000` while leaving `pcie@ffe0a000` enabled for BCM56846.
+
+`uImage-b2-origphy-nopci0.itb` booted and validated the external PHY placement:
+Linux exposes `mdio@ffe24520:03`, reads `phy_id=0x03625d12`, and binds
+`Broadcom BCM54616S`. The real management-port test should focus on `eth1`
+only. Avoid bringing up `eth0` and `eth2` during this test because their
+fixed-link-style nodes can report link independently and trigger `eth0`
+watchdog noise that obscures the eth1 TX/ARP evidence.
+
+When eth0 and eth2 were forced down and eth1 was bounced, eth1 reached
+`Link is Up - 1Gbps/Full` after roughly six seconds. The first isolated ping
+attempt did not validate IP traffic because serial-console interleaving
+corrupted the address-assignment command, leaving eth1 without
+`10.188.2.16/24`.
+
+A clean follow-up assigned `10.188.2.16/24` to eth1 and used the switch-side
+TFTP client to request `redstone-tftp-test.bin` from the Windows TFTP host.
+The request timed out before transfer because ARP stayed
+`10.188.2.243 dev eth1 INCOMPLETE`. Linux eth1 TX counters and
+`eth1_g0_tx` interrupts increased, but RX counters and `eth1_g0_rx` stayed at
+zero. A converted Windows `pktmon` capture from the physical X722 TFTP NIC saw
+other ARP traffic, but exact searches for Redstone MAC
+`00:e0:ec:53:b8:23`, IP `10.188.2.16`, and the expected ARP request string
+returned no matches. The remaining management-Ethernet blocker is therefore
+inside the gianfar MAC-to-BCM54616S SGMII/TBI path, not the Windows host, IP
+assignment, or external PHY placement.
+
+The next hardware image is `output/images/uImage-b2-phytool.itb`. It preserves
+the DTB bytes from the last bootable `uImage-b2-origphy-nopci0.itb`, but
+rebuilds the rootfs/initramfs with `/usr/bin/phytool` and the enhanced
+`redstone-stage1-capture` script. Use a switch-side TFTP GET as the primary
+management-Ethernet test because it exercises ARP plus UDP on the same host
+path as U-Boot TFTP. Ping is still useful as secondary evidence, but TFTP is
+the better bench signal for the current failure. After the TFTP attempt, run
+`redstone-stage1-capture --verbose` so the returned bundle contains PHY/TBI
+registers and raw eTSEC register snapshots for the gianfar TX/SGMII follow-up.
 
 ## First Hardware-Capture Checklist
 

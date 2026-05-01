@@ -62,6 +62,42 @@ echo "edgenos" > "${TARGET_DIR}/etc/hostname"
 mkdir -p "${TARGET_DIR}/etc/edgenos"
 printf '%s\n' "$EDGENOS_BOARD" > "${TARGET_DIR}/etc/edgenos/board"
 
+# Ensure /etc/fstab mounts devtmpfs on /dev. Without this, busybox init's
+# `mount -a` does not populate /dev, so /dev/null and /dev/ttyS0 are missing
+# until devices are created lazily, breaking getty respawn and stdio redirect.
+FSTAB="${TARGET_DIR}/etc/fstab"
+if [ -f "$FSTAB" ] && ! grep -qE '^[^#]*[[:space:]]/dev[[:space:]]+devtmpfs' "$FSTAB"; then
+    printf 'devtmpfs\t/dev\t\tdevtmpfs\tdefaults\t0\t0\n' >> "$FSTAB"
+fi
+
+# sshd refuses to use a privsep dir that is not owned by root or is
+# group/world-writable. Buildroot ships /var/empty as 0777; tighten it.
+if [ -d "${TARGET_DIR}/var/empty" ]; then
+    chmod 0755 "${TARGET_DIR}/var/empty"
+    chown 0:0 "${TARGET_DIR}/var/empty" 2>/dev/null || true
+fi
+
+# busybox's ifupdown without CONFIG_FEATURE_IFUPDOWN_IPV4 doesn't support
+# the "loopback" method, so we bring lo up via a small init script.
+cat > "${TARGET_DIR}/etc/init.d/S39loopback" <<'EOF'
+#!/bin/sh
+# Bring up loopback (busybox ifupdown can't do "loopback" method).
+case "$1" in
+    start)
+        /sbin/ifconfig lo 127.0.0.1 netmask 255.0.0.0 up 2>/dev/null
+        ;;
+    stop)
+        /sbin/ifconfig lo down 2>/dev/null
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+        ;;
+esac
+exit 0
+EOF
+chmod 0755 "${TARGET_DIR}/etc/init.d/S39loopback"
+
 if [ -x "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" ]; then
     "${REPO_ROOT}/scripts/install-openbcm-init-probe.sh" "$TARGET_DIR"
 fi

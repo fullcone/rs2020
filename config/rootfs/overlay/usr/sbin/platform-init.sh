@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # platform-init.sh - AS5610-52X platform hardware initialization
 #
 # This replicates the Cumulus Linux boot sequence:

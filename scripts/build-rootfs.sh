@@ -62,9 +62,14 @@ write_defconfig() {
     sed \
         -e "s|^BR2_ROOTFS_OVERLAY=.*|BR2_ROOTFS_OVERLAY=\"$TOPDIR/config/rootfs/overlay\"|" \
         -e "s|^BR2_ROOTFS_POST_BUILD_SCRIPT=.*|BR2_ROOTFS_POST_BUILD_SCRIPT=\"$TOPDIR/config/rootfs/post-build.sh\"|" \
+        -e "s|^BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=.*|BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=\"$TOPDIR/config/rootfs/busybox-fragment.config\"|" \
         -e "s|^BR2_TARGET_GENERIC_ISSUE=.*|BR2_TARGET_GENERIC_ISSUE=\"EdgeNOS for $EDGENOS_BOARD_LABEL\"|" \
         "$TOPDIR/config/rootfs/buildroot_defconfig" \
         > "$BRSRC/configs/edgenos_defconfig"
+
+    # The checked-in defconfig can have CRLF endings on Windows checkouts.
+    # Normalize the generated file before exact-line Redstone rewrites.
+    sed -i 's/\r$//' "$BRSRC/configs/edgenos_defconfig"
 
     if [ "$EDGENOS_BOARD" = "redstone" ]; then
         local TMP_DEFCONFIG="$BRSRC/configs/edgenos_defconfig.redstone.$$"

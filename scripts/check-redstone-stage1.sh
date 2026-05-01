@@ -115,6 +115,7 @@ check_file "scripts/build-kernel.sh"
 check_file "scripts/build-installer.sh"
 check_file "scripts/build-modules.sh"
 check_file "scripts/build-all.sh"
+check_file "scripts/build-redstone-b2-tftp-fit.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
 check_file "scripts/package-redstone-usb-stage1.sh"
@@ -628,6 +629,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-installer.sh \
         scripts/build-modules.sh \
         scripts/build-all.sh \
+        scripts/build-redstone-b2-tftp-fit.sh \
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
         scripts/package-redstone-usb-stage1.sh \
@@ -688,6 +690,15 @@ if command -v git >/dev/null 2>&1; then
         ok "build-modules.sh is tracked executable"
     else
         fail "build-modules.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/build-redstone-b2-tftp-fit.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "build-redstone-b2-tftp-fit.sh is tracked executable"
+    else
+        fail "build-redstone-b2-tftp-fit.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

@@ -11,6 +11,7 @@
 		ethernet1 = &enet1;
 		ethernet2 = &enet2;
 		serial0 = &serial0;
+		serial1 = &serial0;
 		pci0 = &pci0;
 		pci1 = &pci1;
 	};
@@ -209,6 +210,7 @@
 			interrupts = <0x1c 0x2>;
 			interrupt-parent = <&mpic>;
 			phy_type = "ulpi";
+			dr_mode = "host";
 		};
 
 		ptp_timer: ptimer@24e00 {
@@ -221,6 +223,7 @@
 			#size-cells = <1>;
 			cell-index = <0>;
 			device_type = "network";
+			model = "eTSEC";
 			compatible = "gianfar";
 			reg = <0x24000 0x1000>;
 			ranges = <0x0 0x24000 0x1000>;
@@ -234,11 +237,11 @@
 			mdio@520 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,gianfar-tbi";
+				compatible = "fsl,gianfar-mdio";
 				reg = <0x520 0x20>;
 
-				enet0_phy: phy@3 {
-					reg = <3>;
+				enet0_phy: ethernet-phy@3 {
+					reg = <0x3>;
 					device_type = "ethernet-phy";
 				};
 			};
@@ -249,6 +252,7 @@
 			#size-cells = <1>;
 			cell-index = <1>;
 			device_type = "network";
+			model = "eTSEC";
 			compatible = "gianfar";
 			reg = <0x25000 0x1000>;
 			ranges = <0x0 0x25000 0x1000>;
@@ -263,7 +267,7 @@
 			mdio@520 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,gianfar-tbi";
+				compatible = "fsl,gianfar-mdio";
 				reg = <0x520 0x20>;
 
 				enet1_tbi: tbi-phy@11 {
@@ -278,6 +282,7 @@
 			#size-cells = <1>;
 			cell-index = <2>;
 			device_type = "network";
+			model = "eTSEC";
 			compatible = "gianfar";
 			reg = <0x26000 0x1000>;
 			ranges = <0x0 0x26000 0x1000>;
@@ -342,6 +347,7 @@
 		cell-index = <1>;
 		compatible = "fsl,mpc8548-pcie";
 		device_type = "pci";
+		status = "disabled";
 		#interrupt-cells = <1>;
 		#size-cells = <2>;
 		#address-cells = <3>;
@@ -372,6 +378,7 @@
 		cell-index = <2>;
 		compatible = "fsl,mpc8548-pcie";
 		device_type = "pci";
+		status = "okay";
 		#interrupt-cells = <1>;
 		#size-cells = <2>;
 		#address-cells = <3>;
