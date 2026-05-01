@@ -138,6 +138,7 @@ check_file "docs/redstone_stage1_plan.md"
 check_file "docs/redstone_progress.md"
 check_file "docs/redstone_usb_stage1_operator_checklist.md"
 check_file "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch"
+check_file "kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch"
 
 check_grep 'redstone-stage1\.bcm' "config/rootfs/overlay/usr/sbin/switchd-init" \
     "switchd-init references Redstone stage-1 config"
@@ -195,6 +196,15 @@ check_grep 'Redstone TBI.*0xffff|BMSR read returned all ones' \
 check_grep 'Redstone TBI: link update' \
     "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch" \
     "Redstone kernel patch logs post-link MAC/PCS registers"
+check_grep 'brcm,redstone-preserve-uboot-sgmii' \
+    "kernel/dts/redstone-stage1.dts" \
+    "Redstone DTS marks the U-Boot-preserved BCM54616S SGMII PHY"
+check_grep 'preserving U-Boot BCM54616S SGMII/SerDes state' \
+    "kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch" \
+    "Redstone kernel patch can preserve U-Boot BCM54616S SGMII state"
+check_grep 'skipping BCM54616S autoneg setup for preserved SGMII state' \
+    "kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch" \
+    "Redstone kernel patch can skip BCM54616S autonegotiation on preserved SGMII state"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \

@@ -185,6 +185,42 @@ The next diagnostic FIT is `output/images/uImage-b2-gfar-linkdiag.itb`, SHA256
 `b72383d172e42a99580202cf53d55ae3af55fed335fc3bc0e6d63b6731231408`; it removes
 the speculative ECNTRL force path and adds post-link MAC/PCS register logging.
 
+The `uImage-b2-gfar-linkdiag.itb` retest confirms the TBI/SerDes path really
+runs and that ECNTRL is not the current blocker. At eth1 link-up, the kernel
+logged external PHY `phy_id=0x3625d12`, TBI node
+`/soc@ffe00000/ethernet@25000/mdio@520/tbi-phy@11`, post-program
+`BMCR=0x1140`, `BMSR=0x149`, `ADV=0x1a0`, `TBICON=0x20`, and link-update
+`ECNTRL=0x1022`, `MACCFG1=0xf`, `MACCFG2=0x7205`, `RCTRL=0xa77c2`,
+`RSTAT=0x0`, `TSTAT=0x80008000`. The isolated switch-side TFTP GET still
+timed out with ARP `INCOMPLETE`; eth1 TX packets and `eth1_g0_tx` advanced,
+but RX packets and `eth1_g0_rx` stayed zero. The next evidence target is
+therefore the BCM54616S Linux PHY init/status path, not another eTSEC
+ECNTRL/TBI-force experiment.
+
+The `uImage-b2-bcmphydiag.itb` retest shows the stock Linux BCM54616S path
+does change the PHY SerDes mode during `config_init`: the external PHY enters
+with `shd_mode=0x2c`, then logs `config_init after serdes` with
+`shd_mode=0x2d`. TBI setup and MAC enable still look sane, but the data path
+remains TX-only (`eth1_g0_tx` advances, `eth1_g0_rx` stays zero, ARP remains
+`INCOMPLETE`). The next image, `output/images/uImage-b2-preserve-uboot-sgmii.itb`
+with SHA256 `25df335c70f6934d9a5163f0d59e5adfc21167dd3e05104770ecb222e402fdab`,
+marks `ethernet-phy@3` with `brcm,redstone-preserve-uboot-sgmii` and skips the
+stock BCM54616S config-init/autonegotiation writes so Linux preserves the
+U-Boot-working PHY/SGMII state for the next TFTP receive-path test.
+
+That preserve-U-Boot experiment succeeds. In the `20030304T171926Z` capture,
+BCM54616S `config_init` and `config_aneg` both return through the
+`preserve-uboot-sgmii` path at `shd_mode=0x2c`; gianfar sees TBI `BMSR=0x16d`
+already linked and keeps the firmware SerDes setup. The isolated eth1 TFTP GET
+then succeeds (`tftp_rc=0`, 65,536-byte file), ARP resolves the Windows server
+MAC, RX counters advance to 133 packets, and `eth1_g0_rx` advances to 133.
+Therefore the management-Ethernet blocker was the stock Linux BCM54616S
+SerDes/autonegotiation programming clobbering the U-Boot-working SGMII state.
+The current patch queue keeps that behavior in a reduced Broadcom PHY patch:
+`kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch` plus the
+`brcm,redstone-preserve-uboot-sgmii` DTS property, without the temporary
+probe/read-status register dumps used to identify the failure.
+
 The stock Redstone DTB decompiled from `boot_original/p2020rdb.dtb` confirms the
 same CPU-management topology used in the stage-1 DTS:
 

@@ -39,12 +39,25 @@ apply_patches() {
     for p in "$TOPDIR/kernel/patches"/*.patch; do
         [ -f "$p" ] || continue
         echo "  Checking $(basename "$p")..."
-        if (cd "$KSRC" && patch -p1 --forward --dry-run < "$p" >/dev/null 2>&1); then
-            (cd "$KSRC" && patch -p1 < "$p")
+        local patch_log
+        patch_log=$(mktemp)
+        if (cd "$KSRC" && patch -p1 --forward --dry-run < "$p" >"$patch_log" 2>&1); then
+            if grep -Eq 'Reversed.*previously applied|Skipping patch|hunks ignored' "$patch_log"; then
+                echo "    already applied"
+            else
+                (cd "$KSRC" && patch -p1 < "$p")
+            fi
+            rm -f "$patch_log"
+        elif grep -Eq 'Reversed.*previously applied|Skipping patch|hunks ignored' "$patch_log"; then
+            echo "    already applied"
+            rm -f "$patch_log"
         elif (cd "$KSRC" && patch -p1 --reverse --dry-run < "$p" >/dev/null 2>&1); then
             echo "    already applied"
+            rm -f "$patch_log"
         else
             echo "ERROR: kernel patch does not apply cleanly and is not already applied: $p"
+            cat "$patch_log"
+            rm -f "$patch_log"
             exit 1
         fi
     done

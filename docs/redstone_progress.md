@@ -3,6 +3,99 @@
 This log records completed Redstone bring-up increments and the next concrete
 checkpoint. Keep entries small enough to match one commit or one hardware test.
 
+## 2026-05-02
+
+### Stage-4 BCM54616S Receive-Path Diagnostics
+
+Completed:
+
+- Analyzed the returned `uImage-b2-gfar-linkdiag.itb` hardware log and the
+  follow-up capture at `/var/log/redstone-stage1/20030304T163645Z`.
+- Confirmed the previous "SerDes/TBI setup did not run" hypothesis is false.
+  eth1 logs show `Redstone TBI: programming SerDes`, then post-program
+  `BMCR=0x1140`, `BMSR=0x149`, `ADV=0x1a0`, and `TBICON=0x20`.
+- Confirmed the speculative ECNTRL force path should stay reverted. At link-up
+  eth1 reports `ECNTRL=0x1022`, which already contains the Linux init bit plus
+  TBI and SGMII mode bits.
+- Confirmed the MAC is not obviously disabled at link-up:
+  `MACCFG1=0xf`, `MACCFG2=0x7205`, and eth1 reports carrier 1, 1000/full.
+- Confirmed the live failure is still RX-zero after link-up, not an IP route or
+  Windows host issue: switch-side TFTP times out, ARP remains
+  `10.188.2.243 dev eth1 INCOMPLETE`, eth1 TX counters and `eth1_g0_tx`
+  advance, while RX counters and `eth1_g0_rx` stay at zero.
+- Temporarily added a BCM54616S config-init diagnostic patch. It logged
+  BCM54616S register state with the `Redstone BCM54616S:` prefix and did not
+  change the datapath; this diagnostic patch was later collapsed into the
+  low-noise preserve patch after the root cause was confirmed.
+- Rebuilt the Redstone kernel and generated the BCM54616S diagnostic FIT:
+  `output/images/uImage-b2-bcmphydiag.itb`, SHA256
+  `42fe6d353ed671ebadaccd244e1e51ee510cd46db8107d28c932886b987fe205`.
+- Analyzed the returned `uImage-b2-bcmphydiag.itb` hardware log and capture
+  at `/var/log/redstone-stage1/20030304T165327Z`. The BCM54616S enters
+  `config_init` with `shd_mode=0x2c`, then the stock Linux SerDes setup changes
+  it to `shd_mode=0x2d`. TBI programming still runs, eth1 reports 1000/full,
+  but the isolated switch-side TFTP GET still leaves ARP `INCOMPLETE`,
+  RX packets at zero, and `eth1_g0_rx` at zero.
+- Added an opt-in preserve experiment through
+  `brcm,redstone-preserve-uboot-sgmii` on the external BCM54616S PHY node:
+  it skips the stock BCM54616S config-init and autonegotiation writes so Linux
+  preserves the U-Boot-working SGMII/SerDes state.
+- Rebuilt the Redstone kernel and generated the next TFTP experiment:
+  `output/images/uImage-b2-preserve-uboot-sgmii.itb`, SHA256
+  `25df335c70f6934d9a5163f0d59e5adfc21167dd3e05104770ecb222e402fdab`.
+- Analyzed the returned `uImage-b2-preserve-uboot-sgmii.itb` hardware log and
+  capture at `/var/log/redstone-stage1/20030304T171926Z`. This image is the
+  first Linux 5.10 stage-1 image to pass the management-port TFTP receive test:
+  `tftp_rc=0`, `/tmp/redstone-tftp-test.bin` is 65,536 bytes, ARP resolves
+  `10.188.2.243 dev eth1 lladdr 6c:92:bf:9c:2e:53 REACHABLE`, eth1 reports
+  RX `71724` bytes / `133` packets and TX `6619` bytes / `138` packets, and
+  interrupts show `eth1_g0_rx` advancing to `133`.
+- Confirmed the root cause of the previous TX-only failure. With the preserve
+  property, BCM54616S logs `config_init preserve-uboot-sgmii` and
+  `config_aneg preserve-uboot-sgmii` at `shd_mode=0x2c`; gianfar then logs
+  `Redstone TBI: BMSR 0x16d already reports link; keeping firmware SerDes
+  setup`, and the later link status reaches 1000/full without losing RX.
+- Collapsed the experimental BCM54616S diagnostics into
+  `kernel/patches/0002-bcm54616s-redstone-preserve-uboot-sgmii.patch`. The
+  final patch keeps the opt-in DTS property and the known-good skip of stock
+  `config_init` / `config_aneg`, but removes the always-on register dumps from
+  probe and read-status paths.
+- Rebuilt from a clean `linux-5.10.224` source tree and generated the low-noise
+  retest image `output/images/uImage-b2-preserve-uboot-sgmii-clean.itb`,
+  SHA256 `a19906ef4f5eb863ba6775d706c4413fc7ba41c4a88d688733dc67e71719c606`.
+
+Verified:
+
+- `scripts/build-kernel.sh` now handles already-applied overlapping kernel
+  patches by detecting `patch --forward --dry-run` skipped/previously-applied
+  output before falling back to reverse dry-run. This avoids false failures
+  when a later Redstone patch changes the reverse context of an earlier patch.
+- `strings output/kernel/vmlinux.bin | grep -E 'preserving U-Boot BCM54616S|skipping BCM54616S autoneg|Redstone BCM54616S|read_status changed|Redstone TBI'`
+  shows the reduced Broadcom preserve messages and confirms the removed
+  high-volume BCM54616S diagnostics are no longer embedded in the raw B2 kernel
+  payload.
+- `dtc -I dtb -O dts output/kernel/redstone-stage1.dtb` shows
+  `brcm,redstone-preserve-uboot-sgmii` under `ethernet-phy@3`.
+- `wsl env EDGENOS_BOARD=redstone bash scripts/build-kernel.sh build` rebuilds
+  `drivers/net/phy/broadcom.o`, `vmlinux`, modules, and the Redstone DTB.
+- `wsl sh scripts/build-redstone-b2-tftp-fit.sh uImage-b2-preserve-uboot-sgmii-clean.itb`
+  builds a 19 MB FIT with the expected uncompressed 10,326,444-byte kernel
+  subimage.
+- `wsl sha256sum output/images/uImage-b2-preserve-uboot-sgmii-clean.itb output/kernel/vmlinux.bin output/kernel/redstone-stage1.dtb`
+  reports FIT `a19906ef4f5eb863ba6775d706c4413fc7ba41c4a88d688733dc67e71719c606`,
+  raw kernel `dc17e436fd427b940b3781c482aa030ed8ddc137cfc108fe3c6892408999b1a5`,
+  and DTB `c5677f3cd6ea76ccc7ca220300c0b924b1fd3ecf7bc732873ba1758de0313a74`.
+- `wsl env EDGENOS_BOARD=redstone sh scripts/check-redstone-stage1.sh` passes
+  with `0 warning(s)`.
+- `git diff --check` exits cleanly; Git only reports the repository's existing
+  Windows line-ending warning for `kernel/dts/redstone-stage1.dts`.
+
+Next checkpoint:
+
+- Boot the cleaned preserve image and repeat the isolated eth1 TFTP GET. The
+  expected pass criteria are `tftp_rc=0`, ARP `REACHABLE`, eth1 RX/TX counters
+  both advancing, and `eth1_g0_rx` increasing.
+
 ## 2026-04-29
 
 ### Stage-1 Baseline Planning

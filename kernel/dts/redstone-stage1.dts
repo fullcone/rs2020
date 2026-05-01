@@ -243,6 +243,7 @@
 				enet0_phy: ethernet-phy@3 {
 					reg = <0x3>;
 					device_type = "ethernet-phy";
+					brcm,redstone-preserve-uboot-sgmii;
 				};
 			};
 		};
