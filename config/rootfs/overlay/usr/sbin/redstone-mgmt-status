@@ -7,7 +7,8 @@ BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
 SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
 SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-original-active-sdk.manifest"}
 CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
-BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-bench}
+VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
+BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
 
 read_first() {
     file=$1
@@ -75,10 +76,29 @@ sha256_file() {
     fi
 }
 
-latest_entry() {
+latest_dir() {
     base=$1
+    pattern=$2
     if [ -d "$base" ]; then
-        ls -1dt "$base"/* 2>/dev/null | head -n 1
+        for entry in $(ls -1dt "$base"/$pattern 2>/dev/null); do
+            if [ -d "$entry" ]; then
+                printf '%s' "$entry"
+                return 0
+            fi
+        done
+    fi
+}
+
+latest_file() {
+    base=$1
+    pattern=$2
+    if [ -d "$base" ]; then
+        for entry in $(ls -1dt "$base"/$pattern 2>/dev/null); do
+            if [ -f "$entry" ]; then
+                printf '%s' "$entry"
+                return 0
+            fi
+        done
     fi
 }
 
@@ -88,6 +108,42 @@ manifest_value() {
     if [ -r "$file" ]; then
         sed -n "s/^$key=//p" "$file" | head -n 1
     fi
+}
+
+grep_count() {
+    file=$1
+    pattern=$2
+    if [ -r "$file" ]; then
+        value=$(grep -Ec "$pattern" "$file" 2>/dev/null || true)
+        printf '%s' "${value:-0}"
+    else
+        printf '0'
+    fi
+}
+
+sed_last_value() {
+    file=$1
+    expr=$2
+    if [ -r "$file" ]; then
+        sed -n "$expr" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+kv_last_value() {
+    file=$1
+    key=$2
+    if [ -r "$file" ]; then
+        sed -n "s/^$key=//p" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+first_existing_file() {
+    for file in "$@"; do
+        if [ -f "$file" ]; then
+            printf '%s' "$file"
+            return 0
+        fi
+    done
 }
 
 board=$(read_first "$BOARD_FILE")
@@ -181,8 +237,68 @@ switchd_pids=$(pidof switchd 2>/dev/null || true)
 switchd_running=false
 [ -n "$switchd_pids" ] && switchd_running=true
 
-capture_latest=$(latest_entry "$CAPTURE_BASE")
-bench_latest=$(latest_entry "$BENCH_BASE")
+capture_latest=$(latest_dir "$CAPTURE_BASE" '[0-9]*T*Z*')
+capture_archive=$(latest_file "$CAPTURE_BASE" '[0-9]*T*Z*.tar.gz')
+capture_summary=
+capture_summary_present=false
+if [ -n "$capture_latest" ]; then
+    capture_summary="$capture_latest/capture-summary.txt"
+    [ -f "$capture_summary" ] && capture_summary_present=true
+fi
+
+validate_latest=$(latest_dir "$VALIDATE_BASE" 'validate-*')
+validate_bundle=$(latest_file "$VALIDATE_BASE" 'validate-*.tar.gz')
+validate_log=
+validate_pass_count=0
+validate_warn_count=0
+validate_fail_count=0
+validate_complete=
+validate_evidence_dir=
+validate_bundle_line=
+if [ -n "$validate_latest" ]; then
+    validate_log="$validate_latest/validate.log"
+    validate_pass_count=$(grep_count "$validate_log" '^PASS:')
+    validate_warn_count=$(grep_count "$validate_log" '^WARN:')
+    validate_fail_count=$(grep_count "$validate_log" '^FAIL:')
+    validate_complete=$(sed_last_value "$validate_log" 's/^Redstone stage-1 validation complete: //p')
+    validate_evidence_dir=$(sed_last_value "$validate_log" 's/^Evidence directory: //p')
+    validate_bundle_line=$(sed_last_value "$validate_log" 's/^Validation bundle: //p')
+    [ -n "$validate_bundle" ] || validate_bundle=$validate_bundle_line
+fi
+
+bench_latest=$(latest_dir "$BENCH_BASE" 'bench-run-*')
+bench_log=
+bench_capture_only=
+bench_validate_exit=
+bench_validation_bundle=
+bench_validation_evidence_dir=
+bench_bde_smoke_exit=
+if [ -n "$bench_latest" ]; then
+    bench_log="$bench_latest/bench-run.log"
+    bench_capture_only=$(kv_last_value "$bench_log" capture_only)
+    bench_validate_exit=$(kv_last_value "$bench_log" validate_exit)
+    bench_validation_bundle=$(kv_last_value "$bench_log" validation_bundle)
+    bench_validation_evidence_dir=$(kv_last_value "$bench_log" validation_evidence_dir)
+    bench_bde_smoke_exit=$(kv_last_value "$bench_log" bde_smoke_exit)
+fi
+
+probe_file=
+if [ -n "$validate_latest" ]; then
+    probe_file=$(first_existing_file "$validate_latest/openbcm_init_probe_dry_run.txt")
+fi
+if [ -z "$probe_file" ] && [ -n "$capture_latest" ]; then
+    probe_file=$(first_existing_file "$capture_latest/openbcm_init_probe.txt")
+fi
+probe_present=false
+probe_exit=
+probe_unavailable=false
+if [ -n "$probe_file" ]; then
+    probe_present=true
+    probe_exit=$(kv_last_value "$probe_file" exit)
+    if grep -Eiq 'unavailable|not packaged|not found' "$probe_file" 2>/dev/null; then
+        probe_unavailable=true
+    fi
+fi
 
 cat <<EOF
 {
@@ -244,9 +360,39 @@ cat <<EOF
   },
   "evidence": {
     "capture_base": $(json_str "$CAPTURE_BASE"),
-    "latest_capture": $(json_str "$capture_latest"),
+    "latest_capture_dir": $(json_str "$capture_latest"),
+    "latest_capture_archive": $(json_str "$capture_archive"),
+    "latest_capture_summary": {
+      "path": $(json_str "$capture_summary"),
+      "exists": $capture_summary_present
+    },
+    "validate_base": $(json_str "$VALIDATE_BASE"),
+    "latest_validate_dir": $(json_str "$validate_latest"),
+    "latest_validate_bundle": $(json_str "$validate_bundle"),
+    "validation_summary": {
+      "log": $(json_str "$validate_log"),
+      "pass_count": $validate_pass_count,
+      "warn_count": $validate_warn_count,
+      "fail_count": $validate_fail_count,
+      "complete": $(json_str "$validate_complete"),
+      "evidence_dir": $(json_str "$validate_evidence_dir")
+    },
     "bench_base": $(json_str "$BENCH_BASE"),
-    "latest_bench": $(json_str "$bench_latest")
+    "latest_bench_dir": $(json_str "$bench_latest"),
+    "bench_summary": {
+      "log": $(json_str "$bench_log"),
+      "capture_only": $(json_str "$bench_capture_only"),
+      "validate_exit": $(json_str "$bench_validate_exit"),
+      "validation_bundle": $(json_str "$bench_validation_bundle"),
+      "validation_evidence_dir": $(json_str "$bench_validation_evidence_dir"),
+      "bde_smoke_exit": $(json_str "$bench_bde_smoke_exit")
+    },
+    "init_probe_dry_run": {
+      "path": $(json_str "$probe_file"),
+      "exists": $probe_present,
+      "exit": $(json_str "$probe_exit"),
+      "unavailable": $probe_unavailable
+    }
   }
 }
 EOF

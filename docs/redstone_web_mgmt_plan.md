@@ -25,7 +25,13 @@ ready to expose through a browser.
 - BCM56846 PCI presence and bound driver,
 - BDE device nodes and module presence,
 - switchd process state,
-- latest capture and bench evidence paths,
+- latest capture directory/archive, validation directory/bundle, and bench-run
+  evidence directory,
+- validation PASS/WARN/FAIL counts parsed from `validate.log`,
+- bench-run `validate_exit`, `bde_smoke_exit`, validation bundle, and evidence
+  path fields parsed from `bench-run.log`,
+- OpenBCM init-probe dry-run status parsed from the latest validation or
+  capture evidence,
 - availability of capture, validation, BDE smoke, and init-probe tools.
 
 ## Safety Boundary

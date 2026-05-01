@@ -667,6 +667,36 @@ check_no_regex 'redstone-mgmt-web|httpd' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management web UI does not expose destructive actions"
+check_grep 'latest_validate_dir' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports latest validation evidence"
+check_grep 'validation_summary' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports validation summary counts"
+check_grep 'init_probe_dry_run' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports init-probe dry-run evidence"
+check_grep 'bde_smoke_exit' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports BDE smoke evidence"
+check_grep 'latest-validate-dir' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays validation evidence directory"
+check_grep 'validation-summary' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays validation summary"
+check_grep 'bench-validate-exit' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays bench validation exit"
+check_grep 'init-probe' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays init-probe dry-run status"
+check_grep 'validationLabel' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI formats validation summary"
+check_grep 'probeLabel' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI formats init-probe dry-run status"
 check_grep 'redstone-mgmt-status' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the read-only status provider"
 check_grep '127[.]0[.]0[.]1:8080' "docs/redstone_web_mgmt_plan.md" \
@@ -727,8 +757,70 @@ EOF
     rm -rf "$tmpdir"
 }
 
+check_mgmt_status_evidence_index() {
+    tmpdir=$(mktemp -d)
+    evidence="$tmpdir/evidence"
+    mkdir -p "$tmpdir/switchd" \
+        "$evidence/20260304T010203Z" \
+        "$evidence/validate-20260304T010204Z" \
+        "$evidence/bench-run-20260304T010205Z"
+    cat > "$tmpdir/switchd/redstone-stage1.bcm" <<EOF
+portmap_1=1:10
+portmap_49=61:40
+EOF
+    printf 'redstone\n' > "$tmpdir/board"
+    printf 'summary\n' > "$evidence/20260304T010203Z/capture-summary.txt"
+    : > "$evidence/20260304T010203Z.tar.gz"
+    : > "$evidence/validate-20260304T010204Z.tar.gz"
+    cat > "$evidence/validate-20260304T010204Z/validate.log" <<EOF
+PASS: config present
+WARN: switchd stopped
+FAIL: bde missing
+Redstone stage-1 validation complete: 1 pass, 1 warning(s), 1 failure(s)
+Evidence directory: /var/log/redstone-stage1/validate-20260304T010204Z
+Validation bundle: /var/log/redstone-stage1/validate-20260304T010204Z.tar.gz
+EOF
+    cat > "$evidence/validate-20260304T010204Z/openbcm_init_probe_dry_run.txt" <<EOF
+$ redstone-openbcm-init-probe --dry-run
+
+exit=0
+EOF
+    cat > "$evidence/bench-run-20260304T010205Z/bench-run.log" <<EOF
+capture_only=0
+validate_exit=0
+validation_bundle=/var/log/redstone-stage1/validate-20260304T010204Z.tar.gz
+validation_evidence_dir=/var/log/redstone-stage1/validate-20260304T010204Z
+bde_smoke_exit=0
+EOF
+
+    REDSTONE_BOARD_FILE="$tmpdir/board" \
+        REDSTONE_SWITCHD_CONFIG_DIR="$tmpdir/switchd" \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        REDSTONE_VALIDATE_DIR="$evidence" \
+        REDSTONE_BENCH_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
+
+    if grep -q '"latest_capture_dir":' "$tmpdir/status.json" && \
+        grep -q '"latest_validate_dir":' "$tmpdir/status.json" && \
+        grep -q '"latest_bench_dir":' "$tmpdir/status.json" && \
+        grep -q '"pass_count": 1' "$tmpdir/status.json" && \
+        grep -q '"warn_count": 1' "$tmpdir/status.json" && \
+        grep -q '"fail_count": 1' "$tmpdir/status.json" && \
+        grep -q '"validate_exit": "0"' "$tmpdir/status.json" && \
+        grep -q '"bde_smoke_exit": "0"' "$tmpdir/status.json" && \
+        grep -q '"init_probe_dry_run":' "$tmpdir/status.json" && \
+        grep -q '"exit": "0"' "$tmpdir/status.json"; then
+        ok "management status indexes capture, validation, bench, and dry-run evidence"
+    else
+        fail "management status does not index evidence outputs"
+    fi
+
+    rm -rf "$tmpdir"
+}
+
 if command -v mktemp >/dev/null 2>&1; then
     check_mgmt_status_portmap_formats
+    check_mgmt_status_evidence_index
     check_unusable_explicit_dir \
         "bench runner" \
         REDSTONE_BENCH_DIR \
