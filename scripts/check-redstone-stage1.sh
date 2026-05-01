@@ -191,7 +191,10 @@ check_grep 'vmlinux\.bin' "scripts/build-kernel.sh" \
     "build-kernel exports the raw PowerPC kernel payload for B2 FIT tests"
 check_grep 'Redstone TBI.*0xffff|BMSR read returned all ones' \
     "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch" \
-    "Redstone kernel patch forces TBI programming after invalid all-ones reads"
+    "Redstone kernel patch logs and handles invalid all-ones TBI reads"
+check_grep 'Redstone TBI: link update' \
+    "kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch" \
+    "Redstone kernel patch logs post-link MAC/PCS registers"
 check_grep 'config/rootfs/overlay' "scripts/build-all.sh" \
     "build-all applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-all.sh" \

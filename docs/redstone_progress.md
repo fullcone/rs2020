@@ -1926,6 +1926,58 @@ diff -u /tmp/eth1.irq.before /tmp/eth1.irq.after | head -80
 redstone-stage1-capture --verbose
 ```
 
+### Stage-4 Follow-Up: Original Kernel IDA and ECNTRL/TBI Ordering
+
+Completed:
+
+- Confirmed `work_kernel/orig-kernel.bin` is already the decompressed raw stock
+  kernel payload from `boot_original/uImage`; `work_kernel/orig-kernel.gz` is
+  the compressed payload.
+- Confirmed the first IDA database on port `13340`
+  (`work_kernel/orig-kernel.bin.i64`) was loaded as `pc` at address `0x0` and
+  only found 71 functions, so it is not usable for PowerPC stock-kernel
+  comparison.
+- Created and used the corrected PowerPC IDA database on port `13341`:
+  `work_kernel/orig-kernel-ppc-c0000000.i64`. This is loaded as `ppc`, maps the
+  raw kernel at `0xc0000000`, and finds 16048 functions.
+- Decompiled the original Redstone DTB to `work_kernel/orig-p2020rdb.dts` with
+  `dtc`. Its eth0/eth1/eth2 topology matches the stage-1 DTS: eth1 uses
+  external `ethernet-phy@3` through the eth0 MDIO node and internal
+  `tbi-phy@11` through eth1 MDIO.
+- Located the stock gianfar SGMII/TBI path at IDA function `sub_C02F0410`.
+  The stock code writes the same internal TBI values used by upstream Linux:
+  `MII_TBICON(0x11)=0x20`, `MII_ADVERTISE(0x04)=0x01a0`, and
+  `MII_BMCR(0x00)=0x1340`.
+- Reviewed the returned `logs/logs.txt` capture from the
+  `uImage-b2-gfar-tbi.itb` boot. The local copy initially did not include the
+  `Redstone TBI:` lines, but the later console grep from
+  `/var/log/redstone-stage1/20030304T153712Z` confirms
+  `gfar_configure_serdes()` did run:
+  `initial BMSR=0x149`, then `BMCR=0x1140`, `BMSR=0x149`, `ADV=0x1a0`, and
+  `TBICON=0x20` after programming. eth1 then reports 1000/full link, while
+  ARP/TFTP still remain TX-only with no RX interrupts.
+- Extended `kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch`
+  again. The next image now logs `init_phy()` interface/ECNTRL/PHY/TBI state,
+  records entry into `gfar_configure_serdes()`, and records each TBI write return
+  code plus post-write readback. The remaining diagnostic question is no longer
+  whether the SerDes setup function runs; it is why the management path still
+  has no receive traffic after the TBI programming and external link-up.
+- Rolled back the speculative ECNTRL force path after the missing console grep
+  proved setup-time TBI access was valid. The patch now keeps behavior closer to
+  upstream: it only enters SerDes setup for SGMII, treats all-ones TBI reads as
+  invalid, and adds link-update register logging.
+- Rebuilt the kernel and generated the next TFTP diagnostic FIT:
+  `output/images/uImage-b2-gfar-linkdiag.itb`, SHA256
+  `b72383d172e42a99580202cf53d55ae3af55fed335fc3bc0e6d63b6731231408`.
+
+Why this is the next test:
+
+- Linux 5.10 `gfar_hw_init()` writes `ECNTRL_INIT_SETTINGS` before `init_phy()`.
+  The new console evidence shows initial TBI access is valid at SerDes setup
+  time, so the next useful comparison is delayed state after link-up and after
+  the failed ARP/TFTP attempt: ECNTRL/TBI mode bits, TBI registers, external
+  BCM54616S state, RX interrupt counters, and eTSEC receive/error registers.
+
 ### Stage-4 TFTP FIT Gianfar TBI Instrumentation
 
 Completed:
@@ -1955,8 +2007,8 @@ Completed:
 - Added `kernel/patches/0001-gianfar-log-and-force-invalid-tbi-setup.patch`.
   The patch changes Linux 5.10 gianfar SerDes setup so a TBI BMSR read of
   `0xffff` is treated as an invalid all-ones read, not as valid link-up. It
-  then forces the existing SerDes programming path and logs pre/post TBI
-  register values with the `Redstone TBI:` prefix.
+  keeps the normal SGMII-only SerDes entry condition, logs pre/post TBI register
+  values, and logs link-up MAC/PCS registers with the `Redstone TBI:` prefix.
 - Updated `scripts/build-kernel.sh` so kernel patches are applied idempotently
   even when `build/linux-5.10.224` already exists. The script now also exports
   a raw `output/kernel/vmlinux.bin` by running `powerpc-linux-gnu-objcopy -O
@@ -1994,14 +2046,13 @@ Verified:
 
 Next checkpoint:
 
-- Boot `output/images/uImage-b2-gfar-tbi.itb` over U-Boot TFTP and capture the
-  full serial log around the `Redstone TBI:` lines.
-- If `Redstone TBI: BMSR read returned all ones` appears and the post-program
-  readback still shows `0xffff`, the next target is MDIO/TBIPA/TBI access
-  ordering rather than the external BCM54616S PHY.
-- If the post-program readback becomes sane, repeat the isolated eth1 TFTP GET
-  and return `redstone-stage1-capture --verbose` so we can compare TBI state,
-  TX/RX counters, and interrupts after the forced SerDes setup.
+- Boot the next `uImage-b2-gfar-tbi*.itb` over U-Boot TFTP and capture the full
+  serial log around both `Redstone TBI: post-program` and
+  `Redstone TBI: link update` lines.
+- Since the `20030304T153712Z` console grep already showed sane setup-time TBI
+  readback, repeat the isolated eth1 TFTP GET and return
+  `redstone-stage1-capture --verbose` so we can compare post-link TBI state, raw
+  eTSEC MAC/PCS registers, and interrupt counters after the same RX-zero failure.
 
 Suggested next hardware boot:
 
@@ -2012,7 +2063,7 @@ setenv ethaddr 00:E0:EC:53:B8:22
 setenv ethact eTSEC2
 setenv bootargs "console=ttyS0,115200 loglevel=8 cache-sram-size=0x10000"
 
-tftp 2000000 uImage-b2-gfar-tbi.itb
+tftp 2000000 uImage-b2-gfar-linkdiag.itb
 bootm 2000000#accton_as5610_52x
 ```
 

@@ -174,6 +174,26 @@ all-ones reads and logs `Redstone TBI:` diagnostics before and after the write.
 That image is `output/images/uImage-b2-gfar-tbi.itb`, SHA256
 `4ee7d09078c9ef724e2f8c884fe6cea45e6d81a94cf65ebc550587de182fce1e`.
 
+The follow-up `20030304T153712Z` capture still has eth1 TX-only behavior:
+`eth1_g0_tx` increments, `eth1_g0_rx` stays zero, and ARP remains
+`INCOMPLETE`. A later console grep from the same run confirms the
+`Redstone TBI:` path did execute: initial `BMSR=0x149`, then post-program
+`BMCR=0x1140`, `BMSR=0x149`, `ADV=0x1a0`, and `TBICON=0x20`, followed by eth1
+1000/full link-up. That moves the next target from "did SerDes setup run?" to
+"why does the management MAC/PCS path still receive nothing after link-up?".
+The next diagnostic FIT is `output/images/uImage-b2-gfar-linkdiag.itb`, SHA256
+`b72383d172e42a99580202cf53d55ae3af55fed335fc3bc0e6d63b6731231408`; it removes
+the speculative ECNTRL force path and adds post-link MAC/PCS register logging.
+
+The stock Redstone DTB decompiled from `boot_original/p2020rdb.dtb` confirms the
+same CPU-management topology used in the stage-1 DTS:
+
+- eth0 `ethernet@24000`: fixed 1000/full RGMII-ID management path with
+  `ethernet-phy@3` under eth0 MDIO.
+- eth1 `ethernet@25000`: SGMII path with `phy-handle` pointing to eth0's
+  `ethernet-phy@3` and `tbi-handle` pointing to eth1 `tbi-phy@11`.
+- eth2 `ethernet@26000`: SGMII fixed-link path with `tbi-phy@12`.
+
 ## First Hardware-Capture Checklist
 
 Run the packaged capture first on a live Redstone boot before turning pending
