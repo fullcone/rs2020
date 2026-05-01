@@ -629,22 +629,48 @@ check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space
     "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
     "bench runner does not invoke reset-risk init probe exec path"
 
-if command -v mktemp >/dev/null 2>&1; then
+check_unusable_explicit_dir() {
+    label=$1
+    env_name=$2
+    script=$3
+    expected=$4
+    shift 4
+
     tmpdir=$(mktemp -d)
-    bad_bench_path=$tmpdir/not-a-directory
-    : > "$bad_bench_path"
-    if REDSTONE_BENCH_DIR="$bad_bench_path" \
-        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
-            --capture-only > "$tmpdir/bench-run.out" 2>&1; then
-        fail "bench runner accepts unusable explicit REDSTONE_BENCH_DIR"
-    elif grep -q 'failed to create explicit REDSTONE_BENCH_DIR' "$tmpdir/bench-run.out"; then
-        ok "bench runner rejects unusable explicit REDSTONE_BENCH_DIR"
+    bad_path=$tmpdir/not-a-directory
+    out=$tmpdir/${label}.out
+    : > "$bad_path"
+
+    if env "$env_name=$bad_path" sh "$TOPDIR/$script" "$@" > "$out" 2>&1; then
+        fail "$label accepts unusable explicit $env_name"
+    elif grep -q "$expected" "$out"; then
+        ok "$label rejects unusable explicit $env_name"
     else
-        fail "bench runner rejection did not identify explicit REDSTONE_BENCH_DIR"
+        fail "$label rejection did not identify explicit $env_name"
     fi
+
     rm -rf "$tmpdir"
+}
+
+if command -v mktemp >/dev/null 2>&1; then
+    check_unusable_explicit_dir \
+        "bench runner" \
+        REDSTONE_BENCH_DIR \
+        "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run" \
+        "failed to create explicit REDSTONE_BENCH_DIR" \
+        --capture-only
+    check_unusable_explicit_dir \
+        "capture tool" \
+        REDSTONE_CAPTURE_DIR \
+        "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
+        "cannot create REDSTONE_CAPTURE_DIR"
+    check_unusable_explicit_dir \
+        "validator" \
+        REDSTONE_VALIDATE_DIR \
+        "config/rootfs/overlay/usr/sbin/redstone-stage1-validate" \
+        "cannot create REDSTONE_VALIDATE_DIR"
 else
-    warn "mktemp unavailable; skipped explicit REDSTONE_BENCH_DIR regression check"
+    warn "mktemp unavailable; skipped explicit evidence directory regression checks"
 fi
 check_grep 'REQUIRE_OPENBCM_INIT_PROBE' "scripts/check-redstone-image.sh" \
     "image checker can enforce OpenBCM init probe packaging"
