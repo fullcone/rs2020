@@ -719,15 +719,24 @@ check_grep 'Content-Disposition: attachment' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
     "artifact provider does not expose destructive actions"
-check_grep 'action=capture' \
+check_grep 'capture|validate-capture|bench-capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI accepts the capture action"
-check_grep 'action=validate-capture' \
+check_grep 'capture|validate-capture|bench-capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI accepts validation capture"
-check_grep 'action=bench-capture' \
+check_grep 'capture|validate-capture|bench-capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI accepts bench capture"
+check_grep 'validate-strict' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI accepts strict validation"
+check_grep 'bde-smoke' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI accepts BDE smoke"
+check_grep 'init-probe-dry-run' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI accepts init-probe dry run"
 check_grep 'redstone-stage1-capture --verbose' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI runs the capture tool"
@@ -746,6 +755,15 @@ check_grep 'redstone-stage1-bench-run --capture-only' \
 check_grep '/usr/sbin/redstone-stage1-bench-run --capture-only' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI uses an absolute bench tool path"
+check_grep 'redstone-stage1-bench-run --iface' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI runs parameterized strict validation"
+check_grep 'redstone-openbcm-bde-smoke\.sh --strict --capture' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI runs BDE smoke capture"
+check_grep '/usr/sbin/redstone-openbcm-init-probe --dry-run' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI runs init-probe dry run only"
 check_grep 'mkdir "\$LOCK_DIR"' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI uses a single-action lock"
@@ -788,6 +806,15 @@ check_grep 'init_probe_dry_run' \
 check_grep 'bde_smoke_exit' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports BDE smoke evidence"
+check_grep 'front_panel' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports front-panel port state"
+check_grep 'profile' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports development profile"
+check_grep 'analysis' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports gate analysis"
 check_grep 'latest-validate-dir' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays validation evidence directory"
@@ -809,6 +836,24 @@ check_grep 'run-validate' \
 check_grep 'run-bench' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page exposes the bench capture action button"
+check_grep 'run-strict' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes the strict validation action button"
+check_grep 'strict-local-cidr' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes local CIDR input"
+check_grep 'run-bde-smoke' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes the BDE smoke action button"
+check_grep 'run-init-probe' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes the init-probe dry-run action button"
+check_grep 'front-panel-ports' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays front-panel ports"
+check_grep 'Analysis Summary' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays gate analysis summary"
 check_grep 'capture-runs' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays capture evidence runs"
@@ -857,18 +902,39 @@ check_grep 'startActionPolling' \
 check_grep 'showArtifact' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders artifact detail content"
+check_grep 'actionParams' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI passes action parameters"
+check_grep 'renderFrontPanel' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders front-panel port tiles"
 check_grep '_files' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI can list files in a run directory"
 check_grep 'artifact-tail' \
     "config/rootfs/overlay/www/redstone/redstone.css" \
     "management stylesheet formats artifact detail text"
+check_grep 'field-grid' \
+    "config/rootfs/overlay/www/redstone/redstone.css" \
+    "management stylesheet formats strict validation inputs"
+check_grep 'port-grid' \
+    "config/rootfs/overlay/www/redstone/redstone.css" \
+    "management stylesheet formats front-panel ports"
 check_grep 'validate-capture' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management UI can run validation capture"
 check_grep 'bench-capture' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management UI can run bench capture"
+check_grep 'validate-strict' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management UI can run strict validation"
+check_grep 'bde-smoke' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management UI can run BDE smoke"
+check_grep 'init-probe-dry-run' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management UI can run init-probe dry run"
 check_grep 'redstone-mgmt-status' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the read-only status provider"
 check_grep 'redstone-mgmt-evidence' "docs/redstone_web_mgmt_plan.md" \
@@ -959,6 +1025,7 @@ check_mgmt_status_evidence_index() {
     tmpdir=$(mktemp -d)
     evidence="$tmpdir/evidence"
     mkdir -p "$tmpdir/switchd" \
+        "$tmpdir/net/swp1" \
         "$evidence/20260304T010203Z" \
         "$evidence/validate-20260304T010204Z" \
         "$evidence/bench-run-20260304T010205Z" \
@@ -968,6 +1035,9 @@ portmap_1=1:10
 portmap_49=61:40
 EOF
     printf 'redstone\n' > "$tmpdir/board"
+    printf '1\n' > "$tmpdir/net/swp1/carrier"
+    printf 'up\n' > "$tmpdir/net/swp1/operstate"
+    printf '00:e0:ec:53:b8:31\n' > "$tmpdir/net/swp1/address"
     printf 'summary\n' > "$evidence/20260304T010203Z/capture-summary.txt"
     : > "$evidence/20260304T010203Z.tar.gz"
     : > "$evidence/validate-20260304T010204Z.tar.gz"
@@ -1009,6 +1079,7 @@ EOF
         REDSTONE_VALIDATE_DIR="$evidence" \
         REDSTONE_BENCH_DIR="$evidence" \
         REDSTONE_WEB_ACTION_DIR="$evidence/web-actions" \
+        REDSTONE_NET_CLASS_DIR="$tmpdir/net" \
         sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
 
     if grep -q '"latest_capture_dir":' "$tmpdir/status.json" && \
@@ -1023,7 +1094,13 @@ EOF
         grep -q '"web_action":' "$tmpdir/status.json" && \
         grep -q '"action": "capture"' "$tmpdir/status.json" && \
         grep -q '"init_probe_dry_run":' "$tmpdir/status.json" && \
-        grep -q '"exit": "0"' "$tmpdir/status.json"; then
+        grep -q '"exit": "0"' "$tmpdir/status.json" && \
+        grep -q '"front_panel":' "$tmpdir/status.json" && \
+        grep -q '"swp_present_count": 1' "$tmpdir/status.json" && \
+        grep -q '"swp_link_up_count": 1' "$tmpdir/status.json" && \
+        grep -q '"name": "swp1"' "$tmpdir/status.json" && \
+        grep -q '"analysis":' "$tmpdir/status.json" && \
+        grep -q '"strict_validation_ready": true' "$tmpdir/status.json"; then
         ok "management status indexes capture, validation, bench, web action, and dry-run evidence"
     else
         fail "management status does not index evidence outputs"
@@ -1209,6 +1286,9 @@ check_web_action_cgi() {
     fake_capture="$tmpdir/fake-capture.sh"
     fake_validate="$tmpdir/fake-validate.sh"
     fake_bench="$tmpdir/fake-bench.sh"
+    fake_strict="$tmpdir/fake-strict.sh"
+    fake_bde="$tmpdir/fake-bde.sh"
+    fake_probe="$tmpdir/fake-probe.sh"
     cat > "$fake_capture" <<EOF
 #!/bin/sh
 echo "fake capture"
@@ -1225,6 +1305,21 @@ EOF
 #!/bin/sh
 echo "fake bench capture"
 echo "Return bench run evidence directory to the host: /var/log/redstone-stage1/bench-run-20260304T020200Z"
+EOF
+    cat > "$fake_strict" <<EOF
+#!/bin/sh
+echo "fake strict validation"
+echo "Return bench run evidence directory to the host: /var/log/redstone-stage1/bench-run-20260304T020300Z"
+EOF
+    cat > "$fake_bde" <<EOF
+#!/bin/sh
+echo "fake BDE smoke"
+echo "Evidence directory: /var/log/redstone-stage1/openbcm-bde-smoke-20260304T020400Z"
+EOF
+    cat > "$fake_probe" <<EOF
+#!/bin/sh
+echo "fake init probe dry run"
+echo "Evidence directory: /var/log/redstone-stage1/init-probe-dry-run-20260304T020500Z"
 EOF
 
     REQUEST_METHOD=POST \
@@ -1274,6 +1369,70 @@ EOF
         ok "management action CGI runs bench capture and returns evidence"
     else
         fail "management action CGI did not record bench capture evidence"
+    fi
+
+    REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
+        QUERY_STRING='action=validate-strict&iface=swp1&local_cidr=192.0.2.1%2F24&peer=192.0.2.2&ping_count=3' \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/strict-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/strict.lock" \
+        REDSTONE_STRICT_CMD="sh $fake_strict" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/strict.json"
+    strict_env=$(find "$tmpdir/strict-actions" -name result.env -type f 2>/dev/null | head -n 1)
+    if grep -q '"status": "success"' "$tmpdir/strict.json" && \
+        grep -q '"action": "validate-strict"' "$tmpdir/strict.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/bench-run-20260304T020300Z"' "$tmpdir/strict.json" && \
+        [ -n "$strict_env" ] && \
+        grep -q '^local_cidr=192.0.2.1/24$' "$strict_env"; then
+        ok "management action CGI runs strict validation with safe parameters"
+    else
+        fail "management action CGI did not record strict validation evidence"
+    fi
+
+    REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
+        QUERY_STRING='action=validate-strict&iface=eth1&local_cidr=192.0.2.1%2F24&peer=192.0.2.2' \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/strict-reject-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/strict-reject.lock" \
+        REDSTONE_STRICT_CMD="sh $fake_strict" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/strict-reject.json"
+    if grep -q '"status": "rejected"' "$tmpdir/strict-reject.json"; then
+        ok "management action CGI rejects non-front-panel strict validation interfaces"
+    else
+        fail "management action CGI accepted an invalid strict validation interface"
+    fi
+
+    REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
+        QUERY_STRING=action=bde-smoke \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/bde-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/bde.lock" \
+        REDSTONE_BDE_SMOKE_CMD="sh $fake_bde" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/bde.json"
+    if grep -q '"status": "success"' "$tmpdir/bde.json" && \
+        grep -q '"action": "bde-smoke"' "$tmpdir/bde.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/openbcm-bde-smoke-20260304T020400Z"' "$tmpdir/bde.json"; then
+        ok "management action CGI runs BDE smoke and returns evidence"
+    else
+        fail "management action CGI did not record BDE smoke evidence"
+    fi
+
+    REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
+        QUERY_STRING='action=init-probe-dry-run&config=original-active' \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/probe-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/probe.lock" \
+        REDSTONE_INIT_PROBE_CMD="sh $fake_probe" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/probe.json"
+    probe_env=$(find "$tmpdir/probe-actions" -name result.env -type f 2>/dev/null | head -n 1)
+    if grep -q '"status": "success"' "$tmpdir/probe.json" && \
+        grep -q '"action": "init-probe-dry-run"' "$tmpdir/probe.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/init-probe-dry-run-20260304T020500Z"' "$tmpdir/probe.json" && \
+        [ -n "$probe_env" ] && \
+        grep -q '^config=original-active$' "$probe_env"; then
+        ok "management action CGI runs init-probe dry run with selected config"
+    else
+        fail "management action CGI did not record init-probe dry-run evidence"
     fi
 
     REQUEST_METHOD=POST \

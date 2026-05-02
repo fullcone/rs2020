@@ -84,13 +84,16 @@ follow-up work. It is not started at boot. On a bench system, an operator can
 run `redstone-mgmt-web` to serve `/www/redstone/` on `127.0.0.1:8080`; the page
 uses `redstone-mgmt-status` through `/cgi-bin/redstone-status` to show eth1,
 BCM56846, BDE, switchd, selected BCM config, original SDK reference manifest,
-and evidence paths. It also uses `redstone-mgmt-evidence` through
+front-panel `swpN` state, gate analysis, development profile, and evidence
+paths. It also uses `redstone-mgmt-evidence` through
 `/cgi-bin/redstone-evidence` to browse recent capture, validation, bench, and
 web-action runs, and `redstone-mgmt-artifact` through
 `/cgi-bin/redstone-artifact` to show safe direct run files, log tails, and
-download links. Browser actions that run SDK reset-risk, flash, ONIE install,
-or U-Boot environment writes remain out of scope until explicitly reviewed. See
-`docs/redstone_web_mgmt_plan.md`.
+download links. Browser actions now cover capture, non-strict validation
+capture, capture-only bench, strict front-panel validation, BDE smoke, and
+init-probe dry-run. Browser actions that run SDK reset-risk, flash, ONIE
+install, or U-Boot environment writes remain out of scope until explicitly
+reviewed. See `docs/redstone_web_mgmt_plan.md`.
 
 The current eth1 management-port fix assumes the U-Boot-good BCM54616S/SerDes
 state is present when Linux starts. For a later USB/flash boot path that does

@@ -90,6 +90,24 @@ button:disabled {
   opacity: 0.72;
 }
 
+input,
+select {
+  min-height: 40px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0 10px;
+  font: inherit;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 .button-link {
   display: inline-flex;
   min-height: 40px;
@@ -209,6 +227,26 @@ dt {
   justify-content: flex-end;
 }
 
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.field-grid label {
+  min-width: 0;
+}
+
+.field-grid span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -296,6 +334,41 @@ dd {
   white-space: pre-wrap;
 }
 
+.port-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.port-tile {
+  min-height: 76px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #f9fbfc;
+}
+
+.port-tile strong,
+.port-tile span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.port-tile span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.port-tile.link-up {
+  border-color: rgba(15, 138, 95, 0.45);
+}
+
+.port-tile.missing {
+  opacity: 0.58;
+}
+
 .ok {
   color: var(--ok);
 }
@@ -334,6 +407,7 @@ dd {
 
   .status-strip,
   .grid,
+  .field-grid,
   .run-columns,
   dl {
     grid-template-columns: 1fr;

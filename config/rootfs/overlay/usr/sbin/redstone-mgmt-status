@@ -10,6 +10,9 @@ CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
 VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
 BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
 ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+NET_CLASS_DIR=${REDSTONE_NET_CLASS_DIR:-/sys/class/net}
+PCI_DEVICES_DIR=${REDSTONE_PCI_DEVICES_DIR:-/sys/bus/pci/devices}
+MGMT_PROFILE=${REDSTONE_MGMT_PROFILE:-development}
 
 read_first() {
     file=$1
@@ -147,6 +150,65 @@ first_existing_file() {
     done
 }
 
+portmap_lines() {
+    if [ -f "$selected_config" ]; then
+        sed -n 's/^[[:space:]]*portmap_\([0-9][0-9]*\)\([.]0\)\{0,1\}[[:space:]]*=[[:space:]]*\([^:[:space:]]*\):\([^[:space:]]*\).*$/\1 \3 \4/p' "$selected_config" 2>/dev/null |
+            sort -n
+    fi
+}
+
+front_panel_present_count() {
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        if [ -d "$NET_CLASS_DIR/swp$port" ]; then
+            printf '1\n'
+        else
+            printf '0\n'
+        fi
+    done | awk '{sum += $1} END {printf "%d", sum + 0}'
+}
+
+front_panel_link_up_count() {
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        if [ "$(read_first "$NET_CLASS_DIR/swp$port/carrier")" = "1" ]; then
+            printf '1\n'
+        else
+            printf '0\n'
+        fi
+    done | awk '{sum += $1} END {printf "%d", sum + 0}'
+}
+
+emit_front_panel_ports() {
+    first=1
+    printf '['
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        iface=swp$port
+        iface_dir="$NET_CLASS_DIR/$iface"
+        present=false
+        [ -d "$iface_dir" ] && present=true
+        carrier=$(read_first "$iface_dir/carrier")
+        operstate=$(read_first "$iface_dir/operstate")
+        mac=$(read_first "$iface_dir/address")
+        [ "$first" = 1 ] || printf ','
+        first=0
+        cat <<EOF
+{
+  "port": $(json_str "$port"),
+  "name": $(json_str "$iface"),
+  "lane": $(json_str "$lane"),
+  "speed": $(json_str "$speed"),
+  "present": $present,
+  "carrier": $(json_str "$carrier"),
+  "operstate": $(json_str "$operstate"),
+  "address": $(json_str "$mac")
+}
+EOF
+    done
+    printf ']'
+}
+
 board=$(read_first "$BOARD_FILE")
 [ -n "$board" ] || board=unknown
 
@@ -208,7 +270,7 @@ if [ -f "$SDK_REF_MANIFEST" ]; then
 fi
 
 eth=eth1
-eth_dir="/sys/class/net/$eth"
+eth_dir="$NET_CLASS_DIR/$eth"
 eth_present=false
 [ -d "$eth_dir" ] && eth_present=true
 eth_address=$(read_first "$eth_dir/address")
@@ -220,7 +282,7 @@ eth_duplex=$(read_first "$eth_dir/duplex")
 bcm_present=false
 bcm_slot=
 bcm_driver=
-for dev in /sys/bus/pci/devices/*; do
+for dev in "$PCI_DEVICES_DIR"/*; do
     [ -d "$dev" ] || continue
     vendor=$(read_first "$dev/vendor")
     device=$(read_first "$dev/device")
@@ -327,12 +389,37 @@ if [ -n "$web_action_latest" ]; then
     web_action_message=$(kv_last_value "$web_action_result" message)
 fi
 
+front_panel_present=$(front_panel_present_count)
+front_panel_link_up=$(front_panel_link_up_count)
+
+analysis_management_eth_ready=false
+[ "$eth_carrier" = "1" ] && [ "$eth_speed" = "1000" ] && analysis_management_eth_ready=true
+analysis_bcm_ready=false
+$bcm_present && analysis_bcm_ready=true
+analysis_bde_ready=false
+if [ -e /dev/linux-kernel-bde ] && [ -e /dev/linux-user-bde ]; then
+    analysis_bde_ready=true
+fi
+analysis_strict_validation_ready=false
+[ "$bench_validate_exit" = "0" ] && analysis_strict_validation_ready=true
+analysis_openbcm_probe_ready=false
+if [ "$probe_present" = "true" ] && [ "$probe_exit" = "0" ] && [ "$probe_unavailable" = "false" ]; then
+    analysis_openbcm_probe_ready=true
+fi
+
 cat <<EOF
 {
   "schema": "redstone-mgmt-status.v1",
   "generated_at": $(json_str "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true)"),
   "hostname": $(json_str "$(hostname 2>/dev/null || true)"),
   "board": $(json_str "$board"),
+  "profile": {
+    "mode": $(json_str "$MGMT_PROFILE"),
+    "external_bind_default": false,
+    "destructive_web_actions": false,
+    "reset_risk_exec": false,
+    "public_lockdown_pending": true
+  },
   "selected_config": {
     "path": $(json_str "$selected_config"),
     "exists": $config_exists,
@@ -361,6 +448,13 @@ cat <<EOF
     "carrier": $(json_str "$eth_carrier"),
     "speed": $(json_str "$eth_speed"),
     "duplex": $(json_str "$eth_duplex")
+  },
+  "front_panel": {
+    "source_config": $(json_str "$selected_config"),
+    "configured_count": $portmap_count,
+    "swp_present_count": $front_panel_present,
+    "swp_link_up_count": $front_panel_link_up,
+    "ports": $(emit_front_panel_ports)
   },
   "bcm56846": {
     "pci_present": $bcm_present,
@@ -435,6 +529,14 @@ cat <<EOF
       "exit": $(json_str "$probe_exit"),
       "unavailable": $probe_unavailable
     }
+  },
+  "analysis": {
+    "management_eth_ready": $analysis_management_eth_ready,
+    "bcm56846_ready": $analysis_bcm_ready,
+    "bde_nodes_ready": $analysis_bde_ready,
+    "strict_validation_ready": $analysis_strict_validation_ready,
+    "openbcm_probe_ready": $analysis_openbcm_probe_ready,
+    "direct_boot_matrix": "pending"
   }
 }
 EOF

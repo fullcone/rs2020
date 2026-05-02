@@ -86,7 +86,36 @@
               <button id="run-capture" type="button" data-action="capture">Capture</button>
               <button id="run-validate" type="button" data-action="validate-capture">Validate</button>
               <button id="run-bench" type="button" data-action="bench-capture">Bench Capture</button>
+              <button id="run-strict" type="button" data-action="validate-strict">Strict Validate</button>
+              <button id="run-bde-smoke" type="button" data-action="bde-smoke">BDE Smoke</button>
+              <button id="run-init-probe" type="button" data-action="init-probe-dry-run">Init Probe Dry Run</button>
             </div>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span>Interface</span>
+              <input id="strict-iface" type="text" value="swp1" autocomplete="off">
+            </label>
+            <label>
+              <span>Local CIDR</span>
+              <input id="strict-local-cidr" type="text" value="192.0.2.1/24" autocomplete="off">
+            </label>
+            <label>
+              <span>Peer IP</span>
+              <input id="strict-peer" type="text" value="192.0.2.2" autocomplete="off">
+            </label>
+            <label>
+              <span>Ping Count</span>
+              <input id="strict-ping-count" type="number" min="1" max="20" value="3">
+            </label>
+            <label>
+              <span>Probe Config</span>
+              <select id="init-probe-config">
+                <option value="stage1">stage1</option>
+                <option value="config">config.bcm</option>
+                <option value="original-active">original-active</option>
+              </select>
+            </label>
           </div>
           <dl>
             <div><dt>Current Action</dt><dd id="action-state">idle</dd></div>
@@ -107,6 +136,20 @@
             <div><dt>BDE Smoke</dt><dd id="bde-smoke">none</dd></div>
             <div><dt>Init Probe Dry Run</dt><dd id="init-probe">none</dd></div>
             <div><dt>Capture Summary</dt><dd id="capture-summary">none</dd></div>
+          </dl>
+        </article>
+
+        <article class="panel wide">
+          <h2>Analysis Summary</h2>
+          <dl>
+            <div><dt>Profile</dt><dd id="profile-mode">unknown</dd></div>
+            <div><dt>Reset-Risk Exec</dt><dd id="reset-risk-exec">unknown</dd></div>
+            <div><dt>Management Gate</dt><dd id="analysis-management">unknown</dd></div>
+            <div><dt>BCM Gate</dt><dd id="analysis-bcm">unknown</dd></div>
+            <div><dt>BDE Gate</dt><dd id="analysis-bde">unknown</dd></div>
+            <div><dt>Strict Gate</dt><dd id="analysis-strict">unknown</dd></div>
+            <div><dt>Probe Gate</dt><dd id="analysis-probe">unknown</dd></div>
+            <div><dt>Direct Boot Matrix</dt><dd id="analysis-direct-boot">pending</dd></div>
           </dl>
         </article>
       </div>
@@ -197,6 +240,17 @@
             <div><dt>Direct Boot Gate</dt><dd id="direct-boot-gate">manual evidence required</dd></div>
           </dl>
         </article>
+
+        <article class="panel wide">
+          <h2>Front Panel</h2>
+          <dl>
+            <div><dt>Configured</dt><dd id="front-panel-configured">0</dd></div>
+            <div><dt>Present</dt><dd id="front-panel-present">0</dd></div>
+            <div><dt>Link Up</dt><dd id="front-panel-link-up">0</dd></div>
+            <div><dt>Portmap Source</dt><dd id="front-panel-source">unknown</dd></div>
+          </dl>
+          <div id="front-panel-ports" class="port-grid"></div>
+        </article>
       </div>
     </section>
 
@@ -208,14 +262,14 @@
             <div><dt>1</dt><dd>Capture evidence browser and safe action logs</dd></div>
             <div><dt>2</dt><dd>Safe artifact details and downloads</dd></div>
             <div><dt>3</dt><dd>Action completion polling and log surfacing</dd></div>
-            <div><dt>4</dt><dd>Hardware status and original SDK reference gates</dd></div>
-            <div><dt>5</dt><dd>OpenBCM BDE smoke evidence</dd></div>
-            <div><dt>6</dt><dd>Init-probe dry run with original-active config</dd></div>
+            <div><dt>4</dt><dd>Strict validation with swpN, local CIDR, and peer IP</dd></div>
+            <div><dt>5</dt><dd>OpenBCM BDE smoke evidence action</dd></div>
+            <div><dt>6</dt><dd>Init-probe dry run with selected BCM config</dd></div>
             <div><dt>7</dt><dd>Evidence analysis results in the UI</dd></div>
-            <div><dt>8</dt><dd>Log quality cleanup and explicit failure states</dd></div>
-            <div><dt>9</dt><dd>Original Redstone behavior comparison</dd></div>
+            <div><dt>8</dt><dd>Front-panel port view from the active portmap</dd></div>
+            <div><dt>9</dt><dd>Development profile and reset-risk policy display</dd></div>
             <div><dt>10</dt><dd>Direct USB/flash boot SerDes validation design</dd></div>
-            <div><dt>11</dt><dd>Web management polish for operator use</dd></div>
+            <div><dt>11</dt><dd>Public firmware lockdown remains a separate gate</dd></div>
             <div><dt>12</dt><dd>PR verification, push, and re-review request</dd></div>
           </dl>
         </article>

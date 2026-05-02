@@ -86,6 +86,12 @@ const benchState = (run) => {
   return run.validate_exit === "0" ? "ok" : "bad";
 };
 
+const gateLabel = (value) => (value ? "ready" : "pending");
+const inputValue = (id) => {
+  const node = document.getElementById(id);
+  return node ? node.value.trim() : "";
+};
+
 const artifactRequest = (kind, run, file, download = false) =>
   `${artifactUrl}?kind=${encodeURIComponent(kind)}&run=${encodeURIComponent(run)}&file=${encodeURIComponent(file)}${download ? "&download=1" : ""}`;
 
@@ -224,9 +230,53 @@ function renderEvidence(evidence) {
   }));
 }
 
+function renderFrontPanel(frontPanel) {
+  const panel = frontPanel || {};
+  const ports = Array.isArray(panel.ports) ? panel.ports : [];
+  text("front-panel-configured", String(panel.configured_count || 0));
+  text("front-panel-present", String(panel.swp_present_count || 0));
+  text("front-panel-link-up", String(panel.swp_link_up_count || 0));
+  text("front-panel-source", panel.source_config || "unknown");
+
+  const node = document.getElementById("front-panel-ports");
+  if (!node) return;
+  node.textContent = "";
+
+  if (ports.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "port-tile missing";
+    empty.textContent = "No portmap entries";
+    node.appendChild(empty);
+    return;
+  }
+
+  ports.forEach((port) => {
+    const tile = document.createElement("div");
+    tile.className = "port-tile";
+    if (port.carrier === "1") tile.classList.add("link-up");
+    if (!port.present) tile.classList.add("missing");
+
+    const title = document.createElement("strong");
+    title.textContent = port.name || `swp${port.port || "?"}`;
+    tile.appendChild(title);
+
+    const lane = document.createElement("span");
+    lane.textContent = `lane ${port.lane || "?"}, ${port.speed || "?"}G`;
+    tile.appendChild(lane);
+
+    const state = document.createElement("span");
+    state.textContent = port.present ? `${port.operstate || "unknown"} carrier=${port.carrier || "unknown"}` : "missing";
+    tile.appendChild(state);
+
+    node.appendChild(tile);
+  });
+}
+
 function renderStatus(data) {
   const cfg = data.selected_config || {};
+  const profile = data.profile || {};
   const eth = data.management_eth1 || {};
+  const frontPanel = data.front_panel || {};
   const bcm = data.bcm56846 || {};
   const bde = data.bde || {};
   const sw = data.switchd || {};
@@ -238,6 +288,7 @@ function renderStatus(data) {
   const probe = evidence.init_probe_dry_run || {};
   const webAction = data.web_action || {};
   const tools = data.tools || {};
+  const analysis = data.analysis || {};
 
   text("board", data.board);
   text("split-mode", cfg.split_mode);
@@ -290,6 +341,15 @@ function renderStatus(data) {
   text("hardware-validation", validationLabel(validation));
   text("hardware-openbcm-gate", `BDE ${exitLabel(bench.bde_smoke_exit)}, probe ${probeLabel(probe)}`);
   text("direct-boot-gate", eth.carrier === "1" ? "U-Boot-preserved SGMII proven; direct boot still pending" : "manual SerDes evidence required");
+  text("profile-mode", profile.mode || "unknown");
+  text("reset-risk-exec", profile.reset_risk_exec ? "enabled" : "disabled");
+  text("analysis-management", gateLabel(analysis.management_eth_ready));
+  text("analysis-bcm", gateLabel(analysis.bcm56846_ready));
+  text("analysis-bde", gateLabel(analysis.bde_nodes_ready));
+  text("analysis-strict", gateLabel(analysis.strict_validation_ready));
+  text("analysis-probe", gateLabel(analysis.openbcm_probe_ready));
+  text("analysis-direct-boot", analysis.direct_boot_matrix || "pending");
+  renderFrontPanel(frontPanel);
 
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
@@ -309,6 +369,14 @@ function renderStatus(data) {
   stateClass("hardware-validation", validationState(validation));
   stateClass("hardware-openbcm-gate", bench.bde_smoke_exit === "0" && probe.exists && probe.exit === "0" ? "ok" : "warn");
   stateClass("direct-boot-gate", "warn");
+  stateClass("reset-risk-exec", profile.reset_risk_exec ? "bad" : "ok");
+  stateClass("analysis-management", analysis.management_eth_ready ? "ok" : "warn");
+  stateClass("analysis-bcm", analysis.bcm56846_ready ? "ok" : "warn");
+  stateClass("analysis-bde", analysis.bde_nodes_ready ? "ok" : "warn");
+  stateClass("analysis-strict", analysis.strict_validation_ready ? "ok" : "warn");
+  stateClass("analysis-probe", analysis.openbcm_probe_ready ? "ok" : "warn");
+  stateClass("analysis-direct-boot", "warn");
+  stateClass("front-panel-link-up", Number(frontPanel.swp_link_up_count || 0) > 0 ? "ok" : "warn");
 }
 
 async function showArtifact(kind, run, file) {
@@ -380,13 +448,26 @@ function setActionButtons(disabled) {
   });
 }
 
+function actionParams(action) {
+  const params = new URLSearchParams({ action });
+  if (action === "validate-strict") {
+    params.set("iface", inputValue("strict-iface"));
+    params.set("local_cidr", inputValue("strict-local-cidr"));
+    params.set("peer", inputValue("strict-peer"));
+    params.set("ping_count", inputValue("strict-ping-count") || "3");
+  } else if (action === "init-probe-dry-run") {
+    params.set("config", inputValue("init-probe-config") || "stage1");
+  }
+  return params.toString();
+}
+
 async function runAction(action) {
   setActionButtons(true);
   text("action-state", `${action} running`);
   stateClass("action-state", "warn");
 
   try {
-    const response = await fetch(`${actionUrl}?action=${encodeURIComponent(action)}`, {
+    const response = await fetch(`${actionUrl}?${actionParams(action)}`, {
       method: "POST",
       cache: "no-store",
     });

@@ -5,6 +5,28 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Web Strict Gates And OpenBCM Actions
+
+Completed:
+
+- Added parameterized Web actions for strict front-panel validation,
+  OpenBCM BDE smoke, and OpenBCM init-probe dry-run. The strict action accepts
+  only `swpN`, IPv4/CIDR, IPv4 peer, and bounded ping-count inputs; the
+  init-probe action accepts only known BCM config tokens.
+- Extended the status JSON with the development profile, reset-risk execution
+  policy, gate analysis booleans, and a front-panel port view generated from
+  the selected portmap plus live `swpN` sysfs state.
+- Extended `/www/redstone/` with strict validation inputs, BDE/init-probe
+  buttons, analysis summary, and front-panel port tiles.
+- Kept destructive paths unavailable from the browser: no SDK exec,
+  reset-risk acceptance, flash write, ONIE install, or U-Boot environment write.
+
+Next checkpoint:
+
+- Run the new Web actions on the bench image, attach the resulting web-action
+  evidence, and use BDE smoke plus init-probe dry-run output to decide the next
+  OpenBCM bring-up patch.
+
 ### Stage-5 Web Evidence Browser And Safe Actions
 
 Completed:

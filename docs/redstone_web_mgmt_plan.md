@@ -16,6 +16,12 @@ browser.
   `/cgi-bin/redstone-action?action=validate-capture`.
 - Serve bench capture-only evidence through
   `/cgi-bin/redstone-action?action=bench-capture`.
+- Serve strict front-panel validation through
+  `/cgi-bin/redstone-action?action=validate-strict&iface=swpN&local_cidr=IP/PREFIX&peer=IP`.
+- Serve OpenBCM BDE smoke through
+  `/cgi-bin/redstone-action?action=bde-smoke`.
+- Serve OpenBCM init-probe dry-run through
+  `/cgi-bin/redstone-action?action=init-probe-dry-run&config=stage1`.
 - Start the web UI only when an operator runs `redstone-mgmt-web`.
 - Bind to `127.0.0.1:8080` by default.
 - Reuse `redstone-mgmt-status` for status and `redstone-mgmt-evidence` for
@@ -35,6 +41,9 @@ browser.
 - BCM56846 PCI presence and bound driver,
 - BDE device nodes and module presence,
 - switchd process state,
+- development/public profile and reset-risk execution policy,
+- front-panel port tiles derived from the selected portmap and live `swpN`
+  sysfs state,
 - latest capture directory/archive, validation directory/bundle, and bench-run
   evidence directory,
 - validation PASS/WARN/FAIL counts parsed from `validate.log`,
@@ -43,6 +52,8 @@ browser.
 - OpenBCM init-probe dry-run status parsed from the latest validation or
   capture evidence,
 - latest web-triggered capture action status, log path, and evidence directory,
+- gate analysis for management Ethernet, BCM56846, BDE nodes, strict validation,
+  init-probe dry-run, and the still-pending direct-boot matrix,
 - availability of capture, validation, BDE smoke, and init-probe tools.
 
 `redstone-mgmt-evidence` reports recent capture, validation, bench, and web
@@ -87,6 +98,14 @@ Current actions:
 1. `capture`: runs `redstone-stage1-capture --verbose`.
 2. `validate-capture`: runs `redstone-stage1-validate --capture`.
 3. `bench-capture`: runs `redstone-stage1-bench-run --capture-only`.
+4. `validate-strict`: validates a selected `swpN` interface with an explicit
+   local CIDR, peer IP, and ping count by calling `redstone-stage1-bench-run`.
+5. `bde-smoke`: runs `redstone-openbcm-bde-smoke.sh --strict --capture` when
+   the helper is available in `PATH`, `/opt/openbcm-bde/`, or the current
+   bundle directory.
+6. `init-probe-dry-run`: runs `redstone-openbcm-init-probe --dry-run` with a
+   selected BCM config token. The browser exposes only known config tokens, not
+   arbitrary paths.
 
 The browser polls status and evidence briefly after each action returns so the
 latest action result, generated evidence, and log tail converge without a manual
@@ -94,9 +113,8 @@ refresh.
 
 Remaining explicit CGI actions should be added in this order:
 
-1. strict validation run with explicit `swpN`, local CIDR, and peer IP,
-2. OpenBCM BDE smoke run,
-3. OpenBCM init-probe dry-run with a selected BCM config,
-4. SDK exec path only after hardware reset-risk policy is reviewed again.
+1. SDK exec path only after hardware reset-risk policy is reviewed again.
+2. Public-firmware lockdown profile that disables development diagnostics not
+   intended for field images.
 
 Each action should write an evidence directory and return the path in JSON.
