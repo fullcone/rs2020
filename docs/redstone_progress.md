@@ -13,8 +13,8 @@ Completed:
   state, OpenBCM tool paths, latest BDE smoke / init-probe summaries, and a
   `diagnostics` block that explains the current blocker for each gate.
 - Added a Hardware-tab Runtime Diagnostics panel so operators can see whether
-  the next blocker is missing BDE nodes, missing OpenBCM tools, a stopped
-  `switchd`, or missing run evidence.
+  the next blocker is missing BDE nodes, missing BDE module visibility, missing
+  OpenBCM tools, a stopped `switchd`, or missing run evidence.
 - Extended the stage-1 preflight checks to cover the new status JSON fields and
   browser rendering hooks.
 

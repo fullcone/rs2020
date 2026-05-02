@@ -57,8 +57,9 @@ browser.
 - OpenBCM init-probe dry-run status parsed from the latest validation or
   capture evidence,
 - latest web-triggered capture action status, log path, and evidence directory,
-- gate analysis for management Ethernet, BCM56846, BDE nodes, strict validation,
-  init-probe dry-run, and the still-pending direct-boot matrix,
+- gate analysis for management Ethernet, BCM56846, BDE node/module readiness,
+  strict validation, init-probe dry-run, and the still-pending direct-boot
+  matrix,
 - availability of capture, validation, BDE smoke, and init-probe tools.
 
 `redstone-mgmt-evidence` reports recent capture, validation, bench, and web

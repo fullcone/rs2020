@@ -825,9 +825,9 @@ check_grep 'ps[[:space:]]*\|[[:space:]]*while read' \
 check_grep '/proc/\$pid/cmdline' \
     "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
     "management web init identifies orphaned httpd processes by command line"
-check_grep 'redstone-httpd/httpd' \
+check_grep '\*/httpd' \
     "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
-    "management web init stop path matches fallback httpd processes"
+    "management web init stop path matches fallback and system httpd processes"
 check_grep 'httpd_help_looks_usable' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-web" \
     "management web launcher validates httpd before exec"
@@ -987,6 +987,9 @@ check_grep 'switchd-pidfile' \
 check_grep 'bde-paths' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders BDE device paths"
+check_grep 'bde_ready' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI gates BDE readiness on module visibility"
 check_grep '_files' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI can list files in a run directory"
@@ -1197,6 +1200,7 @@ EOF
         grep -q '"diagnostics":' "$tmpdir/status.json" && \
         grep -q '"analysis":' "$tmpdir/status.json" && \
         grep -q '"bde_nodes_ready": true' "$tmpdir/status.json" && \
+        grep -q '"bde_ready": false' "$tmpdir/status.json" && \
         grep -q '"strict_validation_ready": true' "$tmpdir/status.json"; then
         ok "management status indexes capture, validation, bench, web action, and dry-run evidence"
     else

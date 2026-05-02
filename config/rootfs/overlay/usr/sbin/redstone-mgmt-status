@@ -443,8 +443,14 @@ analysis_management_eth_ready=false
 [ "$eth_carrier" = "1" ] && [ "$eth_speed" = "1000" ] && analysis_management_eth_ready=true
 analysis_bcm_ready=false
 $bcm_present && analysis_bcm_ready=true
-analysis_bde_ready=false
+analysis_bde_nodes_ready=false
 if [ "$bde_kernel_node" = "true" ] && [ "$bde_user_node" = "true" ]; then
+    analysis_bde_nodes_ready=true
+fi
+analysis_bde_ready=false
+if [ "$analysis_bde_nodes_ready" = "true" ] &&
+    [ "$bde_kernel_module" = "true" ] &&
+    [ "$bde_user_module" = "true" ]; then
     analysis_bde_ready=true
 fi
 analysis_strict_validation_ready=false
@@ -470,8 +476,10 @@ if [ "$switchd_running" = "true" ]; then
     switchd_diagnostic="running ${switchd_pids}"
 elif [ "$config_exists" != "true" ]; then
     switchd_diagnostic="stopped; selected config missing"
-elif [ "$analysis_bde_ready" != "true" ]; then
+elif [ "$analysis_bde_nodes_ready" != "true" ]; then
     switchd_diagnostic="stopped; BDE nodes not ready"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    switchd_diagnostic="stopped; BDE module names not visible"
 elif [ -z "$switchd_tool" ]; then
     switchd_diagnostic="stopped; switchd binary not in PATH"
 else
@@ -483,8 +491,10 @@ if [ -z "$openbcm_bde_smoke_tool" ]; then
     openbcm_diagnostic="missing redstone-openbcm-bde-smoke.sh"
 elif [ -z "$openbcm_init_probe_tool" ]; then
     openbcm_diagnostic="missing redstone-openbcm-init-probe"
-elif [ "$analysis_bde_ready" != "true" ]; then
+elif [ "$analysis_bde_nodes_ready" != "true" ]; then
     openbcm_diagnostic="tools present; BDE nodes not ready"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    openbcm_diagnostic="tools present; BDE module names not visible"
 elif [ "$probe_present" = "true" ] && [ "$probe_unavailable" = "true" ]; then
     openbcm_diagnostic="latest init probe reports unavailable tool or SDK"
 elif [ "$probe_present" = "true" ]; then
@@ -645,7 +655,8 @@ cat <<EOF
   "analysis": {
     "management_eth_ready": $analysis_management_eth_ready,
     "bcm56846_ready": $analysis_bcm_ready,
-    "bde_nodes_ready": $analysis_bde_ready,
+    "bde_nodes_ready": $analysis_bde_nodes_ready,
+    "bde_ready": $analysis_bde_ready,
     "strict_validation_ready": $analysis_strict_validation_ready,
     "openbcm_probe_ready": $analysis_openbcm_probe_ready,
     "direct_boot_matrix": "pending"

@@ -36,7 +36,7 @@ case "$1" in
             cmdline=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ')
             [ -n "$cmdline" ] || cmdline=$rest
             case "$cmdline" in
-                /usr/sbin/redstone-mgmt-web*|/usr/sbin/redstone-httpd/httpd' -f -p '*':8080 -h /www'*|/usr/sbin/redstone-busybox' httpd -f -p '*':8080 -h /www'*)
+                /usr/sbin/redstone-mgmt-web*|/usr/sbin/redstone-busybox\ httpd\ -f\ -p\ *:8080\ -h\ /www*|*/httpd\ -f\ -p\ *:8080\ -h\ /www*)
                     kill "$pid" 2>/dev/null || true
                     ;;
             esac

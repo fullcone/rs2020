@@ -291,6 +291,9 @@ function renderStatus(data) {
   const tools = data.tools || {};
   const diagnostics = data.diagnostics || {};
   const analysis = data.analysis || {};
+  const bdeReady = Object.prototype.hasOwnProperty.call(analysis, "bde_ready")
+    ? analysis.bde_ready
+    : analysis.bde_nodes_ready;
 
   text("board", data.board);
   text("split-mode", cfg.split_mode);
@@ -349,7 +352,7 @@ function renderStatus(data) {
   text("generated-at", data.generated_at);
   text("mgmt-sgmii", eth.carrier === "1" ? "link proven" : "not proven");
   text("hardware-bcm", bcm.pci_present ? `${bcm.slot || "present"} ${bcm.driver || "no driver"}` : "missing");
-  text("hardware-bde", `${yesNo(bde.kernel_node && bde.user_node)} nodes`);
+  text("hardware-bde", `${yesNo(bde.kernel_node && bde.user_node)} nodes, ${yesNo(bde.kernel_module && bde.user_module)} modules`);
   text("hardware-probe", probeLabel(probe));
   text(
     "hardware-tools",
@@ -362,7 +365,7 @@ function renderStatus(data) {
   text("reset-risk-exec", profile.reset_risk_exec ? "enabled" : "disabled");
   text("analysis-management", gateLabel(analysis.management_eth_ready));
   text("analysis-bcm", gateLabel(analysis.bcm56846_ready));
-  text("analysis-bde", gateLabel(analysis.bde_nodes_ready));
+  text("analysis-bde", gateLabel(bdeReady));
   text("analysis-strict", gateLabel(analysis.strict_validation_ready));
   text("analysis-probe", gateLabel(analysis.openbcm_probe_ready));
   text("analysis-direct-boot", analysis.direct_boot_matrix || "pending");
@@ -371,8 +374,8 @@ function renderStatus(data) {
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
   stateClass("switchd", sw.running ? "ok" : "warn");
-  stateClass("bde-diagnostic", analysis.bde_nodes_ready ? "ok" : "warn");
-  stateClass("bde-paths", analysis.bde_nodes_ready ? "ok" : "warn");
+  stateClass("bde-diagnostic", bdeReady ? "ok" : "warn");
+  stateClass("bde-paths", bdeReady ? "ok" : "warn");
   stateClass("switchd-diagnostic", sw.running ? "ok" : "warn");
   stateClass("switchd-pidfile", sw.pid_file_running ? "ok" : sw.pid_file_exists ? "warn" : "warn");
   stateClass("openbcm-diagnostic", analysis.openbcm_probe_ready ? "ok" : "warn");
@@ -386,7 +389,7 @@ function renderStatus(data) {
   stateClass("latest-action", actionState(webAction));
   stateClass("mgmt-sgmii", eth.carrier === "1" ? "ok" : "warn");
   stateClass("hardware-bcm", bcm.pci_present ? "ok" : "bad");
-  stateClass("hardware-bde", bde.kernel_node && bde.user_node ? "ok" : "warn");
+  stateClass("hardware-bde", bdeReady ? "ok" : "warn");
   stateClass("hardware-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : "warn");
   stateClass("hardware-tools", tools.redstone_openbcm_bde_smoke && tools.redstone_openbcm_init_probe ? "ok" : "warn");
   stateClass("hardware-validation", validationState(validation));
@@ -395,7 +398,7 @@ function renderStatus(data) {
   stateClass("reset-risk-exec", profile.reset_risk_exec ? "bad" : "ok");
   stateClass("analysis-management", analysis.management_eth_ready ? "ok" : "warn");
   stateClass("analysis-bcm", analysis.bcm56846_ready ? "ok" : "warn");
-  stateClass("analysis-bde", analysis.bde_nodes_ready ? "ok" : "warn");
+  stateClass("analysis-bde", bdeReady ? "ok" : "warn");
   stateClass("analysis-strict", analysis.strict_validation_ready ? "ok" : "warn");
   stateClass("analysis-probe", analysis.openbcm_probe_ready ? "ok" : "warn");
   stateClass("analysis-direct-boot", "warn");
