@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # switchd-init - Start/stop EdgeNOS switch daemon
 #
 # Boot sequence (from Cumulus RE):
@@ -15,12 +15,61 @@ log() { logger -t switchd-init "$*"; echo "switchd-init: $*"; }
 
 SWITCHD=/usr/sbin/switchd
 PIDFILE=/var/run/switchd.pid
+LOGFILE=/var/log/switchd.log
 CPLD="/sys/devices/ff705000.localbus/ea000000.cpld"
+DEFAULT_BOARD="as5610-52x"
+BOARD_FILE="/etc/edgenos/board"
+DEFAULT_CONFIG="/etc/switchd/config.bcm"
+REDSTONE_CONFIG="/etc/switchd/redstone-stage1.bcm"
 
-case "$1" in
-start)
-    log "Starting EdgeNOS switchd..."
+detect_board() {
+    if [ -n "${EDGENOS_BOARD:-}" ]; then
+        echo "$EDGENOS_BOARD"
+        return
+    fi
 
+    if [ -r "$BOARD_FILE" ]; then
+        sed -n '1{s/[[:space:]]//g;p;q}' "$BOARD_FILE"
+        return
+    fi
+
+    echo "$DEFAULT_BOARD"
+}
+
+select_config() {
+    board="$(detect_board)"
+    [ -n "$board" ] || board="$DEFAULT_BOARD"
+    board_lc="$(echo "$board" | tr '[:upper:]' '[:lower:]')"
+
+    case "$board_lc" in
+    redstone|rs2020|r0678)
+        config="$REDSTONE_CONFIG"
+        ;;
+    *)
+        config="$DEFAULT_CONFIG"
+        ;;
+    esac
+
+    mkdir -p /etc/switchd
+
+    if [ ! -f "$config" ]; then
+        if [ "$config" != "$DEFAULT_CONFIG" ] && [ -f "$DEFAULT_CONFIG" ]; then
+            log "WARNING: $config missing for board=$board, falling back to $DEFAULT_CONFIG"
+            config="$DEFAULT_CONFIG"
+        elif [ "$config" = "$DEFAULT_CONFIG" ]; then
+            log "WARNING: $DEFAULT_CONFIG missing, creating empty default config"
+            touch "$DEFAULT_CONFIG"
+        else
+            log "FATAL: no switchd config for board=$board ($config missing)"
+            exit 1
+        fi
+    fi
+
+    SELECTED_BOARD="$board"
+    SELECTED_CONFIG="$config"
+}
+
+preflight() {
     # Check BDE modules
     if [ ! -c /dev/linux-kernel-bde ]; then
         log "BDE not loaded, running platform-init..."
@@ -41,13 +90,21 @@ start)
         log "WARNING: BCM56846 not detected via lspci"
     fi
 
-    # Ensure config exists
-    mkdir -p /etc/switchd
-    [ -f /etc/switchd/config.bcm ] || touch /etc/switchd/config.bcm
+    select_config
+    log "Using board=${SELECTED_BOARD}, config=${SELECTED_CONFIG}"
+}
 
-    # Start switchd in foreground mode, log to syslog
-    $SWITCHD -f 2>&1 | logger -t switchd &
+case "$1" in
+start)
+    log "Starting EdgeNOS switchd..."
+
+    preflight
+
+    # Start switchd in foreground mode, log to a file, and keep its real PID.
+    mkdir -p "$(dirname "$LOGFILE")"
+    "$SWITCHD" -f -c "$SELECTED_CONFIG" >> "$LOGFILE" 2>&1 &
     echo $! > $PIDFILE
+    log "switchd pid $(cat $PIDFILE), logging to $LOGFILE"
 
     # Wait for ports to come up
     sleep 8
@@ -56,6 +113,14 @@ start)
 
     # Set system LED to green
     [ -f "${CPLD}/led_diag" ] && echo green > "${CPLD}/led_diag" 2>/dev/null
+    ;;
+
+start-foreground)
+    log "Starting EdgeNOS switchd in foreground..."
+    preflight
+    mkdir -p "$(dirname "$PIDFILE")"
+    echo $$ > "$PIDFILE"
+    exec "$SWITCHD" -f -c "$SELECTED_CONFIG"
     ;;
 
 stop)
@@ -81,7 +146,7 @@ status)
     ;;
 
 *)
-    echo "Usage: $0 {start|stop|restart|status}"
+    echo "Usage: $0 {start|start-foreground|stop|restart|status}"
     exit 1
     ;;
 esac

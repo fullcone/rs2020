@@ -3,9 +3,10 @@
 set -e
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
+. "$TOPDIR/scripts/board-env.sh"
 OUTDIR="$TOPDIR/output"
 IMGDIR="$OUTDIR/images"
-PLATFORM="powerpc-accton-as5610-52x-r0"
+PLATFORM="${EDGENOS_PLATFORM:-powerpc-accton-as5610-52x-r0}"
 
 mkdir -p "$IMGDIR"
 
@@ -13,7 +14,7 @@ build_fit() {
     echo "==> Building FIT image..."
 
     local UIMAGE="$OUTDIR/kernel/uImage"
-    local DTB="$OUTDIR/kernel/as5610-52x.dtb"
+    local DTB="$OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb"
     local INITRAMFS="$TOPDIR/initramfs.cpio.gz"
 
     for f in "$UIMAGE" "$DTB"; do
@@ -78,8 +79,8 @@ build_fit() {
             load = <0x00>;
         };
 
-        accton_as5610_52x_dtb {
-            description = "accton_as5610_52x.dtb";
+        ${EDGENOS_FIT_DTB_NODE} {
+            description = "${EDGENOS_DTS_BASENAME}.dtb";
             data = /incbin/("$(realpath "$DTB")");
             type = "flat_dt";
             arch = "ppc";
@@ -89,13 +90,13 @@ build_fit() {
     };
 
     configurations {
-        default = "accton_as5610_52x";
+        default = "${EDGENOS_FIT_CONFIG}";
 
-        accton_as5610_52x {
-            description = "accton_as5610_52x";
+        ${EDGENOS_FIT_CONFIG} {
+            description = "${EDGENOS_FIT_DESCRIPTION}";
             kernel = "kernel";
             ramdisk = "initramfs";
-            fdt = "accton_as5610_52x_dtb";
+            fdt = "${EDGENOS_FIT_DTB_NODE}";
         };
     };
 };
@@ -111,7 +112,7 @@ build_image() {
 
     local INSTALLER="$TOPDIR/installer/install.sh"
     local FIT="$IMGDIR/uImage-powerpc.itb"
-    local OUTPUT="$IMGDIR/edgenos-as5610-52x.bin"
+    local OUTPUT="$IMGDIR/$EDGENOS_IMAGE_NAME"
 
     if [ ! -f "$FIT" ]; then
         echo "ERROR: FIT image not found. Run '$0 fit' first."
@@ -126,6 +127,15 @@ build_image() {
     if [ ! -f "$ROOTFS" ]; then
         echo "ERROR: rootfs.sqsh not found."
         exit 1
+    fi
+
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        echo "  Checking Redstone rootfs.sqsh contents..."
+        # Keep the optional OpenBCM init probe out of the default image build
+        # gate. Release/handoff jobs can still require it by exporting
+        # REQUIRE_OPENBCM_INIT_PROBE=1.
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-0}" \
+            "$TOPDIR/scripts/check-redstone-image.sh" --squashfs "$ROOTFS"
     fi
 
     # Build payload tar

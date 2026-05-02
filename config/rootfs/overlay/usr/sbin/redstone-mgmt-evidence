@@ -1,0 +1,277 @@
+#!/bin/sh
+# Emit a read-only JSON evidence index for the Redstone management page.
+
+set -u
+
+SCHEMA=redstone-mgmt-evidence.v1
+CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
+VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
+BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+LIMIT=${REDSTONE_EVIDENCE_LIMIT:-6}
+TAIL_LINES=${REDSTONE_EVIDENCE_TAIL_LINES:-12}
+
+case "$LIMIT" in
+    ''|*[!0-9]*)
+        LIMIT=6
+        ;;
+esac
+[ "$LIMIT" -gt 0 ] 2>/dev/null || LIMIT=6
+
+case "$TAIL_LINES" in
+    ''|*[!0-9]*)
+        TAIL_LINES=12
+        ;;
+esac
+[ "$TAIL_LINES" -gt 0 ] 2>/dev/null || TAIL_LINES=12
+
+json_escape() {
+    printf '%s' "$1" | tr '\r\n' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+bool_file() {
+    if [ -f "$1" ]; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+grep_count() {
+    file=$1
+    pattern=$2
+    if [ -r "$file" ]; then
+        value=$(grep -Ec "$pattern" "$file" 2>/dev/null || true)
+        printf '%s' "${value:-0}"
+    else
+        printf '0'
+    fi
+}
+
+sed_last_value() {
+    file=$1
+    expr=$2
+    if [ -r "$file" ]; then
+        sed -n "$expr" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+kv_last_value() {
+    file=$1
+    key=$2
+    if [ -r "$file" ]; then
+        sed -n "s/^$key=//p" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+tail_text() {
+    file=$1
+    if [ -r "$file" ]; then
+        tail -n "$TAIL_LINES" "$file" 2>/dev/null
+    fi
+}
+
+head_text() {
+    file=$1
+    if [ -r "$file" ]; then
+        sed -n "1,${TAIL_LINES}p" "$file" 2>/dev/null
+    fi
+}
+
+json_tail() {
+    json_str "$(tail_text "$1")"
+}
+
+json_head() {
+    json_str "$(head_text "$1")"
+}
+
+emit_capture_runs() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$CAPTURE_BASE" ]; then
+        for dir in $(ls -1dt "$CAPTURE_BASE"/[0-9]*T*Z* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            summary="$dir/capture-summary.txt"
+            archive="$dir.tar.gz"
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "summary": $(json_str "$summary"),
+  "summary_exists": $(bool_file "$summary"),
+  "archive": $(json_str "$archive"),
+  "archive_exists": $(bool_file "$archive"),
+  "summary_head": $(json_head "$summary")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
+emit_validation_runs() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$VALIDATE_BASE" ]; then
+        for dir in $(ls -1dt "$VALIDATE_BASE"/validate-* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            log="$dir/validate.log"
+            bundle="$dir.tar.gz"
+            bundle_line=$(sed_last_value "$log" 's/^Validation bundle: //p')
+            evidence_dir=$(sed_last_value "$log" 's/^Evidence directory: //p')
+            complete=$(sed_last_value "$log" 's/^Redstone stage-1 validation complete: //p')
+            [ -f "$bundle" ] || bundle=$bundle_line
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "log": $(json_str "$log"),
+  "log_exists": $(bool_file "$log"),
+  "bundle": $(json_str "$bundle"),
+  "bundle_exists": $(bool_file "$bundle"),
+  "pass_count": $(grep_count "$log" '^PASS:'),
+  "warn_count": $(grep_count "$log" '^WARN:'),
+  "fail_count": $(grep_count "$log" '^FAIL:'),
+  "complete": $(json_str "$complete"),
+  "evidence_dir": $(json_str "$evidence_dir"),
+  "log_tail": $(json_tail "$log")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
+emit_bench_runs() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$BENCH_BASE" ]; then
+        for dir in $(ls -1dt "$BENCH_BASE"/bench-run-* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            log="$dir/bench-run.log"
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "log": $(json_str "$log"),
+  "log_exists": $(bool_file "$log"),
+  "capture_only": $(json_str "$(kv_last_value "$log" capture_only)"),
+  "validate_exit": $(json_str "$(kv_last_value "$log" validate_exit)"),
+  "bde_smoke_exit": $(json_str "$(kv_last_value "$log" bde_smoke_exit)"),
+  "validation_bundle": $(json_str "$(kv_last_value "$log" validation_bundle)"),
+  "validation_evidence_dir": $(json_str "$(kv_last_value "$log" validation_evidence_dir)"),
+  "log_tail": $(json_tail "$log")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
+emit_bde_smoke_runs() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$CAPTURE_BASE" ]; then
+        for dir in $(ls -1dt "$CAPTURE_BASE"/openbcm-bde-smoke-* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            log="$dir/smoke.log"
+            complete=$(sed_last_value "$log" 's/^Redstone OpenBCM BDE smoke complete: //p')
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "log": $(json_str "$log"),
+  "log_exists": $(bool_file "$log"),
+  "pass_count": $(grep_count "$log" '^PASS:'),
+  "warn_count": $(grep_count "$log" '^WARN:'),
+  "fail_count": $(grep_count "$log" '^FAIL:'),
+  "complete": $(json_str "$complete"),
+  "log_tail": $(json_tail "$log")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
+emit_web_actions() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$ACTION_BASE" ]; then
+        for dir in $(ls -1dt "$ACTION_BASE"/* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            result="$dir/result.env"
+            log=$(kv_last_value "$result" log)
+            [ -n "$log" ] || log="$dir/action.log"
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "result": $(json_str "$result"),
+  "result_exists": $(bool_file "$result"),
+  "action": $(json_str "$(kv_last_value "$result" action)"),
+  "status": $(json_str "$(kv_last_value "$result" status)"),
+  "exit": $(json_str "$(kv_last_value "$result" exit)"),
+  "started_at": $(json_str "$(kv_last_value "$result" started_at)"),
+  "finished_at": $(json_str "$(kv_last_value "$result" finished_at)"),
+  "run_dir": $(json_str "$(kv_last_value "$result" run_dir)"),
+  "log": $(json_str "$log"),
+  "log_exists": $(bool_file "$log"),
+  "evidence_dir": $(json_str "$(kv_last_value "$result" evidence_dir)"),
+  "message": $(json_str "$(kv_last_value "$result" message)"),
+  "log_tail": $(json_tail "$log")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
+cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "generated_at": $(json_str "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true)"),
+  "limit": $LIMIT,
+  "bases": {
+    "capture": $(json_str "$CAPTURE_BASE"),
+    "validation": $(json_str "$VALIDATE_BASE"),
+    "bench": $(json_str "$BENCH_BASE"),
+    "web_action": $(json_str "$ACTION_BASE")
+  },
+  "capture_runs": $(emit_capture_runs),
+  "validation_runs": $(emit_validation_runs),
+  "bench_runs": $(emit_bench_runs),
+  "bde_smoke_runs": $(emit_bde_smoke_runs),
+  "web_actions": $(emit_web_actions)
+}
+EOF

@@ -4,19 +4,39 @@ set -e
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
 BRVER="2023.02.9"
-BRSRC="$TOPDIR/build/buildroot-$BRVER"
+if [ -n "${EDGENOS_BUILDROOT_WORKDIR:-}" ]; then
+    BRWORK="$EDGENOS_BUILDROOT_WORKDIR"
+else
+    if [ -z "${HOME:-}" ]; then
+        echo "ERROR: HOME is not set. Set EDGENOS_BUILDROOT_WORKDIR to a Linux filesystem path."
+        exit 1
+    fi
+    BRWORK="${XDG_CACHE_HOME:-$HOME/.cache}/edgenos/buildroot"
+fi
+BRSRC="$BRWORK/buildroot-$BRVER"
 OUTDIR="$TOPDIR/output"
 JOBS=$(nproc)
+EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
+. "$TOPDIR/scripts/board-env.sh"
+export EDGENOS_BOARD EDGENOS_BOARD_LABEL
+
+# Buildroot rejects PATH entries with whitespace. WSL can inherit Windows PATH
+# entries such as "Program Files", so keep a deterministic Linux tool PATH.
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH
 
 download() {
+    echo "==> Buildroot workdir: $BRSRC"
+
     if [ -d "$BRSRC" ]; then
         echo "Buildroot source already present at $BRSRC"
         return
     fi
 
-    mkdir -p "$TOPDIR/build"
+    mkdir -p "$TOPDIR/build" "$BRWORK"
     local URL="https://buildroot.org/downloads/buildroot-${BRVER}.tar.xz"
     local TARBALL="$TOPDIR/build/buildroot-${BRVER}.tar.xz"
+    local TMPDIR="$BRWORK/.buildroot-${BRVER}.tmp"
 
     if [ ! -f "$TARBALL" ]; then
         echo "==> Downloading Buildroot $BRVER..."
@@ -24,17 +44,62 @@ download() {
     fi
 
     echo "==> Extracting Buildroot..."
-    tar -xf "$TARBALL" -C "$TOPDIR/build/"
+    rm -rf "$TMPDIR"
+    mkdir -p "$TMPDIR"
+    tar -xf "$TARBALL" -C "$TMPDIR"
+    mv "$TMPDIR/buildroot-$BRVER" "$BRSRC"
+    rm -rf "$TMPDIR"
 }
 
-build() {
+write_defconfig() {
     if [ ! -d "$BRSRC" ]; then
         echo "ERROR: Buildroot source not found. Run '$0 download' first."
         exit 1
     fi
 
-    # Copy our defconfig
-    cp "$TOPDIR/config/rootfs/buildroot_defconfig" "$BRSRC/configs/edgenos_defconfig"
+    # Generate a defconfig for this checkout. The source defconfig keeps the
+    # Docker-era /build paths documented, but direct WSL builds need real paths.
+    sed \
+        -e "s|^BR2_ROOTFS_OVERLAY=.*|BR2_ROOTFS_OVERLAY=\"$TOPDIR/config/rootfs/overlay\"|" \
+        -e "s|^BR2_ROOTFS_POST_BUILD_SCRIPT=.*|BR2_ROOTFS_POST_BUILD_SCRIPT=\"$TOPDIR/config/rootfs/post-build.sh\"|" \
+        -e "s|^BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=.*|BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=\"$TOPDIR/config/rootfs/busybox-fragment.config\"|" \
+        -e "s|^BR2_TARGET_GENERIC_ISSUE=.*|BR2_TARGET_GENERIC_ISSUE=\"EdgeNOS for $EDGENOS_BOARD_LABEL\"|" \
+        "$TOPDIR/config/rootfs/buildroot_defconfig" \
+        > "$BRSRC/configs/edgenos_defconfig"
+
+    # The checked-in defconfig can have CRLF endings on Windows checkouts.
+    # Normalize the generated file before exact-line Redstone rewrites.
+    sed -i 's/\r$//' "$BRSRC/configs/edgenos_defconfig"
+
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        local TMP_DEFCONFIG="$BRSRC/configs/edgenos_defconfig.redstone.$$"
+        awk '
+            /^BR2_powerpc_e500v2=y$/ {
+                print "BR2_powerpc_8548=y"
+                print "BR2_powerpc_SPE=y"
+                next
+            }
+            /^BR2_TOOLCHAIN_BUILDROOT_GLIBC=y$/ {
+                print "BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y"
+                next
+            }
+            /^BR2_INIT_SYSTEMD=y$/ {
+                print "BR2_INIT_BUSYBOX=y"
+                next
+            }
+            { print }
+        ' "$BRSRC/configs/edgenos_defconfig" > "$TMP_DEFCONFIG"
+        mv "$TMP_DEFCONFIG" "$BRSRC/configs/edgenos_defconfig"
+    fi
+}
+
+defconfig() {
+    write_defconfig
+    echo "==> Wrote Buildroot defconfig: $BRSRC/configs/edgenos_defconfig"
+}
+
+build() {
+    write_defconfig
 
     echo "==> Configuring Buildroot..."
     make -C "$BRSRC" edgenos_defconfig
@@ -94,6 +159,40 @@ assemble() {
         cp -a "$TOPDIR/config/rootfs/overlay/"* "$STAGING/"
     fi
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        "$TOPDIR/scripts/install-openbcm-bde-smoke.sh" "$STAGING"
+    fi
+
+    for script in \
+        etc/init.d/S20edgenos \
+        etc/init.d/S38devpts \
+        etc/init.d/S41redstone-mgmt-web \
+        usr/sbin/platform-init.sh \
+        usr/sbin/switchd-init \
+        usr/sbin/redstone-stage1-capture \
+        usr/sbin/redstone-stage1-validate \
+        usr/sbin/redstone-stage1-bench-run \
+        usr/sbin/redstone-mgmt-artifact \
+        usr/sbin/redstone-mgmt-evidence \
+        usr/sbin/redstone-mgmt-status \
+        usr/sbin/redstone-mgmt-web \
+        usr/sbin/redstone-openbcm-bde-smoke.sh \
+        www/cgi-bin/redstone-artifact \
+        www/cgi-bin/redstone-evidence \
+        www/cgi-bin/redstone-status \
+        www/cgi-bin/redstone-action
+    do
+        [ -f "$STAGING/$script" ] && chmod 755 "$STAGING/$script"
+    done
+
+    # Select board-specific runtime defaults.
+    mkdir -p "$STAGING/etc/edgenos"
+    printf '%s\n' "$EDGENOS_BOARD" > "$STAGING/etc/edgenos/board"
+
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        "$TOPDIR/scripts/install-openbcm-init-probe.sh" "$STAGING"
+    fi
+
     # Create final squashfs
     echo "  Creating squashfs image..."
     mkdir -p "$OUTDIR/images"
@@ -106,10 +205,11 @@ assemble() {
 
 case "${1:-}" in
     download) download ;;
+    defconfig) defconfig ;;
     build)    build ;;
     assemble) assemble ;;
     *)
-        echo "Usage: $0 {download|build|assemble}"
+        echo "Usage: $0 {download|defconfig|build|assemble}"
         exit 1
         ;;
 esac

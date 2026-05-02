@@ -1,0 +1,27 @@
+#!/bin/sh
+# BusyBox init entrypoint for the Redstone stage-1 rootfs.
+
+case "$1" in
+start)
+    echo "Starting EdgeNOS platform services"
+    /usr/sbin/platform-init.sh
+    /usr/sbin/switchd-init start
+    ;;
+stop)
+    /usr/sbin/switchd-init stop
+    ;;
+restart)
+    "$0" stop
+    sleep 2
+    "$0" start
+    ;;
+status)
+    /usr/sbin/switchd-init status
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

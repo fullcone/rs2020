@@ -1,0 +1,9 @@
+.gitattributes text eol=lf
+Makefile text eol=lf
+*.sh text eol=lf
+scripts/* text eol=lf
+config/rootfs/post-build.sh text eol=lf
+config/rootfs/overlay/usr/sbin/* text eol=lf
+config/rootfs/overlay/etc/systemd/system/*.service text eol=lf
+config/bcm/*.bcm text eol=lf
+*.md text eol=lf

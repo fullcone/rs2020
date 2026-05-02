@@ -1,0 +1,6 @@
+#!/bin/sh
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+exec /usr/sbin/redstone-mgmt-status

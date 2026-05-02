@@ -1,0 +1,396 @@
+#!/bin/sh
+# Safe action endpoint for the Redstone web management page.
+
+set -u
+
+SCHEMA=redstone-mgmt-action.v1
+ACTION_DIR=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+LOCK_DIR=${REDSTONE_WEB_ACTION_LOCK:-/run/redstone-mgmt-action.lock}
+
+json_escape() {
+    printf '%s' "$1" | tr '\r\n' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+http_headers() {
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+}
+
+emit_body() {
+    cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "action": $(json_str "$ACTION"),
+  "status": $(json_str "$STATUS"),
+  "exit": $(json_str "$EXIT_CODE"),
+  "started_at": $(json_str "$STARTED_AT"),
+  "finished_at": $(json_str "$FINISHED_AT"),
+  "run_dir": $(json_str "$RUN_DIR"),
+  "log": $(json_str "$LOG_PATH"),
+  "evidence_dir": $(json_str "$EVIDENCE_DIR"),
+  "message": $(json_str "$MESSAGE")
+}
+EOF
+}
+
+emit_response() {
+    http_headers
+    emit_body
+}
+
+finish_with() {
+    ACTION=$1
+    STATUS=$2
+    EXIT_CODE=$3
+    STARTED_AT=$4
+    FINISHED_AT=$5
+    RUN_DIR=$6
+    LOG_PATH=$7
+    EVIDENCE_DIR=$8
+    MESSAGE=$9
+    emit_response
+    exit 0
+}
+
+stamp_utc() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true
+}
+
+stamp_path() {
+    date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s 2>/dev/null || true
+}
+
+query_value() {
+    key=$1
+    printf '%s' "${QUERY_STRING:-}" |
+        tr '&' '\n' |
+        sed -n "s/^$key=//p" |
+        head -n 1 |
+        sed 's/+/ /g; s/%2[Ff]/\//g; s/%3[Aa]/:/g; s/%2[Ee]/./g; s/%2[Dd]/-/g; s/%5[Ff]/_/g'
+}
+
+reject_action() {
+    finish_with "${action:-}" rejected "" "" "" "" "" "" "$1"
+}
+
+require_swp_iface() {
+    value=$1
+    case "$value" in
+        swp[0-9]*)
+            num=${value#swp}
+            case "$num" in
+                ''|*[!0-9]*)
+                    reject_action "iface must be swpN"
+                    ;;
+            esac
+            ;;
+        *)
+            reject_action "iface must be swpN"
+            ;;
+    esac
+}
+
+require_ipv4_like() {
+    value=$1
+    label=$2
+    case "$value" in
+        ''|*[!0-9.]*|*.*.*.*.*)
+            reject_action "$label must be an IPv4 address"
+            ;;
+    esac
+}
+
+require_cidr_like() {
+    value=$1
+    case "$value" in
+        ''|*[!0-9./]*|*/*/*)
+            reject_action "local_cidr must be IPv4/CIDR"
+            ;;
+        */*)
+            ;;
+        *)
+            reject_action "local_cidr must include prefix length"
+            ;;
+    esac
+}
+
+require_uint_range() {
+    value=$1
+    label=$2
+    max=$3
+    case "$value" in
+        ''|*[!0-9]*)
+            reject_action "$label must be numeric"
+            ;;
+    esac
+    if [ "$value" -lt 1 ] 2>/dev/null || [ "$value" -gt "$max" ] 2>/dev/null; then
+        reject_action "$label is out of range"
+    fi
+}
+
+config_path_for_token() {
+    case "$1" in
+        ''|stage1|selected)
+            printf '%s\n' /etc/switchd/redstone-stage1.bcm
+            ;;
+        config)
+            printf '%s\n' /etc/switchd/config.bcm
+            ;;
+        original-active)
+            printf '%s\n' /etc/switchd/redstone-original-active-portmap.bcm
+            ;;
+        *)
+            reject_action "unsupported config selection"
+            ;;
+    esac
+}
+
+find_bde_smoke_helper() {
+    for candidate in \
+        /opt/openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./redstone-openbcm-bde-smoke.sh
+    do
+        [ -n "$candidate" ] || continue
+        [ -x "$candidate" ] || continue
+        printf '%s|%s\n' "$candidate" "$(dirname "$candidate")"
+        return 0
+    done
+
+    path=$(command -v redstone-openbcm-bde-smoke.sh 2>/dev/null || true)
+    if [ -n "$path" ] && [ -x "$path" ]; then
+        if [ -d /opt/openbcm-bde ]; then
+            bundle_dir=/opt/openbcm-bde
+        else
+            bundle_dir=$(dirname "$path")
+        fi
+        printf '%s|%s\n' "$path" "$bundle_dir"
+        return 0
+    fi
+
+    return 1
+}
+
+method=${REQUEST_METHOD:-POST}
+if [ "$method" != "POST" ]; then
+    finish_with "" rejected "" "" "" "" "" "" "POST required"
+fi
+
+action=$(query_value action)
+case "$action" in
+    capture|validate-capture|bench-capture|validate-strict|bde-smoke|init-probe-dry-run)
+        ;;
+    '')
+        finish_with "" rejected "" "" "" "" "" "" "missing action"
+        ;;
+    *)
+        finish_with "" rejected "" "" "" "" "" "" "unsupported action"
+        ;;
+esac
+
+strict_iface=
+strict_local_cidr=
+strict_peer=
+strict_ping_count=3
+init_probe_config=stage1
+init_probe_config_path=
+
+case "$action" in
+    validate-strict)
+        strict_iface=$(query_value iface)
+        strict_local_cidr=$(query_value local_cidr)
+        strict_peer=$(query_value peer)
+        strict_ping_count=$(query_value ping_count)
+        [ -n "$strict_ping_count" ] || strict_ping_count=3
+        require_swp_iface "$strict_iface"
+        require_cidr_like "$strict_local_cidr"
+        require_ipv4_like "$strict_peer" peer
+        require_uint_range "$strict_ping_count" ping_count 20
+        ;;
+    init-probe-dry-run)
+        init_probe_config=$(query_value config)
+        [ -n "$init_probe_config" ] || init_probe_config=stage1
+        init_probe_config_path=$(config_path_for_token "$init_probe_config")
+        ;;
+esac
+
+if ! mkdir -p "$ACTION_DIR" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create REDSTONE_WEB_ACTION_DIR"
+fi
+
+lock_parent=${LOCK_DIR%/*}
+[ "$lock_parent" = "$LOCK_DIR" ] && lock_parent=.
+if ! mkdir -p "$lock_parent" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create lock parent"
+fi
+
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    if [ -d "$LOCK_DIR" ]; then
+        finish_with "$action" running "" "" "" "" "" "" "another action is running"
+    fi
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create action lock"
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+
+stamp=$(stamp_path)
+[ -n "$stamp" ] || stamp=unknown
+run_dir="$ACTION_DIR/$stamp-$action"
+suffix=1
+while [ -e "$run_dir" ]; do
+    suffix=$((suffix + 1))
+    run_dir="$ACTION_DIR/$stamp-$action-$suffix"
+done
+
+if ! mkdir "$run_dir" 2>/dev/null; then
+    finish_with "$action" failed "" "" "" "" "" "" "cannot create action run directory"
+fi
+
+log_path="$run_dir/action.log"
+result_env="$run_dir/result.env"
+result_json="$run_dir/result.json"
+started_at=$(stamp_utc)
+
+case "$action" in
+    capture)
+        command_label='redstone-stage1-capture --verbose'
+        command_override=${REDSTONE_CAPTURE_CMD:-}
+        command_default='/usr/sbin/redstone-stage1-capture --verbose'
+        success_message='capture completed'
+        failed_message='capture failed'
+        ;;
+    validate-capture)
+        command_label='redstone-stage1-validate --capture'
+        command_override=${REDSTONE_VALIDATE_CMD:-}
+        command_default='/usr/sbin/redstone-stage1-validate --capture'
+        success_message='validation capture completed'
+        failed_message='validation capture failed'
+        ;;
+    bench-capture)
+        command_label='redstone-stage1-bench-run --capture-only'
+        command_override=${REDSTONE_BENCH_CMD:-}
+        success_message='bench capture completed'
+        failed_message='bench capture failed'
+        ;;
+    validate-strict)
+        command_label="redstone-stage1-bench-run --iface $strict_iface --local-cidr $strict_local_cidr --peer $strict_peer --ping-count $strict_ping_count"
+        command_override=${REDSTONE_STRICT_CMD:-}
+        success_message='strict validation completed'
+        failed_message='strict validation failed'
+        ;;
+    bde-smoke)
+        command_label='redstone-openbcm-bde-smoke.sh --strict --capture'
+        command_override=${REDSTONE_BDE_SMOKE_CMD:-}
+        success_message='BDE smoke completed'
+        failed_message='BDE smoke failed'
+        ;;
+    init-probe-dry-run)
+        command_label="BCM_CONFIG_FILE=$init_probe_config_path redstone-openbcm-init-probe --dry-run"
+        command_override=${REDSTONE_INIT_PROBE_CMD:-}
+        success_message='init-probe dry run completed'
+        failed_message='init-probe dry run failed'
+        ;;
+    *)
+        finish_with "$action" rejected "" "" "" "$run_dir" "" "" "unsupported action"
+        ;;
+esac
+
+(
+    printf '$ %s\n\n' "$command_label"
+    if [ -n "$command_override" ]; then
+        sh -c "$command_override"
+    else
+        case "$action" in
+            capture)
+                /usr/sbin/redstone-stage1-capture --verbose
+                ;;
+            validate-capture)
+                /usr/sbin/redstone-stage1-validate --capture
+                ;;
+            bench-capture)
+                /usr/sbin/redstone-stage1-bench-run --capture-only
+                ;;
+            validate-strict)
+                /usr/sbin/redstone-stage1-bench-run \
+                    --iface "$strict_iface" \
+                    --local-cidr "$strict_local_cidr" \
+                    --peer "$strict_peer" \
+                    --ping-count "$strict_ping_count"
+                ;;
+            bde-smoke)
+                helper_spec=$(find_bde_smoke_helper) || {
+                    echo "redstone-openbcm-bde-smoke.sh not found" >&2
+                    exit 127
+                }
+                helper=${helper_spec%%|*}
+                bundle_dir=${helper_spec#*|}
+                "$helper" --bundle-dir "$bundle_dir" --strict --capture
+                ;;
+            init-probe-dry-run)
+                BCM_CONFIG_FILE=$init_probe_config_path /usr/sbin/redstone-openbcm-init-probe --dry-run
+                ;;
+        esac
+    fi
+    rc=$?
+    printf '\nexit=%s\n' "$rc"
+    exit "$rc"
+) > "$log_path" 2>&1
+rc=$?
+
+finished_at=$(stamp_utc)
+case "$action" in
+    capture)
+        evidence_dir=$(sed -n 's/^Redstone stage-1 capture written to //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+    validate-capture)
+        evidence_dir=$(sed -n 's/^Evidence directory: //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+    bench-capture|validate-strict)
+        evidence_dir=$(sed -n 's/^Return bench run evidence directory to the host: //p' "$log_path" 2>/dev/null | tail -n 1)
+        [ -n "$evidence_dir" ] || evidence_dir=$(sed -n 's/^Bench run evidence directory: //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+    bde-smoke|init-probe-dry-run)
+        evidence_dir=$(sed -n 's/^Evidence directory: //p' "$log_path" 2>/dev/null | tail -n 1)
+        ;;
+esac
+if [ "$rc" -eq 0 ]; then
+    status=success
+    message=$success_message
+else
+    status=failed
+    message=$failed_message
+fi
+
+cat > "$result_env" <<EOF
+action=$action
+status=$status
+exit=$rc
+started_at=$started_at
+finished_at=$finished_at
+run_dir=$run_dir
+log=$log_path
+evidence_dir=$evidence_dir
+message=$message
+iface=$strict_iface
+local_cidr=$strict_local_cidr
+peer=$strict_peer
+ping_count=$strict_ping_count
+config=$init_probe_config
+config_path=$init_probe_config_path
+EOF
+
+ACTION=$action
+STATUS=$status
+EXIT_CODE=$rc
+STARTED_AT=$started_at
+FINISHED_AT=$finished_at
+RUN_DIR=$run_dir
+LOG_PATH=$log_path
+EVIDENCE_DIR=$evidence_dir
+MESSAGE=$message
+emit_body > "$result_json"
+emit_response

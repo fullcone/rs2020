@@ -1,8 +1,9 @@
 #!/bin/bash
-# build-kernel.sh - Download and build Linux kernel for AS5610-52X
+# build-kernel.sh - Download and build Linux kernel for the selected board
 set -e
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
+. "$TOPDIR/scripts/board-env.sh"
 KVER="5.10.224"
 KSRC="$TOPDIR/build/linux-$KVER"
 CROSS="powerpc-linux-gnu-"
@@ -10,9 +11,56 @@ ARCH="powerpc"
 OUTDIR="$TOPDIR/output"
 JOBS=$(nproc)
 
+install_dts() {
+    # Copy our selected device tree into the kernel tree.
+    local DTS_SRC="$TOPDIR/$EDGENOS_DTS_SOURCE"
+    local DTS_DST="$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dts"
+    local DTS_MAKE="$KSRC/arch/powerpc/boot/dts/Makefile"
+
+    if [ ! -f "$DTS_SRC" ]; then
+        echo "ERROR: selected DTS not found: $DTS_SRC"
+        exit 1
+    fi
+
+    echo "==> Installing ${EDGENOS_BOARD_LABEL} device tree as ${EDGENOS_DTS_BASENAME}.dts..."
+    cp "$DTS_SRC" "$DTS_DST"
+    if ! grep -q "${EDGENOS_DTS_BASENAME}.dtb" "$DTS_MAKE" 2>/dev/null; then
+        echo "dtb-\$(CONFIG_PPC_85xx) += ${EDGENOS_DTS_BASENAME}.dtb" >> "$DTS_MAKE"
+    fi
+}
+
+apply_patches() {
+    if [ ! -d "$TOPDIR/kernel/patches" ]; then
+        return
+    fi
+
+    echo "==> Applying kernel patches..."
+    local p
+    for p in "$TOPDIR/kernel/patches"/*.patch; do
+        [ -f "$p" ] || continue
+        echo "  Checking $(basename "$p")..."
+        local patch_log
+        patch_log=$(mktemp)
+        if (cd "$KSRC" && patch -p1 --forward --dry-run < "$p" >"$patch_log" 2>&1); then
+            (cd "$KSRC" && patch -p1 < "$p")
+            rm -f "$patch_log"
+        elif (cd "$KSRC" && patch -p1 --reverse --dry-run < "$p" >/dev/null 2>&1); then
+            echo "    already applied"
+            rm -f "$patch_log"
+        else
+            echo "ERROR: kernel patch does not apply cleanly and is not already applied: $p"
+            cat "$patch_log"
+            rm -f "$patch_log"
+            exit 1
+        fi
+    done
+}
+
 download() {
     if [ -d "$KSRC" ]; then
         echo "Kernel source already present at $KSRC"
+        apply_patches
+        install_dts
         return
     fi
 
@@ -29,27 +77,9 @@ download() {
     echo "==> Extracting kernel source..."
     tar -xf "$TARBALL" -C "$TOPDIR/build/"
 
-    # Apply patches
-    if [ -d "$TOPDIR/kernel/patches" ]; then
-        echo "==> Applying kernel patches..."
-        for p in "$TOPDIR/kernel/patches"/*.patch; do
-            [ -f "$p" ] || continue
-            echo "  Applying $(basename "$p")..."
-            (cd "$KSRC" && patch -p1 < "$p")
-        done
-    fi
+    apply_patches
 
-    # Copy our device tree into the kernel tree
-    if [ -f "$TOPDIR/kernel/dts/as5610-52x.dts" ]; then
-        echo "==> Installing AS5610-52X device tree..."
-        cp "$TOPDIR/kernel/dts/as5610-52x.dts" \
-           "$KSRC/arch/powerpc/boot/dts/as5610-52x.dts"
-        # Add to Makefile if not present
-        local DTS_MAKE="$KSRC/arch/powerpc/boot/dts/Makefile"
-        if ! grep -q "as5610-52x" "$DTS_MAKE" 2>/dev/null; then
-            echo 'dtb-$(CONFIG_PPC_85xx) += as5610-52x.dtb' >> "$DTS_MAKE"
-        fi
-    fi
+    install_dts
 }
 
 build() {
@@ -58,11 +88,16 @@ build() {
         exit 1
     fi
 
-    # Copy defconfig if .config doesn't exist
+    apply_patches
+    install_dts
+
+    # Copy defconfig if .config doesn't exist.
     if [ ! -f "$KSRC/.config" ]; then
-        cp "$TOPDIR/config/kernel/as5610_defconfig" "$KSRC/.config"
-        make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
+        cp "$TOPDIR/$EDGENOS_KERNEL_DEFCONFIG" "$KSRC/.config"
     fi
+    # Always refresh .config before the real build. A previous interrupted
+    # configure step can leave .config present but still require syncconfig.
+    make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
 
     echo "==> Building kernel (${JOBS} jobs)..."
     make -C "$KSRC" ARCH=$ARCH CROSS_COMPILE=$CROSS -j$JOBS \
@@ -71,7 +106,8 @@ build() {
     # Collect outputs
     mkdir -p "$OUTDIR/kernel"
     cp "$KSRC/arch/powerpc/boot/uImage" "$OUTDIR/kernel/"
-    cp "$KSRC/arch/powerpc/boot/dts/as5610-52x.dtb" "$OUTDIR/kernel/" 2>/dev/null || true
+    "${CROSS}objcopy" -O binary "$KSRC/vmlinux" "$OUTDIR/kernel/vmlinux.bin"
+    cp "$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dtb" "$OUTDIR/kernel/" 2>/dev/null || true
     cp "$KSRC/vmlinux" "$OUTDIR/kernel/"
 
     # Install modules to staging dir
@@ -81,7 +117,7 @@ build() {
 
     echo "==> Kernel build complete"
     echo "  uImage: $OUTDIR/kernel/uImage"
-    echo "  DTB:    $OUTDIR/kernel/as5610-52x.dtb"
+    echo "  DTB:    $OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb"
 }
 
 case "${1:-}" in

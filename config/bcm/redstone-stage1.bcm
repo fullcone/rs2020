@@ -1,0 +1,63 @@
+# Redstone stage-1 BCM56846 bring-up map.
+#
+# This file is intentionally limited to front-panel port-to-SerDes mapping.
+# switchd currently consumes only portmap_* keys; the later Broadcom SDK path
+# must add PHY polarity, external PHY address, MDI pair, MMU, L2/L3, and ACL
+# programming separately.
+#
+# To use in a Redstone image, set the board selector before starting switchd:
+#   echo redstone > /etc/edgenos/board
+#   systemctl restart switchd
+
+portmap_1=6:10
+portmap_2=5:10
+portmap_3=8:10
+portmap_4=7:10
+portmap_5=10:10
+portmap_6=9:10
+portmap_7=12:10
+portmap_8=11:10
+portmap_9=14:10
+portmap_10=13:10
+portmap_11=16:10
+portmap_12=15:10
+portmap_13=18:10
+portmap_14=17:10
+portmap_15=20:10
+portmap_16=19:10
+portmap_17=22:10
+portmap_18=21:10
+portmap_19=24:10
+portmap_20=23:10
+portmap_21=26:10
+portmap_22=25:10
+portmap_23=28:10
+portmap_24=27:10
+portmap_25=30:10
+portmap_26=29:10
+portmap_27=32:10
+portmap_28=31:10
+portmap_29=34:10
+portmap_30=33:10
+portmap_31=36:10
+portmap_32=35:10
+portmap_33=38:10
+portmap_34=37:10
+portmap_35=40:10
+portmap_36=39:10
+portmap_37=42:10
+portmap_38=41:10
+portmap_39=44:10
+portmap_40=43:10
+portmap_41=46:10
+portmap_42=45:10
+portmap_43=48:10
+portmap_44=47:10
+portmap_45=50:10
+portmap_46=49:10
+portmap_47=52:10
+portmap_48=51:10
+portmap_49=61:40
+portmap_50=57:40
+portmap_51=69:40
+portmap_52=65:40

@@ -1,0 +1,512 @@
+#!/bin/sh
+# Non-destructive Redstone stage-1 first-boot validation.
+
+set -u
+
+BASE_DIR=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
+BASE_DIR_EXPLICIT=0
+[ -n "${REDSTONE_VALIDATE_DIR+x}" ] && BASE_DIR_EXPLICIT=1
+IFACE=
+PEER=
+PING_COUNT=3
+STRICT=0
+RUN_CAPTURE=0
+PASSES=0
+WARNINGS=0
+FAILURES=0
+
+usage() {
+    echo "Usage: redstone-stage1-validate [--iface IFACE] [--peer IP] [--ping-count N] [--strict] [--capture]"
+    echo "  --iface IFACE   front-panel Linux interface expected to have link"
+    echo "  --peer IP       peer IP to ping after link validation"
+    echo "  --ping-count N  ping packet count, default 3"
+    echo "  --strict        require --iface swpN and --peer IP; exit nonzero if any required check fails"
+    echo "  --capture       run redstone-stage1-capture --verbose after validation"
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --iface)
+        [ "$#" -gt 1 ] || { usage >&2; exit 2; }
+        IFACE=$2
+        shift 2
+        ;;
+    --peer)
+        [ "$#" -gt 1 ] || { usage >&2; exit 2; }
+        PEER=$2
+        shift 2
+        ;;
+    --ping-count)
+        [ "$#" -gt 1 ] || { usage >&2; exit 2; }
+        PING_COUNT=$2
+        shift 2
+        ;;
+    --strict)
+        STRICT=1
+        shift
+        ;;
+    --capture)
+        RUN_CAPTURE=1
+        shift
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+    esac
+done
+
+case "$PING_COUNT" in
+*[!0-9]*|"")
+    echo "redstone-stage1-validate: invalid --ping-count: $PING_COUNT" >&2
+    exit 2
+    ;;
+esac
+
+case "$IFACE" in
+*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-]*)
+    echo "redstone-stage1-validate: invalid --iface: $IFACE" >&2
+    exit 2
+    ;;
+esac
+
+case "$PEER" in
+*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-]*)
+    echo "redstone-stage1-validate: invalid --peer: $PEER" >&2
+    exit 2
+    ;;
+esac
+
+if [ "$STRICT" = "1" ]; then
+    if [ -z "$IFACE" ]; then
+        echo "redstone-stage1-validate: --strict requires --iface swpN" >&2
+        exit 2
+    fi
+
+    iface_num=${IFACE#swp}
+    if [ "$iface_num" = "$IFACE" ] || [ -z "$iface_num" ]; then
+        echo "redstone-stage1-validate: --strict --iface must be a swpN front-panel interface: $IFACE" >&2
+        exit 2
+    fi
+    case "$iface_num" in
+    *[!0-9]*)
+        echo "redstone-stage1-validate: --strict --iface must be a swpN front-panel interface: $IFACE" >&2
+        exit 2
+        ;;
+    esac
+
+    if [ -z "$PEER" ]; then
+        echo "redstone-stage1-validate: --strict requires --peer IP" >&2
+        exit 2
+    fi
+fi
+
+if ! mkdir -p "$BASE_DIR" 2>/dev/null; then
+    if [ "$BASE_DIR_EXPLICIT" = "1" ]; then
+        echo "redstone-stage1-validate: cannot create REDSTONE_VALIDATE_DIR: $BASE_DIR" >&2
+        exit 1
+    fi
+    BASE_DIR=/tmp/redstone-stage1
+    mkdir -p "$BASE_DIR" || exit 1
+fi
+
+STAMP=$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s)
+OUT_DIR="$BASE_DIR/validate-$STAMP"
+LOG="$OUT_DIR/validate.log"
+
+mkdir -p "$OUT_DIR" || exit 1
+: > "$LOG"
+
+emit() {
+    printf '%s\n' "$*" | tee -a "$LOG"
+}
+
+pass() {
+    PASSES=$((PASSES + 1))
+    emit "PASS: $*"
+}
+
+warn() {
+    WARNINGS=$((WARNINGS + 1))
+    emit "WARN: $*"
+}
+
+fail() {
+    FAILURES=$((FAILURES + 1))
+    emit "FAIL: $*"
+}
+
+capture_cmd() {
+    name=$1
+    shift
+    cmd=$1
+    out="$OUT_DIR/$name.txt"
+
+    {
+        printf '$ %s\n\n' "$cmd"
+        sh -c "$cmd"
+        rc=$?
+        printf '\nexit=%s\n' "$rc"
+    } > "$out" 2>&1
+
+    return "$rc"
+}
+
+have_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+capture_evidence_path() {
+    [ -f "$OUT_DIR/capture.txt" ] || return 1
+    sed -n 's/^Redstone stage-1 capture written to //p' "$OUT_DIR/capture.txt" | tail -n 1
+}
+
+embed_capture_evidence() {
+    capture_path=$(capture_evidence_path || true)
+    embed_dir="$OUT_DIR/capture-evidence"
+
+    if [ -z "$capture_path" ]; then
+        warn "redstone-stage1-capture did not report an evidence path"
+        return
+    fi
+
+    if ! mkdir -p "$embed_dir"; then
+        warn "unable to create capture evidence directory: $embed_dir"
+        return
+    fi
+
+    case "$capture_path" in
+    *.tar.gz|*.tgz)
+        if ! have_cmd tar; then
+            warn "tar unavailable; capture tarball not embedded: $capture_path"
+            return
+        fi
+        if [ ! -f "$capture_path" ]; then
+            warn "capture tarball missing: $capture_path"
+            return
+        fi
+        cp -p "$capture_path" "$OUT_DIR/redstone-stage1-capture.tar.gz" 2>/dev/null || true
+        if tar -xzf "$capture_path" -C "$embed_dir" >> "$LOG" 2>&1; then
+            pass "capture evidence embedded: $capture_path"
+        else
+            warn "capture tarball could not be embedded: $capture_path"
+        fi
+        ;;
+    *)
+        if [ ! -d "$capture_path" ]; then
+            warn "capture evidence path missing: $capture_path"
+            return
+        fi
+        if cp -a "$capture_path/." "$embed_dir/" >> "$LOG" 2>&1; then
+            pass "capture evidence embedded: $capture_path"
+        else
+            warn "capture evidence directory could not be embedded: $capture_path"
+        fi
+        ;;
+    esac
+}
+
+package_validation_bundle() {
+    [ "$RUN_CAPTURE" = "1" ] || return
+
+    if ! have_cmd tar; then
+        emit "Validation bundle unavailable: tar command not found"
+        return
+    fi
+
+    bundle="$BASE_DIR/validate-$STAMP.tar.gz"
+    if (cd "$BASE_DIR" && tar czf "validate-$STAMP.tar.gz" "validate-$STAMP") >> "$LOG" 2>&1; then
+        emit "Validation bundle: $bundle"
+    else
+        emit "Validation bundle unavailable: packaging failed"
+    fi
+}
+
+check_required_file() {
+    path=$1
+    desc=$2
+
+    if [ -f "$path" ]; then
+        pass "$desc exists: $path"
+    else
+        fail "$desc missing: $path"
+    fi
+}
+
+check_required_char() {
+    path=$1
+    desc=$2
+
+    if [ -c "$path" ]; then
+        pass "$desc exists: $path"
+    else
+        fail "$desc missing: $path"
+    fi
+}
+
+module_loaded() {
+    mod=$1
+    mod_us=$(printf '%s' "$mod" | tr '-' '_')
+    grep -Eq "^($mod|$mod_us)[[:space:]]" /proc/modules 2>/dev/null
+}
+
+check_module_file() {
+    module=$1
+    path="/lib/modules/extra/$module.ko"
+
+    if [ -f "$path" ]; then
+        pass "module packaged: $module.ko"
+    else
+        fail "module package missing: $path"
+    fi
+}
+
+check_module_loaded() {
+    module=$1
+
+    if module_loaded "$module"; then
+        pass "module loaded: $module"
+    else
+        fail "module not loaded: $module"
+    fi
+}
+
+detect_bcm56846() {
+    out="$OUT_DIR/pci_bcm56846.txt"
+    : > "$out"
+
+    if have_cmd lspci; then
+        lspci -nn > "$out" 2>&1 || true
+        if grep -qiE '(^|[^[:xdigit:]])14e4:b846([^[:xdigit:]]|$)' "$out"; then
+            pass "BCM56846 PCIe device detected by lspci as 14e4:b846"
+            return
+        fi
+    else
+        printf 'lspci unavailable\n' >> "$out"
+    fi
+
+    for dev in /sys/bus/pci/devices/*; do
+        [ -d "$dev" ] || continue
+        vendor=$(cat "$dev/vendor" 2>/dev/null || true)
+        device=$(cat "$dev/device" 2>/dev/null || true)
+        printf '%s vendor=%s device=%s\n' "$dev" "$vendor" "$device" >> "$out"
+        if [ "$vendor" = "0x14e4" ] && [ "$device" = "0xb846" ]; then
+            pass "BCM56846 PCIe device detected in sysfs"
+            return
+        fi
+    done
+
+    fail "BCM56846 PCIe device not detected"
+}
+
+check_openbcm_init_probe() {
+    if ! have_cmd redstone-openbcm-init-probe; then
+        warn "OpenBCM init probe is not packaged; build and install it before SDK init testing"
+        return
+    fi
+
+    if [ -f /usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest ]; then
+        pass "OpenBCM init probe manifest is packaged"
+    else
+        warn "OpenBCM init probe manifest is missing"
+    fi
+
+    if capture_cmd openbcm_init_probe_dry_run 'redstone-openbcm-init-probe --dry-run'; then
+        pass "OpenBCM init probe dry-run gate passed"
+    else
+        warn "OpenBCM init probe dry-run gate did not pass; see $OUT_DIR/openbcm_init_probe_dry_run.txt"
+    fi
+}
+
+check_switchd_status() {
+    capture_cmd switchd_status 'switchd-init status 2>/dev/null || true; echo; ps w 2>/dev/null || ps 2>/dev/null || true' || true
+
+    if [ -f /var/run/switchd.pid ] && kill -0 "$(cat /var/run/switchd.pid)" 2>/dev/null; then
+        pass "switchd is running via /var/run/switchd.pid"
+        return
+    fi
+
+    if have_cmd pidof && pidof switchd >/dev/null 2>&1; then
+        pass "switchd is running via pidof"
+        return
+    fi
+
+    fail "switchd is not running"
+}
+
+check_swp_interfaces() {
+    count=$(ip link show 2>/dev/null | grep -c '^[0-9][0-9]*: swp' || true)
+    if [ "$count" -gt 0 ]; then
+        pass "switchd exposed $count swp interface(s)"
+    else
+        fail "no swp interfaces are visible"
+    fi
+}
+
+iface_has_link() {
+    iface=$1
+    carrier=
+    operstate=
+
+    [ -d "/sys/class/net/$iface" ] || return 1
+    carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || true)
+    operstate=$(cat "/sys/class/net/$iface/operstate" 2>/dev/null || true)
+    [ "$carrier" = "1" ] || [ "$operstate" = "up" ]
+}
+
+check_named_link() {
+    iface=$1
+    out="$OUT_DIR/link_$iface.txt"
+
+    {
+        printf '$ ip link show dev %s\n\n' "$iface"
+        ip link show dev "$iface" 2>/dev/null || true
+        echo
+        for f in address operstate carrier speed duplex; do
+            path="/sys/class/net/$iface/$f"
+            [ -r "$path" ] && printf '%s=' "$f" && cat "$path"
+        done
+        if have_cmd ethtool; then
+            ethtool "$iface" 2>/dev/null || true
+            ethtool -i "$iface" 2>/dev/null || true
+        fi
+    } > "$out" 2>&1
+
+    if iface_has_link "$iface"; then
+        pass "front-panel link is up: $iface"
+    else
+        fail "front-panel link is not up: $iface"
+    fi
+}
+
+check_any_swp_link() {
+    found=
+
+    for path in /sys/class/net/swp*; do
+        [ -d "$path" ] || continue
+        iface=${path##*/}
+        if iface_has_link "$iface"; then
+            found=$iface
+            break
+        fi
+    done
+
+    capture_cmd link_summary 'ip link show 2>/dev/null || true; echo; for d in /sys/class/net/swp*; do [ -d "$d" ] || continue; iface=${d##*/}; echo "## $iface"; for f in address operstate carrier speed duplex; do [ -r "$d/$f" ] && printf "%s=" "$f" && cat "$d/$f"; done; done' || true
+
+    if [ -n "$found" ]; then
+        pass "at least one swp link is up: $found"
+    else
+        fail "no swp link is up"
+    fi
+}
+
+run_ping_check() {
+    if [ -z "$PEER" ]; then
+        warn "ping check skipped; pass --peer IP to validate data-plane reachability"
+        return
+    fi
+
+    if ! have_cmd ping; then
+        fail "ping command unavailable"
+        return
+    fi
+
+    out="$OUT_DIR/ping.txt"
+    {
+        if [ -n "$IFACE" ]; then
+            printf '$ ping -c %s -I %s %s\n\n' "$PING_COUNT" "$IFACE" "$PEER"
+            ping -c "$PING_COUNT" -I "$IFACE" "$PEER"
+            rc=$?
+        else
+            printf '$ ping -c %s %s\n\n' "$PING_COUNT" "$PEER"
+            ping -c "$PING_COUNT" "$PEER"
+            rc=$?
+        fi
+        printf '\nexit=%s\n' "$rc"
+    } > "$out" 2>&1
+
+    if [ "$rc" -eq 0 ]; then
+        pass "ping succeeded: $PEER"
+    else
+        fail "ping failed: $PEER"
+    fi
+}
+
+emit "Redstone stage-1 validation"
+emit "  output: $OUT_DIR"
+emit "  iface: ${IFACE:-auto}"
+emit "  peer: ${PEER:-none}"
+emit ""
+
+capture_cmd uname 'uname -a' || true
+capture_cmd modules 'cat /proc/modules 2>/dev/null || true; echo; lsmod 2>/dev/null || true' || true
+capture_cmd dmesg_focus 'dmesg | grep -iE "bcm|bde|trident|5684|pcie|pci|swp|switchd" || true' || true
+
+board=$(sed -n '1{s/[[:space:]]//g;p;q}' /etc/edgenos/board 2>/dev/null | tr '[:upper:]' '[:lower:]')
+case "$board" in
+redstone|rs2020|r0678)
+    pass "board selector is Redstone-compatible: $board"
+    ;;
+*)
+    fail "board selector is not Redstone-compatible: ${board:-missing}"
+    ;;
+esac
+
+check_required_file /etc/switchd/redstone-stage1.bcm "Redstone switchd config"
+if grep -q 'portmap_52' /etc/switchd/redstone-stage1.bcm 2>/dev/null; then
+    pass "Redstone switchd config contains 52-port map"
+else
+    fail "Redstone switchd config does not contain portmap_52"
+fi
+
+check_module_file linux-kernel-bde
+check_module_file linux-user-bde
+check_module_file accton_as5610_52x_cpld
+check_module_file retimer_class
+check_module_file ds100df410
+
+check_module_loaded linux-kernel-bde
+check_module_loaded linux-user-bde
+check_required_char /dev/linux-kernel-bde "kernel BDE device"
+check_required_char /dev/linux-user-bde "user BDE device"
+
+detect_bcm56846
+check_openbcm_init_probe
+check_switchd_status
+check_swp_interfaces
+
+if [ -n "$IFACE" ]; then
+    check_named_link "$IFACE"
+else
+    check_any_swp_link
+fi
+
+run_ping_check
+
+if [ "$RUN_CAPTURE" = "1" ]; then
+    if have_cmd redstone-stage1-capture; then
+        if capture_cmd capture 'redstone-stage1-capture --verbose'; then
+            pass "redstone-stage1-capture completed"
+            embed_capture_evidence
+        else
+            warn "redstone-stage1-capture returned nonzero"
+        fi
+    else
+        warn "redstone-stage1-capture unavailable"
+    fi
+fi
+
+emit ""
+emit "Redstone stage-1 validation complete: $PASSES pass, $WARNINGS warning(s), $FAILURES failure(s)"
+emit "Evidence directory: $OUT_DIR"
+package_validation_bundle
+
+if [ "$STRICT" = "1" ] && [ "$FAILURES" -ne 0 ]; then
+    exit 1
+fi
+
+exit 0

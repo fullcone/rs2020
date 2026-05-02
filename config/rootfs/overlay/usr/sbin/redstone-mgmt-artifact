@@ -1,0 +1,233 @@
+#!/bin/sh
+# Read-only artifact detail/download provider for the Redstone management page.
+
+set -u
+
+SCHEMA=redstone-mgmt-artifact.v1
+CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
+VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
+BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+TAIL_LINES=${REDSTONE_ARTIFACT_TAIL_LINES:-120}
+
+case "$TAIL_LINES" in
+    ''|*[!0-9]*)
+        TAIL_LINES=120
+        ;;
+esac
+[ "$TAIL_LINES" -gt 0 ] 2>/dev/null || TAIL_LINES=120
+
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r$//'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1" | tr '\n' ' ')"
+}
+
+json_text() {
+    printf '"'
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r$//; $!s/$/\\n/' | tr -d '\n'
+    printf '"'
+}
+
+query_value() {
+    key=$1
+    query=${QUERY_STRING:-}
+    old_ifs=$IFS
+    IFS='&'
+    for pair in $query; do
+        case "$pair" in
+            "$key="*)
+                printf '%s' "${pair#*=}"
+                break
+                ;;
+        esac
+    done
+    IFS=$old_ifs
+}
+
+safe_token() {
+    value=$1
+    case "$value" in
+        ''|.*|*/*|*\\*|*..*|*[!A-Za-z0-9._-]*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+http_json() {
+    status=$1
+    message=$2
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+    cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "status": $(json_str "$status"),
+  "message": $(json_str "$message"),
+  "kind": $(json_str "${kind:-}"),
+  "run": $(json_str "${run:-}"),
+  "file": $(json_str "${file_key:-}")
+}
+EOF
+}
+
+resolve_artifact() {
+    kind=$1
+    run=$2
+    file_key=$3
+
+    case "$kind" in
+        capture)
+            base=$CAPTURE_BASE
+            case "$file_key" in
+                archive) path="$base/$run.tar.gz"; display="$run.tar.gz" ;;
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
+        validation)
+            base=$VALIDATE_BASE
+            case "$file_key" in
+                archive) path="$base/$run.tar.gz"; display="$run.tar.gz" ;;
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
+        bench)
+            base=$BENCH_BASE
+            case "$file_key" in
+                archive) path="$base/$run.tar.gz"; display="$run.tar.gz" ;;
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
+        bde_smoke)
+            base=$CAPTURE_BASE
+            case "$file_key" in
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
+        action)
+            base=$ACTION_BASE
+            case "$file_key" in
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+resolve_run_dir() {
+    case "$1" in
+        capture) printf '%s/%s' "$CAPTURE_BASE" "$2" ;;
+        validation) printf '%s/%s' "$VALIDATE_BASE" "$2" ;;
+        bench) printf '%s/%s' "$BENCH_BASE" "$2" ;;
+        bde_smoke) printf '%s/%s' "$CAPTURE_BASE" "$2" ;;
+        action) printf '%s/%s' "$ACTION_BASE" "$2" ;;
+        *) return 1 ;;
+    esac
+}
+
+emit_file_list() {
+    dir=$1
+    first=1
+    printf '['
+    if [ -d "$dir" ]; then
+        for entry in "$dir"/*; do
+            [ -f "$entry" ] || continue
+            [ "$first" = 1 ] || printf ','
+            first=0
+            printf '%s' "$(json_str "${entry##*/}")"
+        done
+    fi
+    printf ']'
+}
+
+method=${REQUEST_METHOD:-GET}
+if [ "$method" != "GET" ] && [ "$method" != "HEAD" ]; then
+    http_json rejected "GET required"
+    exit 0
+fi
+
+kind=$(query_value kind)
+run=$(query_value run)
+file_key=$(query_value file)
+download=$(query_value download)
+
+if ! safe_token "$kind" || ! safe_token "$run" || ! safe_token "$file_key"; then
+    http_json rejected "unsafe artifact selector"
+    exit 0
+fi
+
+if [ "$file_key" = "_files" ]; then
+    run_dir=$(resolve_run_dir "$kind" "$run" 2>/dev/null || true)
+    if [ -z "$run_dir" ] || [ ! -d "$run_dir" ]; then
+        http_json missing "run directory not found"
+        exit 0
+    fi
+
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+    cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "status": "ok",
+  "kind": $(json_str "$kind"),
+  "run": $(json_str "$run"),
+  "file": "_files",
+  "path": $(json_str "$run_dir"),
+  "files": $(emit_file_list "$run_dir")
+}
+EOF
+    exit 0
+fi
+
+if ! resolve_artifact "$kind" "$run" "$file_key"; then
+    http_json rejected "unsupported artifact selector"
+    exit 0
+fi
+
+if [ ! -f "$path" ]; then
+    http_json missing "artifact not found"
+    exit 0
+fi
+
+size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+[ -n "$size" ] || size=0
+
+if [ "$download" = "1" ]; then
+    safe_display=$(printf '%s' "$display" | tr -cd 'A-Za-z0-9._-')
+    [ -n "$safe_display" ] || safe_display=redstone-artifact.txt
+    printf 'Content-Type: application/octet-stream\r\n'
+    printf 'Content-Disposition: attachment; filename="%s"\r\n' "$safe_display"
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+    [ "$method" = "HEAD" ] || cat "$path"
+    exit 0
+fi
+
+tail_output=$(tail -n "$TAIL_LINES" "$path" 2>/dev/null || true)
+download_url="/cgi-bin/redstone-artifact?kind=$kind&run=$run&file=$file_key&download=1"
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+cat <<EOF
+{
+  "schema": $(json_str "$SCHEMA"),
+  "status": "ok",
+  "kind": $(json_str "$kind"),
+  "run": $(json_str "$run"),
+  "file": $(json_str "$file_key"),
+  "path": $(json_str "$path"),
+  "size": $size,
+  "download_url": $(json_str "$download_url"),
+  "tail_lines": $TAIL_LINES,
+  "tail": $(json_text "$tail_output")
+}
+EOF

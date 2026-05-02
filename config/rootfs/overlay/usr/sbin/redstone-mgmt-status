@@ -1,0 +1,779 @@
+#!/bin/sh
+# Emit a read-only JSON status snapshot for Redstone stage-1 management.
+
+set -u
+
+BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
+SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
+SWITCHD_PID_FILE=${REDSTONE_SWITCHD_PID_FILE:-/var/run/switchd.pid}
+SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-original-active-sdk.manifest"}
+OPENBCM_DEMO_INIT=${REDSTONE_OPENBCM_DEMO_INIT:-/usr/sbin/demo_opennsa_init}
+CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
+VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
+BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
+NET_CLASS_DIR=${REDSTONE_NET_CLASS_DIR:-/sys/class/net}
+PCI_DEVICES_DIR=${REDSTONE_PCI_DEVICES_DIR:-/sys/bus/pci/devices}
+BDE_KERNEL_NODE=${REDSTONE_BDE_KERNEL_NODE:-/dev/linux-kernel-bde}
+BDE_USER_NODE=${REDSTONE_BDE_USER_NODE:-/dev/linux-user-bde}
+MGMT_PROFILE=${REDSTONE_MGMT_PROFILE:-development}
+FALLBACK_HTTPD=${REDSTONE_MGMT_HTTPD:-/usr/sbin/redstone-httpd/httpd}
+
+read_first() {
+    file=$1
+    value=
+    if [ -r "$file" ]; then
+        IFS= read -r value < "$file" || true
+    fi
+    printf '%s' "$value"
+}
+
+json_escape() {
+    printf '%s' "$1" | tr '\r\n' '  ' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+json_str() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+bool_file() {
+    if [ -e "$1" ]; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+bool_cmd() {
+    if command -v "$1" >/dev/null 2>&1; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+cmd_path() {
+    command -v "$1" 2>/dev/null || true
+}
+
+first_executable() {
+    for file in "$@"; do
+        if [ -x "$file" ]; then
+            printf '%s' "$file"
+            return 0
+        fi
+    done
+}
+
+cmd_or_known_path() {
+    name=$1
+    found=$(cmd_path "$name")
+    if [ -n "$found" ]; then
+        printf '%s' "$found"
+        return 0
+    fi
+    first_executable \
+        "/usr/sbin/$name" \
+        "/usr/bin/$name" \
+        "/sbin/$name" \
+        "/bin/$name" \
+        "/opt/openbcm/$name"
+}
+
+busybox_has_httpd() {
+    "$1" --list 2>/dev/null | grep -qx httpd
+}
+
+httpd_help_looks_usable() {
+    output=$("$@" --help 2>&1 || true)
+    printf '%s\n' "$output" | grep -q httpd &&
+        printf '%s\n' "$output" | grep -q -- '-p' &&
+        printf '%s\n' "$output" | grep -q -- '-h' &&
+        printf '%s\n' "$output" | grep -Eq -- '(^|[[:space:]])-f|\[-[^]]*f'
+}
+
+busybox_httpd_usable() {
+    busybox_has_httpd "$1" && httpd_help_looks_usable "$1" httpd
+}
+
+bool_httpd() {
+    if httpd_path=$(command -v httpd 2>/dev/null) && httpd_help_looks_usable "$httpd_path"; then
+        printf true
+    elif busybox_path=$(command -v busybox 2>/dev/null) && busybox_httpd_usable "$busybox_path"; then
+        printf true
+    elif [ -x "$FALLBACK_HTTPD" ] && httpd_help_looks_usable "$FALLBACK_HTTPD"; then
+        printf true
+    elif [ -x "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" ] &&
+        busybox_httpd_usable "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}"; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+module_loaded() {
+    name_a=$1
+    name_b=$2
+    if [ -r /proc/modules ] && grep -Eq "^($name_a|$name_b)[[:space:]]" /proc/modules; then
+        printf true
+    else
+        printf false
+    fi
+}
+
+sha256_file() {
+    file=$1
+    if [ ! -f "$file" ]; then
+        printf ''
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" 2>/dev/null | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" 2>/dev/null | awk '{print $1}'
+    else
+        printf ''
+    fi
+}
+
+latest_dir() {
+    base=$1
+    pattern=$2
+    if [ -d "$base" ]; then
+        for entry in $(ls -1dt "$base"/$pattern 2>/dev/null); do
+            if [ -d "$entry" ]; then
+                printf '%s' "$entry"
+                return 0
+            fi
+        done
+    fi
+}
+
+latest_file() {
+    base=$1
+    pattern=$2
+    if [ -d "$base" ]; then
+        for entry in $(ls -1dt "$base"/$pattern 2>/dev/null); do
+            if [ -f "$entry" ]; then
+                printf '%s' "$entry"
+                return 0
+            fi
+        done
+    fi
+}
+
+manifest_value() {
+    key=$1
+    file=$2
+    if [ -r "$file" ]; then
+        sed -n "s/^$key=//p" "$file" | head -n 1
+    fi
+}
+
+grep_count() {
+    file=$1
+    pattern=$2
+    if [ -r "$file" ]; then
+        value=$(grep -Ec "$pattern" "$file" 2>/dev/null || true)
+        printf '%s' "${value:-0}"
+    else
+        printf '0'
+    fi
+}
+
+sed_last_value() {
+    file=$1
+    expr=$2
+    if [ -r "$file" ]; then
+        sed -n "$expr" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+kv_last_value() {
+    file=$1
+    key=$2
+    if [ -r "$file" ]; then
+        sed -n "s/^$key=//p" "$file" 2>/dev/null | tail -n 1
+    fi
+}
+
+first_existing_file() {
+    for file in "$@"; do
+        if [ -f "$file" ]; then
+            printf '%s' "$file"
+            return 0
+        fi
+    done
+}
+
+portmap_lines() {
+    if [ -f "$selected_config" ]; then
+        sed -n 's/^[[:space:]]*portmap_\([0-9][0-9]*\)\([.]0\)\{0,1\}[[:space:]]*=[[:space:]]*\([^:[:space:]]*\):\([^[:space:]]*\).*$/\1 \3 \4/p' "$selected_config" 2>/dev/null |
+            sort -n
+    fi
+}
+
+front_panel_present_count() {
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        if [ -d "$NET_CLASS_DIR/swp$port" ]; then
+            printf '1\n'
+        else
+            printf '0\n'
+        fi
+    done | awk '{sum += $1} END {printf "%d", sum + 0}'
+}
+
+front_panel_link_up_count() {
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        if [ "$(read_first "$NET_CLASS_DIR/swp$port/carrier")" = "1" ]; then
+            printf '1\n'
+        else
+            printf '0\n'
+        fi
+    done | awk '{sum += $1} END {printf "%d", sum + 0}'
+}
+
+emit_front_panel_ports() {
+    first=1
+    printf '['
+    portmap_lines | while read -r port lane speed; do
+        [ -n "$port" ] || continue
+        iface=swp$port
+        iface_dir="$NET_CLASS_DIR/$iface"
+        present=false
+        [ -d "$iface_dir" ] && present=true
+        carrier=$(read_first "$iface_dir/carrier")
+        operstate=$(read_first "$iface_dir/operstate")
+        mac=$(read_first "$iface_dir/address")
+        [ "$first" = 1 ] || printf ','
+        first=0
+        cat <<EOF
+{
+  "port": $(json_str "$port"),
+  "name": $(json_str "$iface"),
+  "lane": $(json_str "$lane"),
+  "speed": $(json_str "$speed"),
+  "present": $present,
+  "carrier": $(json_str "$carrier"),
+  "operstate": $(json_str "$operstate"),
+  "address": $(json_str "$mac")
+}
+EOF
+    done
+    printf ']'
+}
+
+board=$(read_first "$BOARD_FILE")
+[ -n "$board" ] || board=unknown
+
+if [ -n "${REDSTONE_MGMT_CONFIG:-}" ]; then
+    selected_config=$REDSTONE_MGMT_CONFIG
+else
+    case "$board" in
+        redstone|rs2020|r0678)
+            selected_config="$SWITCHD_CONFIG_DIR/redstone-stage1.bcm"
+            ;;
+        *)
+            selected_config="$SWITCHD_CONFIG_DIR/config.bcm"
+            ;;
+    esac
+fi
+
+config_exists=false
+config_sha256=
+portmap_count=0
+split_mode=missing
+if [ -f "$selected_config" ]; then
+    config_exists=true
+    config_sha256=$(sha256_file "$selected_config")
+    portmap_count=$(grep -Ec '^[[:space:]]*portmap_[0-9]+([.]0)?[[:space:]]*=' "$selected_config" 2>/dev/null || true)
+    [ -n "$portmap_count" ] || portmap_count=0
+    if grep -Eq '^[[:space:]]*portmap_49([.]0)?[[:space:]]*=[[:space:]]*61:10[[:space:]]*$' "$selected_config" 2>/dev/null && \
+        grep -Eq '^[[:space:]]*portmap_61([.]0)?[[:space:]]*=[[:space:]]*65:40[[:space:]]*$' "$selected_config" 2>/dev/null; then
+        split_mode=original-active-split-49-50-51
+    elif grep -Eq '^[[:space:]]*portmap_49([.]0)?[[:space:]]*=[[:space:]]*61:40[[:space:]]*$' "$selected_config" 2>/dev/null; then
+        split_mode=stage1-skeleton-4x40g
+    else
+        split_mode=custom-or-unknown
+    fi
+fi
+
+sdk_ref_exists=false
+sdk_ref_sha256=
+sdk_ref_schema=
+sdk_ref_split=
+sdk_ref_portmaps=
+sdk_ref_config_sha=
+sdk_ref_phy_sha=
+sdk_ref_fixup_sha=
+sdk_ref_globals=
+sdk_ref_phy84848=
+sdk_ref_unsplit=
+if [ -f "$SDK_REF_MANIFEST" ]; then
+    sdk_ref_exists=true
+    sdk_ref_sha256=$(sha256_file "$SDK_REF_MANIFEST")
+    sdk_ref_schema=$(manifest_value schema "$SDK_REF_MANIFEST")
+    sdk_ref_split=$(manifest_value split_interfaces "$SDK_REF_MANIFEST")
+    sdk_ref_portmaps=$(manifest_value generated_config_portmap_count "$SDK_REF_MANIFEST")
+    sdk_ref_config_sha=$(manifest_value generated_config_bcm_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_phy_sha=$(manifest_value generated_phy_soc_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_fixup_sha=$(manifest_value generated_fixup_soc_sha256 "$SDK_REF_MANIFEST")
+    sdk_ref_globals=$(manifest_value generated_has_l2xmsg_chunks "$SDK_REF_MANIFEST")
+    sdk_ref_phy84848=$(manifest_value generated_has_phy_84848 "$SDK_REF_MANIFEST")
+    sdk_ref_unsplit=$(manifest_value generated_has_unsplit_fxe52 "$SDK_REF_MANIFEST")
+fi
+config_portmap_delta=
+case "$portmap_count:$sdk_ref_portmaps" in
+    *[!0-9:]*|*:|:*)
+        ;;
+    *)
+        config_portmap_delta=$((sdk_ref_portmaps - portmap_count))
+        ;;
+esac
+
+eth=eth1
+eth_dir="$NET_CLASS_DIR/$eth"
+eth_present=false
+[ -d "$eth_dir" ] && eth_present=true
+eth_address=$(read_first "$eth_dir/address")
+eth_operstate=$(read_first "$eth_dir/operstate")
+eth_carrier=$(read_first "$eth_dir/carrier")
+eth_speed=$(read_first "$eth_dir/speed")
+eth_duplex=$(read_first "$eth_dir/duplex")
+
+bcm_present=false
+bcm_slot=
+bcm_driver=
+for dev in "$PCI_DEVICES_DIR"/*; do
+    [ -d "$dev" ] || continue
+    vendor=$(read_first "$dev/vendor")
+    device=$(read_first "$dev/device")
+    if [ "$vendor" = "0x14e4" ] && [ "$device" = "0xb846" ]; then
+        bcm_present=true
+        bcm_slot=${dev##*/}
+        if [ -L "$dev/driver" ]; then
+            bcm_driver=$(basename "$(readlink "$dev/driver")")
+        fi
+        break
+    fi
+done
+
+switchd_pids=$(pidof switchd 2>/dev/null || true)
+switchd_running=false
+[ -n "$switchd_pids" ] && switchd_running=true
+switchd_tool=$(cmd_or_known_path switchd)
+switchd_tool_exists=false
+[ -n "$switchd_tool" ] && switchd_tool_exists=true
+switchd_pid_file_exists=false
+switchd_pid_file_pid=
+switchd_pid_file_running=false
+if [ -f "$SWITCHD_PID_FILE" ]; then
+    switchd_pid_file_exists=true
+    switchd_pid_file_pid=$(read_first "$SWITCHD_PID_FILE")
+    if [ -n "$switchd_pid_file_pid" ] && kill -0 "$switchd_pid_file_pid" 2>/dev/null; then
+        switchd_pid_file_running=true
+    fi
+fi
+
+capture_latest=$(latest_dir "$CAPTURE_BASE" '[0-9]*T*Z*')
+capture_archive=$(latest_file "$CAPTURE_BASE" '[0-9]*T*Z*.tar.gz')
+capture_summary=
+capture_summary_present=false
+if [ -n "$capture_latest" ]; then
+    capture_summary="$capture_latest/capture-summary.txt"
+    [ -f "$capture_summary" ] && capture_summary_present=true
+fi
+
+validate_latest=$(latest_dir "$VALIDATE_BASE" 'validate-*')
+validate_bundle=$(latest_file "$VALIDATE_BASE" 'validate-*.tar.gz')
+validate_log=
+validate_log_exists=false
+validate_pass_count=0
+validate_warn_count=0
+validate_fail_count=0
+validate_complete=
+validate_evidence_dir=
+validate_bundle_line=
+if [ -n "$validate_latest" ]; then
+    validate_log="$validate_latest/validate.log"
+    [ -f "$validate_log" ] && validate_log_exists=true
+    validate_pass_count=$(grep_count "$validate_log" '^PASS:')
+    validate_warn_count=$(grep_count "$validate_log" '^WARN:')
+    validate_fail_count=$(grep_count "$validate_log" '^FAIL:')
+    validate_complete=$(sed_last_value "$validate_log" 's/^Redstone stage-1 validation complete: //p')
+    validate_evidence_dir=$(sed_last_value "$validate_log" 's/^Evidence directory: //p')
+    validate_bundle_line=$(sed_last_value "$validate_log" 's/^Validation bundle: //p')
+    [ -n "$validate_bundle" ] || validate_bundle=$validate_bundle_line
+fi
+
+bench_latest=$(latest_dir "$BENCH_BASE" 'bench-run-*')
+bench_log=
+bench_capture_only=
+bench_validate_exit=
+bench_validation_bundle=
+bench_validation_evidence_dir=
+bench_bde_smoke_exit=
+if [ -n "$bench_latest" ]; then
+    bench_log="$bench_latest/bench-run.log"
+    bench_capture_only=$(kv_last_value "$bench_log" capture_only)
+    bench_validate_exit=$(kv_last_value "$bench_log" validate_exit)
+    bench_validation_bundle=$(kv_last_value "$bench_log" validation_bundle)
+    bench_validation_evidence_dir=$(kv_last_value "$bench_log" validation_evidence_dir)
+    bench_bde_smoke_exit=$(kv_last_value "$bench_log" bde_smoke_exit)
+fi
+
+probe_file=
+if [ -n "$validate_latest" ]; then
+    probe_file=$(first_existing_file "$validate_latest/openbcm_init_probe_dry_run.txt")
+fi
+if [ -z "$probe_file" ] && [ -n "$capture_latest" ]; then
+    probe_file=$(first_existing_file "$capture_latest/openbcm_init_probe.txt")
+fi
+
+web_action_latest=$(latest_dir "$ACTION_BASE" '*')
+web_action_result=
+web_action_action=
+web_action_status=
+web_action_exit=
+web_action_started_at=
+web_action_finished_at=
+web_action_run_dir=
+web_action_log=
+web_action_evidence_dir=
+web_action_message=
+if [ -n "$web_action_latest" ]; then
+    web_action_result="$web_action_latest/result.env"
+    web_action_action=$(kv_last_value "$web_action_result" action)
+    web_action_status=$(kv_last_value "$web_action_result" status)
+    web_action_exit=$(kv_last_value "$web_action_result" exit)
+    web_action_started_at=$(kv_last_value "$web_action_result" started_at)
+    web_action_finished_at=$(kv_last_value "$web_action_result" finished_at)
+    web_action_run_dir=$(kv_last_value "$web_action_result" run_dir)
+    web_action_log=$(kv_last_value "$web_action_result" log)
+    web_action_evidence_dir=$(kv_last_value "$web_action_result" evidence_dir)
+    web_action_message=$(kv_last_value "$web_action_result" message)
+fi
+
+bde_smoke_latest=$(latest_dir "$CAPTURE_BASE" 'openbcm-bde-smoke-*')
+bde_smoke_evidence_dir=$bde_smoke_latest
+bde_smoke_log=
+bde_smoke_summary=
+bde_smoke_exit=$bench_bde_smoke_exit
+if [ -n "$bde_smoke_latest" ]; then
+    bde_smoke_log="$bde_smoke_latest/smoke.log"
+    bde_smoke_summary=$(sed_last_value "$bde_smoke_log" 's/^Redstone OpenBCM BDE smoke complete: //p')
+fi
+if [ "$web_action_action" = "bde-smoke" ] && [ -n "$web_action_exit" ]; then
+    bde_smoke_exit=$web_action_exit
+    [ -n "$web_action_evidence_dir" ] && bde_smoke_evidence_dir=$web_action_evidence_dir
+elif [ -z "$bde_smoke_exit" ] && printf '%s\n' "$bde_smoke_summary" | grep -q '0 failure(s)'; then
+    bde_smoke_exit=0
+fi
+
+if [ "$web_action_action" = "init-probe-dry-run" ] && [ -n "$web_action_log" ]; then
+    probe_file=$web_action_log
+fi
+probe_present=false
+probe_exit=
+probe_unavailable=false
+if [ -n "$probe_file" ]; then
+    probe_present=true
+    probe_exit=$(kv_last_value "$probe_file" exit)
+    if grep -Eiq 'unavailable|not packaged|not found' "$probe_file" 2>/dev/null; then
+        probe_unavailable=true
+    fi
+fi
+
+front_panel_present=$(front_panel_present_count)
+front_panel_link_up=$(front_panel_link_up_count)
+
+bde_kernel_node=$(bool_file "$BDE_KERNEL_NODE")
+bde_user_node=$(bool_file "$BDE_USER_NODE")
+bde_kernel_module=$(module_loaded linux-kernel-bde linux_kernel_bde)
+bde_user_module=$(module_loaded linux-user-bde linux_user_bde)
+openbcm_bde_smoke_tool=$(cmd_path redstone-openbcm-bde-smoke.sh)
+openbcm_init_probe_tool=$(cmd_path redstone-openbcm-init-probe)
+demo_init_path=$OPENBCM_DEMO_INIT
+demo_init_exists=false
+demo_init_executable=false
+[ -e "$demo_init_path" ] && demo_init_exists=true
+[ -x "$demo_init_path" ] && demo_init_executable=true
+
+analysis_management_eth_ready=false
+[ "$eth_carrier" = "1" ] && [ "$eth_speed" = "1000" ] && analysis_management_eth_ready=true
+analysis_bcm_ready=false
+$bcm_present && analysis_bcm_ready=true
+analysis_bde_nodes_ready=false
+if [ "$bde_kernel_node" = "true" ] && [ "$bde_user_node" = "true" ]; then
+    analysis_bde_nodes_ready=true
+fi
+analysis_bde_ready=false
+if [ "$analysis_bde_nodes_ready" = "true" ] &&
+    [ "$bde_kernel_module" = "true" ] &&
+    [ "$bde_user_module" = "true" ]; then
+    analysis_bde_ready=true
+fi
+analysis_strict_validation_ready=false
+[ "$bench_validate_exit" = "0" ] && analysis_strict_validation_ready=true
+analysis_openbcm_probe_ready=false
+if [ "$probe_present" = "true" ] && [ "$probe_exit" = "0" ] && [ "$probe_unavailable" = "false" ]; then
+    analysis_openbcm_probe_ready=true
+fi
+
+bde_diagnostic="BDE nodes missing"
+if [ "$bde_kernel_node" != "true" ]; then
+    bde_diagnostic="missing $BDE_KERNEL_NODE"
+elif [ "$bde_user_node" != "true" ]; then
+    bde_diagnostic="missing $BDE_USER_NODE"
+elif [ "$bde_kernel_module" != "true" ] || [ "$bde_user_module" != "true" ]; then
+    bde_diagnostic="nodes ready; module names not visible in /proc/modules"
+else
+    bde_diagnostic="nodes and modules ready"
+fi
+
+switchd_diagnostic="switchd stopped"
+if [ "$switchd_running" = "true" ]; then
+    switchd_diagnostic="running ${switchd_pids}"
+elif [ "$config_exists" != "true" ]; then
+    switchd_diagnostic="stopped; selected config missing"
+elif [ "$analysis_bde_nodes_ready" != "true" ]; then
+    switchd_diagnostic="stopped; BDE nodes not ready"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    switchd_diagnostic="stopped; BDE module names not visible"
+elif [ -z "$switchd_tool" ]; then
+    switchd_diagnostic="stopped; switchd binary not in PATH"
+else
+    switchd_diagnostic="stopped; config and BDE gates ready"
+fi
+
+openbcm_diagnostic="OpenBCM tools missing"
+if [ -z "$openbcm_bde_smoke_tool" ]; then
+    openbcm_diagnostic="missing redstone-openbcm-bde-smoke.sh"
+elif [ -z "$openbcm_init_probe_tool" ]; then
+    openbcm_diagnostic="missing redstone-openbcm-init-probe"
+elif [ "$analysis_bde_nodes_ready" != "true" ]; then
+    openbcm_diagnostic="tools present; BDE nodes not ready"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    openbcm_diagnostic="tools present; BDE module names not visible"
+elif [ "$probe_present" = "true" ] && [ "$probe_unavailable" = "true" ]; then
+    if [ "$bde_smoke_exit" = "0" ]; then
+        openbcm_diagnostic="BDE smoke passed; latest init probe reports unavailable tool or SDK"
+    else
+        openbcm_diagnostic="latest init probe reports unavailable tool or SDK"
+    fi
+elif [ "$probe_present" = "true" ] && [ "$probe_exit" = "0" ] && [ "$demo_init_executable" != "true" ]; then
+    openbcm_diagnostic="BDE and dry-run gates passed; SDK demo init missing: $demo_init_path"
+elif [ "$probe_present" = "true" ]; then
+    openbcm_diagnostic="tools present; latest init probe exit ${probe_exit:-unknown}"
+elif [ -n "$bde_smoke_exit" ]; then
+    openbcm_diagnostic="tools present; latest BDE smoke exit $bde_smoke_exit"
+else
+    openbcm_diagnostic="tools present; no OpenBCM run evidence yet"
+fi
+
+current_blocker=
+if [ "$analysis_management_eth_ready" != "true" ]; then
+    current_blocker="management eth1 is not 1000/full link-up"
+elif [ "$analysis_bcm_ready" != "true" ]; then
+    current_blocker="BCM56846 PCIe device is not detected"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    current_blocker=$bde_diagnostic
+elif [ "$analysis_openbcm_probe_ready" != "true" ]; then
+    current_blocker=$openbcm_diagnostic
+elif [ "$demo_init_executable" != "true" ] && [ "$switchd_tool_exists" != "true" ]; then
+    current_blocker="SDK demo init missing: $demo_init_path; switchd binary missing"
+elif [ "$demo_init_executable" != "true" ]; then
+    current_blocker="SDK demo init missing: $demo_init_path"
+elif [ "$switchd_tool_exists" != "true" ]; then
+    current_blocker="switchd binary missing"
+elif [ "$analysis_strict_validation_ready" != "true" ]; then
+    current_blocker="front-panel strict validation not run"
+else
+    current_blocker="direct boot matrix pending"
+fi
+
+cat <<EOF
+{
+  "schema": "redstone-mgmt-status.v1",
+  "generated_at": $(json_str "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true)"),
+  "hostname": $(json_str "$(hostname 2>/dev/null || true)"),
+  "board": $(json_str "$board"),
+  "current_blocker": $(json_str "$current_blocker"),
+  "profile": {
+    "mode": $(json_str "$MGMT_PROFILE"),
+    "external_bind_default": true,
+    "destructive_web_actions": false,
+    "reset_risk_exec": false,
+    "public_lockdown_pending": true
+  },
+  "selected_config": {
+    "path": $(json_str "$selected_config"),
+    "exists": $config_exists,
+    "sha256": $(json_str "$config_sha256"),
+    "portmap_count": $portmap_count,
+    "split_mode": $(json_str "$split_mode")
+  },
+  "original_sdk_reference": {
+    "manifest_path": $(json_str "$SDK_REF_MANIFEST"),
+    "exists": $sdk_ref_exists,
+    "sha256": $(json_str "$sdk_ref_sha256"),
+    "schema": $(json_str "$sdk_ref_schema"),
+    "split_interfaces": $(json_str "$sdk_ref_split"),
+    "generated_portmap_count": $(json_str "$sdk_ref_portmaps"),
+    "generated_config_sha256": $(json_str "$sdk_ref_config_sha"),
+    "generated_phy_sha256": $(json_str "$sdk_ref_phy_sha"),
+    "generated_fixup_sha256": $(json_str "$sdk_ref_fixup_sha"),
+    "has_original_global_tuning": $(json_str "$sdk_ref_globals"),
+    "has_phy_84848": $(json_str "$sdk_ref_phy84848"),
+    "fxe52_unsplit": $(json_str "$sdk_ref_unsplit")
+  },
+  "config_comparison": {
+    "selected_path": $(json_str "$selected_config"),
+    "selected_split_mode": $(json_str "$split_mode"),
+    "selected_portmap_count": $portmap_count,
+    "original_manifest": $(json_str "$SDK_REF_MANIFEST"),
+    "original_exists": $sdk_ref_exists,
+    "original_split_interfaces": $(json_str "$sdk_ref_split"),
+    "original_portmap_count": $(json_str "$sdk_ref_portmaps"),
+    "portmap_delta": $(json_str "$config_portmap_delta"),
+    "fxe52_unsplit": $(json_str "$sdk_ref_unsplit")
+  },
+  "management_eth1": {
+    "present": $eth_present,
+    "address": $(json_str "$eth_address"),
+    "operstate": $(json_str "$eth_operstate"),
+    "carrier": $(json_str "$eth_carrier"),
+    "speed": $(json_str "$eth_speed"),
+    "duplex": $(json_str "$eth_duplex")
+  },
+  "front_panel": {
+    "source_config": $(json_str "$selected_config"),
+    "configured_count": $portmap_count,
+    "swp_present_count": $front_panel_present,
+    "swp_link_up_count": $front_panel_link_up,
+    "ports": $(emit_front_panel_ports)
+  },
+  "bcm56846": {
+    "pci_present": $bcm_present,
+    "slot": $(json_str "$bcm_slot"),
+    "driver": $(json_str "$bcm_driver")
+  },
+  "bde": {
+    "kernel_node_path": $(json_str "$BDE_KERNEL_NODE"),
+    "kernel_node": $bde_kernel_node,
+    "user_node_path": $(json_str "$BDE_USER_NODE"),
+    "user_node": $bde_user_node,
+    "kernel_module": $bde_kernel_module,
+    "user_module": $bde_user_module,
+    "summary": $(json_str "$bde_diagnostic")
+  },
+  "switchd": {
+    "running": $switchd_running,
+    "pids": $(json_str "$switchd_pids"),
+    "tool": $(json_str "$switchd_tool"),
+    "tool_exists": $switchd_tool_exists,
+    "pid_file": $(json_str "$SWITCHD_PID_FILE"),
+    "pid_file_exists": $switchd_pid_file_exists,
+    "pid_file_pid": $(json_str "$switchd_pid_file_pid"),
+    "pid_file_running": $switchd_pid_file_running,
+    "summary": $(json_str "$switchd_diagnostic")
+  },
+  "openbcm": {
+    "bde_smoke_tool": $(json_str "$openbcm_bde_smoke_tool"),
+    "init_probe_tool": $(json_str "$openbcm_init_probe_tool"),
+    "latest_bde_smoke_path": $(json_str "$bde_smoke_evidence_dir"),
+    "latest_bde_smoke_log": $(json_str "$bde_smoke_log"),
+    "latest_bde_smoke_exit": $(json_str "$bde_smoke_exit"),
+    "latest_bde_smoke_summary": $(json_str "$bde_smoke_summary"),
+    "latest_init_probe_path": $(json_str "$probe_file"),
+    "latest_init_probe_exists": $probe_present,
+    "latest_init_probe_exit": $(json_str "$probe_exit"),
+    "latest_init_probe_unavailable": $probe_unavailable,
+    "demo_init_path": $(json_str "$demo_init_path"),
+    "demo_init_exists": $demo_init_exists,
+    "demo_init_executable": $demo_init_executable,
+    "summary": $(json_str "$openbcm_diagnostic")
+  },
+  "tools": {
+    "redstone_stage1_capture": $(bool_cmd redstone-stage1-capture),
+    "redstone_stage1_validate": $(bool_cmd redstone-stage1-validate),
+    "redstone_stage1_bench_run": $(bool_cmd redstone-stage1-bench-run),
+    "redstone_openbcm_bde_smoke": $(bool_cmd redstone-openbcm-bde-smoke.sh),
+    "redstone_openbcm_init_probe": $(bool_cmd redstone-openbcm-init-probe),
+    "openbcm_demo_init": $demo_init_executable,
+    "switchd": $switchd_tool_exists,
+    "busybox_httpd": $(bool_httpd)
+  },
+  "web_action": {
+    "base": $(json_str "$ACTION_BASE"),
+    "latest_dir": $(json_str "$web_action_latest"),
+    "result": $(json_str "$web_action_result"),
+    "action": $(json_str "$web_action_action"),
+    "status": $(json_str "$web_action_status"),
+    "exit": $(json_str "$web_action_exit"),
+    "started_at": $(json_str "$web_action_started_at"),
+    "finished_at": $(json_str "$web_action_finished_at"),
+    "run_dir": $(json_str "$web_action_run_dir"),
+    "log": $(json_str "$web_action_log"),
+    "evidence_dir": $(json_str "$web_action_evidence_dir"),
+    "message": $(json_str "$web_action_message")
+  },
+  "evidence": {
+    "capture_base": $(json_str "$CAPTURE_BASE"),
+    "latest_capture_dir": $(json_str "$capture_latest"),
+    "latest_capture_archive": $(json_str "$capture_archive"),
+    "latest_capture_summary": {
+      "path": $(json_str "$capture_summary"),
+      "exists": $capture_summary_present
+    },
+    "validate_base": $(json_str "$VALIDATE_BASE"),
+    "latest_validate_dir": $(json_str "$validate_latest"),
+    "latest_validate_bundle": $(json_str "$validate_bundle"),
+    "validation_summary": {
+      "log": $(json_str "$validate_log"),
+      "log_exists": $validate_log_exists,
+      "pass_count": $validate_pass_count,
+      "warn_count": $validate_warn_count,
+      "fail_count": $validate_fail_count,
+      "complete": $(json_str "$validate_complete"),
+      "evidence_dir": $(json_str "$validate_evidence_dir")
+    },
+    "bench_base": $(json_str "$BENCH_BASE"),
+    "latest_bench_dir": $(json_str "$bench_latest"),
+    "bench_summary": {
+      "log": $(json_str "$bench_log"),
+      "capture_only": $(json_str "$bench_capture_only"),
+      "validate_exit": $(json_str "$bench_validate_exit"),
+      "validation_bundle": $(json_str "$bench_validation_bundle"),
+      "validation_evidence_dir": $(json_str "$bench_validation_evidence_dir"),
+      "bde_smoke_exit": $(json_str "$bench_bde_smoke_exit")
+    },
+    "bde_smoke": {
+      "path": $(json_str "$bde_smoke_evidence_dir"),
+      "log": $(json_str "$bde_smoke_log"),
+      "exit": $(json_str "$bde_smoke_exit"),
+      "summary": $(json_str "$bde_smoke_summary")
+    },
+    "init_probe_dry_run": {
+      "path": $(json_str "$probe_file"),
+      "exists": $probe_present,
+      "exit": $(json_str "$probe_exit"),
+      "unavailable": $probe_unavailable
+    }
+  },
+  "diagnostics": {
+    "bde": $(json_str "$bde_diagnostic"),
+    "switchd": $(json_str "$switchd_diagnostic"),
+    "openbcm": $(json_str "$openbcm_diagnostic")
+  },
+  "analysis": {
+    "management_eth_ready": $analysis_management_eth_ready,
+    "bcm56846_ready": $analysis_bcm_ready,
+    "bde_nodes_ready": $analysis_bde_nodes_ready,
+    "bde_ready": $analysis_bde_ready,
+    "strict_validation_ready": $analysis_strict_validation_ready,
+    "openbcm_probe_ready": $analysis_openbcm_probe_ready,
+    "direct_boot_matrix": "pending"
+  }
+}
+EOF

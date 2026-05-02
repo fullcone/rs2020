@@ -1,0 +1,433 @@
+#!/bin/sh
+# Guided Redstone stage-1 bench acceptance runner.
+
+set -eu
+
+IFACE=${REDSTONE_IFACE:-}
+LOCAL_CIDR=${REDSTONE_LOCAL_CIDR:-}
+PEER=${REDSTONE_PEER:-}
+PING_COUNT=${REDSTONE_PING_COUNT:-3}
+ORIGINAL_ARGS=$*
+CAPTURE_ONLY=0
+SKIP_LOCAL_IP=0
+BDE_SMOKE=0
+BENCH_BASE_DIR=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
+BENCH_BASE_DIR_EXPLICIT=0
+if [ "${REDSTONE_BENCH_DIR+x}" = x ] && [ -n "${REDSTONE_BENCH_DIR:-}" ]; then
+    BENCH_BASE_DIR_EXPLICIT=1
+fi
+BENCH_DIR=
+BENCH_LOG=
+VALIDATE_LOG=${REDSTONE_BENCH_VALIDATE_LOG:-/tmp/redstone-stage1-bench-run-validate.$$}
+VALIDATE_CONSOLE_LOG=
+
+usage() {
+    cat <<EOF
+Usage:
+  redstone-stage1-bench-run --capture-only
+  redstone-stage1-bench-run --iface swpN --local-cidr 192.0.2.1/24 --peer 192.0.2.2 [options]
+
+Options:
+  --iface IFACE        Front-panel interface to test, for example swp1.
+  --local-cidr CIDR   Optional local test IP/CIDR to add before validation.
+  --peer IP           Bench peer IP to ping through the ASIC.
+  --ping-count N      Ping count for strict validation. Default: 3.
+  --skip-local-ip     Do not add the local CIDR even if one is provided.
+  --bde-smoke         Run the optional OpenBCM BDE smoke helper after validation.
+  --capture-only      Run inventory capture only; this is not acceptance.
+  -h, --help          Show this help.
+
+Environment:
+  REDSTONE_IFACE, REDSTONE_LOCAL_CIDR, REDSTONE_PEER, REDSTONE_PING_COUNT
+  REDSTONE_BENCH_DIR, REDSTONE_BENCH_VALIDATE_LOG
+EOF
+}
+
+bench_log() {
+    [ -n "${BENCH_LOG:-}" ] || return 0
+    printf '%s\n' "$*" >> "$BENCH_LOG" 2>/dev/null || true
+}
+
+bench_note() {
+    echo "$*"
+    bench_log "$*"
+}
+
+fail() {
+    echo "redstone-stage1-bench-run: $*" >&2
+    bench_log "FAIL: $*"
+    if [ -n "${BENCH_DIR:-}" ]; then
+        echo "Bench run evidence directory: $BENCH_DIR" >&2
+        echo "Bench run log: $BENCH_LOG" >&2
+    fi
+    exit 2
+}
+
+init_bench_log() {
+    base=$BENCH_BASE_DIR
+    if ! mkdir -p "$base" 2>/dev/null; then
+        if [ "$BENCH_BASE_DIR_EXPLICIT" -eq 1 ]; then
+            fail "failed to create explicit REDSTONE_BENCH_DIR: $base"
+        fi
+        base=/tmp/redstone-stage1
+        mkdir -p "$base" 2>/dev/null || fail "failed to create bench log directory"
+    fi
+
+    stamp=$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s)
+    BENCH_DIR=$base/bench-run-$stamp
+    suffix=0
+    while ! mkdir "$BENCH_DIR" 2>/dev/null; do
+        suffix=$((suffix + 1))
+        BENCH_DIR=$base/bench-run-$stamp-$suffix
+        [ "$suffix" -lt 100 ] || fail "failed to allocate unique bench log directory"
+    done
+
+    BENCH_LOG=$BENCH_DIR/bench-run.log
+    VALIDATE_CONSOLE_LOG=$BENCH_DIR/validate-console.log
+    : > "$BENCH_LOG" || fail "failed to create bench run log"
+}
+
+capture_bench_cmd() {
+    name=$1
+    shift
+    out=$BENCH_DIR/$name.txt
+    cmd=$*
+
+    bench_log "capture $name -> $out"
+    {
+        printf '$ %s\n\n' "$cmd"
+        set +e
+        sh -c "$cmd"
+        rc=$?
+        set -e
+        printf '\nexit=%s\n' "$rc"
+    } > "$out" 2>&1 || true
+}
+
+capture_bench_snapshot() {
+    phase=$1
+    [ -n "${BENCH_DIR:-}" ] || return 0
+
+    bench_log "snapshot_phase=$phase"
+
+    capture_bench_cmd "${phase}_system" '
+echo "date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+echo "uname=$(uname -a 2>/dev/null || true)"
+echo "uptime=$(uptime 2>/dev/null || true)"
+echo
+echo "/proc/cmdline:"
+cat /proc/cmdline 2>/dev/null || true
+echo
+echo "/etc/edgenos/board:"
+cat /etc/edgenos/board 2>/dev/null || true
+echo
+echo "/etc/os-release:"
+cat /etc/os-release 2>/dev/null || true
+'
+
+    capture_bench_cmd "${phase}_commands" '
+for c in ip ping lspci ethtool dmesg lsmod modprobe insmod rmmod switchd switchd-init redstone-stage1-validate redstone-stage1-capture redstone-openbcm-init-probe redstone-openbcm-bde-smoke.sh tar gzip; do
+    printf "%s: " "$c"
+    command -v "$c" 2>/dev/null || echo missing
+done
+'
+
+    capture_bench_cmd "${phase}_network" '
+ip -br link 2>&1 || true
+echo
+ip addr 2>&1 || true
+echo
+ip route 2>&1 || true
+echo
+for dev in /sys/class/net/*; do
+    [ -e "$dev" ] || continue
+    name=${dev##*/}
+    echo "## $name"
+    for f in operstate carrier speed duplex mtu address ifindex; do
+        [ -f "$dev/$f" ] && printf "%s=" "$f" && cat "$dev/$f"
+    done
+    case "$name" in
+        swp*)
+            ethtool "$name" 2>&1 || true
+            ;;
+    esac
+    echo
+done
+'
+
+    capture_bench_cmd "${phase}_bde_pci" '
+ls -l /dev/*bde* /dev/linux-bcm* /dev/linux-ngbde* 2>/dev/null || true
+echo
+cat /proc/modules 2>/dev/null | grep -Ei "bcm|bde|linux_kernel_bde|linux_user_bde|linux_ngbde" || true
+echo
+lspci -nn 2>&1 || true
+echo
+for d in /sys/bus/pci/devices/*; do
+    [ -e "$d" ] || continue
+    printf "%s " "${d##*/}"
+    [ -f "$d/vendor" ] && printf "vendor=" && cat "$d/vendor" | tr "\n" " "
+    [ -f "$d/device" ] && printf "device=" && cat "$d/device" | tr "\n" " "
+    [ -f "$d/driver_override" ] && printf "driver_override=" && cat "$d/driver_override" | tr "\n" " "
+    if [ -L "$d/driver" ]; then
+        printf "driver=%s" "$(basename "$(readlink "$d/driver" 2>/dev/null)" 2>/dev/null)"
+    fi
+    echo
+done
+'
+
+    capture_bench_cmd "${phase}_switchd" '
+switchd-init status 2>&1 || true
+echo
+ps w 2>&1 || ps 2>&1 || true
+'
+
+    capture_bench_cmd "${phase}_dmesg_focus" '
+dmesg 2>/dev/null | grep -Ei "bcm|bde|pci|pcie|trident|56846|switchd|eth|swp|fsl|mpc85|error|fail|warn" | tail -n 300 || true
+'
+}
+
+write_bench_metadata() {
+    {
+        echo "redstone_stage1_bench_run"
+        echo "bench_dir=$BENCH_DIR"
+        echo "bench_log=$BENCH_LOG"
+        echo "args=$ORIGINAL_ARGS"
+        echo "capture_only=$CAPTURE_ONLY"
+        echo "iface=$IFACE"
+        echo "local_cidr=$LOCAL_CIDR"
+        echo "peer=$PEER"
+        echo "ping_count=$PING_COUNT"
+        echo "skip_local_ip=$SKIP_LOCAL_IP"
+        echo "bde_smoke=$BDE_SMOKE"
+        echo "validate_log=$VALIDATE_LOG"
+        echo "validate_console_log=$VALIDATE_CONSOLE_LOG"
+        echo
+        echo "REDSTONE_* environment:"
+        env | sort | grep '^REDSTONE_' || true
+    } >> "$BENCH_LOG"
+}
+
+print_bench_log_hint() {
+    echo ""
+    echo "Return bench run evidence directory to the host: $BENCH_DIR"
+    echo "Return bench run log to the host: $BENCH_LOG"
+    echo "Validation console log copy: $VALIDATE_CONSOLE_LOG"
+}
+
+is_uint() {
+    case "$1" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+find_bde_smoke() {
+    for candidate in \
+        "$(command -v redstone-openbcm-bde-smoke.sh 2>/dev/null || true)" \
+        /opt/openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./openbcm-bde/redstone-openbcm-bde-smoke.sh \
+        ./redstone-openbcm-bde-smoke.sh
+    do
+        [ -n "$candidate" ] || continue
+        [ -x "$candidate" ] || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+    return 1
+}
+
+print_host_analysis_hint() {
+    log=$1
+    evidence_dir=$(sed -n 's/^Evidence directory: //p' "$log" 2>/dev/null | tail -n 1)
+    validation_bundle=$(sed -n 's/^Validation bundle: //p' "$log" 2>/dev/null | tail -n 1)
+
+    if [ -n "$validation_bundle" ]; then
+        bench_log "validation_bundle=$validation_bundle"
+        echo ""
+        echo "Return validation bundle to the host: $validation_bundle"
+        echo "Host analysis command:"
+        echo "./host-tools/analyze-redstone-handoff-capture.sh . $validation_bundle"
+    elif [ -n "$evidence_dir" ]; then
+        bench_log "validation_evidence_dir=$evidence_dir"
+        echo ""
+        echo "Return validation evidence directory to the host: $evidence_dir"
+        echo "Host analysis command:"
+        echo "./host-tools/analyze-redstone-handoff-capture.sh . $evidence_dir"
+    fi
+}
+
+run_validate() {
+    log=$VALIDATE_LOG
+    rm -f "$log"
+    bench_log "validate_command=redstone-stage1-validate $*"
+
+    set +e
+    redstone-stage1-validate "$@" > "$log" 2>&1
+    rc=$?
+    set -e
+
+    if [ -f "$log" ]; then
+        cp "$log" "$VALIDATE_CONSOLE_LOG" 2>/dev/null || true
+        cat "$log"
+        print_host_analysis_hint "$log"
+        rm -f "$log"
+    fi
+
+    bench_log "validate_exit=$rc"
+    return "$rc"
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --iface)
+            [ $# -ge 2 ] || fail "--iface requires a value"
+            IFACE=$2
+            shift 2
+            ;;
+        --iface=*)
+            IFACE=${1#--iface=}
+            shift
+            ;;
+        --local-cidr)
+            [ $# -ge 2 ] || fail "--local-cidr requires a value"
+            LOCAL_CIDR=$2
+            shift 2
+            ;;
+        --local-cidr=*)
+            LOCAL_CIDR=${1#--local-cidr=}
+            shift
+            ;;
+        --peer)
+            [ $# -ge 2 ] || fail "--peer requires a value"
+            PEER=$2
+            shift 2
+            ;;
+        --peer=*)
+            PEER=${1#--peer=}
+            shift
+            ;;
+        --ping-count)
+            [ $# -ge 2 ] || fail "--ping-count requires a value"
+            PING_COUNT=$2
+            shift 2
+            ;;
+        --ping-count=*)
+            PING_COUNT=${1#--ping-count=}
+            shift
+            ;;
+        --skip-local-ip)
+            SKIP_LOCAL_IP=1
+            shift
+            ;;
+        --bde-smoke)
+            BDE_SMOKE=1
+            shift
+            ;;
+        --capture-only)
+            CAPTURE_ONLY=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            fail "unknown argument: $1"
+            ;;
+    esac
+done
+
+init_bench_log
+write_bench_metadata
+capture_bench_snapshot pre
+
+command -v redstone-stage1-validate >/dev/null 2>&1 || \
+    fail "redstone-stage1-validate not found"
+
+if [ "$CAPTURE_ONLY" = "1" ]; then
+    bench_note "Redstone stage-1 inventory capture only; this is not acceptance."
+    set +e
+    run_validate --capture
+    VALIDATE_RC=$?
+    set -e
+    capture_bench_snapshot post
+    print_bench_log_hint
+    exit "$VALIDATE_RC"
+fi
+
+[ -n "$IFACE" ] || fail "strict acceptance requires --iface or REDSTONE_IFACE"
+[ -n "$PEER" ] || fail "strict acceptance requires --peer or REDSTONE_PEER"
+
+case "$IFACE" in
+    swp[0-9]*)
+        ;;
+    *)
+        fail "--iface must be a swpN front-panel interface"
+        ;;
+esac
+
+is_uint "$PING_COUNT" || fail "--ping-count must be a positive integer"
+[ "$PING_COUNT" -gt 0 ] || fail "--ping-count must be a positive integer"
+
+command -v ip >/dev/null 2>&1 || fail "ip command not found"
+
+bench_note "Redstone stage-1 strict bench acceptance"
+if [ -f /etc/edgenos/board ]; then
+    bench_note "Board: $(cat /etc/edgenos/board)"
+fi
+bench_note "Interface: $IFACE"
+bench_note "Peer: $PEER"
+bench_note "Ping count: $PING_COUNT"
+
+ip link set "$IFACE" up || fail "failed to bring $IFACE up"
+
+if [ "$SKIP_LOCAL_IP" = "1" ]; then
+    bench_note "Local IP setup skipped by request."
+elif [ -n "$LOCAL_CIDR" ]; then
+    if ip addr show dev "$IFACE" 2>/dev/null | grep -Fq "$LOCAL_CIDR"; then
+        bench_note "Local CIDR already present on $IFACE: $LOCAL_CIDR"
+    else
+        ip addr add "$LOCAL_CIDR" dev "$IFACE" || \
+            fail "failed to add $LOCAL_CIDR to $IFACE"
+        bench_note "Added local CIDR to $IFACE: $LOCAL_CIDR"
+    fi
+else
+    bench_note "No local CIDR provided; assuming $IFACE already has the bench IP."
+fi
+
+capture_bench_snapshot prepared
+
+set +e
+run_validate --iface "$IFACE" --peer "$PEER" --ping-count "$PING_COUNT" --strict --capture
+VALIDATE_RC=$?
+set -e
+
+capture_bench_snapshot post
+
+if [ "$VALIDATE_RC" -ne 0 ]; then
+    print_bench_log_hint
+    exit "$VALIDATE_RC"
+fi
+
+if [ "$BDE_SMOKE" = "1" ]; then
+    if SMOKE_HELPER=$(find_bde_smoke); then
+        bench_log "bde_smoke_command=$SMOKE_HELPER --strict --capture"
+        set +e
+        "$SMOKE_HELPER" --strict --capture
+        SMOKE_RC=$?
+        set -e
+        bench_log "bde_smoke_exit=$SMOKE_RC"
+        capture_bench_snapshot post_bde_smoke
+        print_bench_log_hint
+        exit "$SMOKE_RC"
+    else
+        fail "--bde-smoke requested but redstone-openbcm-bde-smoke.sh was not found"
+    fi
+fi
+
+print_bench_log_hint
+exit 0

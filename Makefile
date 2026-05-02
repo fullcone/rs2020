@@ -4,6 +4,8 @@
 TOPDIR    := $(shell pwd)
 CROSS     := powerpc-linux-gnu-
 ARCH      := powerpc
+EDGENOS_BOARD ?= as5610-52x
+export EDGENOS_BOARD
 
 # Kernel
 KVER      := 5.10.224
@@ -26,7 +28,15 @@ IMGDIR    := $(OUTDIR)/images
 PLATFORM_MODS := platform/cpld platform/retimer
 
 .PHONY: all clean toolchain kernel modules rootfs-base rootfs image installer \
-        switchd bde openmdk help
+        switchd bde openmdk openbcm-source openbcm-bde-check openbcm-bde \
+        openbcm-bde-bundle openbcm-bde-smoke-analyze \
+        openbcm-userland-check openbcm-init-probe-check openbcm-init-probe \
+        openbcm-init-probe-bundle redstone-handoff redstone-handoff-verify \
+        redstone-handoff-analyze redstone-platform-inventory-analyze \
+        redstone-original-active-sdk-reference-check \
+        redstone-original-active-sdk-reference \
+        redstone-usb-stage1-check redstone-usb-stage1 redstone-usb-stage1-verify \
+        help
 
 all: image
 
@@ -39,6 +49,24 @@ help:
 	@echo "  modules      - Build platform kernel modules (CPLD, retimer)"
 	@echo "  bde          - Build BDE kernel modules"
 	@echo "  openmdk      - Build OpenMDK libraries (CDK, BMD, PHY)"
+	@echo "  openbcm-source - Fetch/check OpenBCM 6.5.27 source seed"
+	@echo "  openbcm-bde-check - Check OpenBCM BDE build prerequisites"
+	@echo "  openbcm-bde  - Build OpenBCM BDE modules for Redstone Linux 5.10"
+	@echo "  openbcm-bde-bundle - Copy OpenBCM BDE modules into a hardware-load bundle"
+	@echo "  openbcm-bde-smoke-analyze - Analyze Redstone OpenBCM BDE smoke evidence"
+	@echo "  openbcm-userland-check - Check OpenBCM userland init source/API path"
+	@echo "  openbcm-init-probe-check - Check Redstone OpenBCM init probe prerequisites"
+	@echo "  openbcm-init-probe - Build Redstone OpenBCM init probe gate"
+	@echo "  openbcm-init-probe-bundle - Bundle Redstone OpenBCM init probe gate"
+	@echo "  redstone-handoff - Package Redstone stage-1 hardware handoff bundle"
+	@echo "  redstone-handoff-verify - Verify a Redstone hardware handoff bundle"
+	@echo "  redstone-handoff-analyze - Verify handoff and analyze strict Redstone validation bundle"
+	@echo "  redstone-platform-inventory-analyze - Build Redstone DTS/platform inventory from capture evidence"
+	@echo "  redstone-original-active-sdk-reference-check - Check original-active SDK config reference manifest"
+	@echo "  redstone-original-active-sdk-reference - Generate ignored original-active SDK config reference files"
+	@echo "  redstone-usb-stage1-check - Check Redstone USB stage-1 image prerequisites"
+	@echo "  redstone-usb-stage1 - Build non-destructive Redstone USB stage-1 boot/capture image"
+	@echo "  redstone-usb-stage1-verify - Verify Redstone USB stage-1 image sidecars"
 	@echo "  switchd      - Build switch daemon"
 	@echo "  rootfs-base  - Build base root filesystem (Buildroot)"
 	@echo "  rootfs       - Assemble final rootfs with all components"
@@ -47,6 +75,7 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  make toolchain && make image"
+	@echo "  EDGENOS_BOARD=redstone make image"
 
 # ── Toolchain ──────────────────────────────────────────────────────
 
@@ -97,6 +126,89 @@ openmdk:
 	@echo "==> Building OpenMDK (CDK/BMD/PHY)"
 	@$(TOPDIR)/scripts/build-sdk.sh
 
+openbcm-source:
+	@echo "==> Preparing OpenBCM 6.5.27 source seed"
+	@$(TOPDIR)/scripts/prepare-openbcm.sh fetch
+	@$(TOPDIR)/scripts/prepare-openbcm.sh check
+
+openbcm-bde-check:
+	@$(TOPDIR)/scripts/build-openbcm-bde.sh check
+
+openbcm-bde: openbcm-source
+	@echo "==> Building OpenBCM Linux BDE modules for Redstone"
+	@$(TOPDIR)/scripts/build-openbcm-bde.sh all
+
+openbcm-bde-bundle:
+	@echo "==> Bundling OpenBCM Linux BDE modules for Redstone hardware smoke testing"
+	@$(TOPDIR)/scripts/build-openbcm-bde.sh bundle
+
+openbcm-bde-smoke-analyze:
+	@[ -n "$(OPENBCM_BDE_SMOKE_EVIDENCE)" ] || { \
+		echo "usage: make openbcm-bde-smoke-analyze OPENBCM_BDE_SMOKE_EVIDENCE=/path/to/openbcm-bde-smoke-..." >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-openbcm-bde-smoke.sh --strict "$(OPENBCM_BDE_SMOKE_EVIDENCE)"
+
+openbcm-userland-check:
+	@$(TOPDIR)/scripts/check-openbcm-userland-init.sh
+
+openbcm-init-probe-check: openbcm-userland-check
+	@$(TOPDIR)/scripts/build-openbcm-init-probe.sh check
+
+openbcm-init-probe: openbcm-userland-check
+	@echo "==> Building Redstone OpenBCM init probe gate"
+	@$(TOPDIR)/scripts/build-openbcm-init-probe.sh build
+
+openbcm-init-probe-bundle: openbcm-init-probe
+	@echo "==> Bundling Redstone OpenBCM init probe gate"
+	@$(TOPDIR)/scripts/build-openbcm-init-probe.sh bundle
+
+redstone-handoff:
+	@echo "==> Packaging Redstone stage-1 hardware handoff bundle"
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-hardware-handoff.sh
+
+redstone-handoff-verify:
+	@[ -n "$(REDSTONE_HANDOFF_PATH)" ] || { \
+		echo "usage: make redstone-handoff-verify REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/verify-redstone-hardware-handoff.sh "$(REDSTONE_HANDOFF_PATH)"
+
+redstone-handoff-analyze:
+	@[ -n "$(REDSTONE_HANDOFF_PATH)" ] || { \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
+		exit 2; \
+	}
+	@[ -n "$(REDSTONE_CAPTURE_PATH)" ] || { \
+		echo "usage: make redstone-handoff-analyze REDSTONE_HANDOFF_PATH=/path/to/redstone-handoff-or-tarball REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-handoff-capture.sh "$(REDSTONE_HANDOFF_PATH)" "$(REDSTONE_CAPTURE_PATH)"
+
+redstone-platform-inventory-analyze:
+	@[ -n "$(REDSTONE_CAPTURE_PATH)" ] || { \
+		echo "usage: make redstone-platform-inventory-analyze REDSTONE_CAPTURE_PATH=/path/to/validation-bundle-or-dir" >&2; \
+		exit 2; \
+	}
+	@$(TOPDIR)/scripts/analyze-redstone-platform-inventory.sh "$(REDSTONE_CAPTURE_PATH)"
+
+redstone-original-active-sdk-reference-check:
+	@$(TOPDIR)/scripts/generate-redstone-original-active-sdk-reference.sh check
+
+redstone-original-active-sdk-reference:
+	@echo "==> Generating ignored Redstone original-active SDK reference files"
+	@$(TOPDIR)/scripts/generate-redstone-original-active-sdk-reference.sh generate
+
+redstone-usb-stage1-check:
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-usb-stage1.sh check
+
+redstone-usb-stage1:
+	@echo "==> Building non-destructive Redstone USB stage-1 boot/capture image"
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/package-redstone-usb-stage1.sh image
+
+redstone-usb-stage1-verify:
+	@EDGENOS_BOARD=redstone $(TOPDIR)/scripts/verify-redstone-usb-stage1-image.sh
+
 # ── Switch daemon ──────────────────────────────────────────────────
 
 switchd: openmdk
@@ -127,7 +239,7 @@ image: fit
 	@echo "==> Building ONIE installer"
 	@$(TOPDIR)/scripts/build-installer.sh image
 	@echo ""
-	@echo "==> ONIE installer ready: $(IMGDIR)/edgenos-as5610-52x.bin"
+	@echo "==> ONIE installer ready under $(IMGDIR)"
 
 # ── Clean ──────────────────────────────────────────────────────────
 

@@ -2,11 +2,10 @@
 Description=EdgeNOS Switch Daemon (BCM56846 Trident+)
 After=platform-init.service local-fs.target
 Requires=platform-init.service
-ConditionPathExists=/dev/linux-kernel-bde
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/switchd -f -c /etc/switchd/config.bcm
+ExecStart=/usr/sbin/switchd-init start-foreground
 Restart=on-failure
 RestartSec=5
 LimitCORE=infinity

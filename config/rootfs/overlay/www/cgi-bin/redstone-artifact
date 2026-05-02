@@ -1,0 +1,4 @@
+#!/bin/sh
+# CGI wrapper for safe Redstone artifact detail and download access.
+
+exec /usr/sbin/redstone-mgmt-artifact

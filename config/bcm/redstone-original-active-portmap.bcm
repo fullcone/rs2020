@@ -1,0 +1,89 @@
+# Redstone original active port map reference.
+#
+# This file is not selected by /etc/edgenos/board. It is a non-default
+# reference derived from the original firmware split.sh logic and the saved
+# ZebOS config/show-tech evidence where fxe49, fxe50, and fxe51 are split while
+# fxe52 remains 40G.
+#
+# It is intentionally limited to the portmap and split-generated lane/PHY
+# overrides. The full original SDK startup also requires config.bcm.in globals,
+# fixup.soc, phy.soc, qsfp_led.soc, SFP/HSL modules, and BDE userland.
+
+portmap_1=6:10
+portmap_2=5:10
+portmap_3=8:10
+portmap_4=7:10
+portmap_5=10:10
+portmap_6=9:10
+portmap_7=12:10
+portmap_8=11:10
+portmap_9=14:10
+portmap_10=13:10
+portmap_11=16:10
+portmap_12=15:10
+portmap_13=18:10
+portmap_14=17:10
+portmap_15=20:10
+portmap_16=19:10
+portmap_17=22:10
+portmap_18=21:10
+portmap_19=24:10
+portmap_20=23:10
+portmap_21=26:10
+portmap_22=25:10
+portmap_23=28:10
+portmap_24=27:10
+portmap_25=30:10
+portmap_26=29:10
+portmap_27=32:10
+portmap_28=31:10
+portmap_29=34:10
+portmap_30=33:10
+portmap_31=36:10
+portmap_32=35:10
+portmap_33=38:10
+portmap_34=37:10
+portmap_35=40:10
+portmap_36=39:10
+portmap_37=42:10
+portmap_38=41:10
+portmap_39=44:10
+portmap_40=43:10
+portmap_41=46:10
+portmap_42=45:10
+portmap_43=48:10
+portmap_44=47:10
+portmap_45=50:10
+portmap_46=49:10
+portmap_47=52:10
+portmap_48=51:10
+
+# fxe49 split: WC15, logical 49-52.
+portmap_49=61:10
+portmap_50=62:10
+portmap_51=63:10
+portmap_52=64:10
+xgxs_tx_lane_map_xe48=0x2031
+
+# fxe50 split: WC14, logical 53-56, external PHY 0x5c.
+portmap_53=57:10
+portmap_54=58:10
+portmap_55=59:10
+portmap_56=60:10
+xgxs_tx_lane_map_xe52=0x2031
+port_phy_addr_xe52=0x5c
+port_phy_addr_xe53=0x5c
+port_phy_addr_xe54=0x5c
+port_phy_addr_xe55=0x5c
+
+# fxe51 split: WC17, logical 57-60.
+portmap_57=69:10
+portmap_58=70:10
+portmap_59=71:10
+portmap_60=72:10
+xgxs_tx_lane_map_xe56=0x3120
+
+# fxe52 unsplit: WC16. Because the previous three QSFP groups are split,
+# split.sh assigns this 40G interface to logical port 61.
+portmap_61=65:40
+xgxs_tx_lane_map_xe60=0x2031

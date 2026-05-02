@@ -6,7 +6,7 @@
 # Usage:
 #   docker run --rm --privileged --network=host \
 #     -v $(pwd)/output:/build/output \
-#     -v $(pwd):/src:ro \
+#     -v $(pwd):/src \
 #     debian:bookworm /src/scripts/build-all.sh
 
 set -e
@@ -17,6 +17,8 @@ KVER="5.10.224"
 KSRC="/build/linux-${KVER}"
 JESSIE_MIRROR="http://archive.debian.org/debian"
 JOBS=$(nproc)
+EDGENOS_BOARD="${EDGENOS_BOARD:-as5610-52x}"
+. "$SRCDIR/scripts/board-env.sh"
 
 log() { echo "==> $*"; }
 
@@ -50,12 +52,14 @@ build_kernel() {
         rm /build/linux-${KVER}.tar.xz
     fi
 
-    # Install DTS
-    cp "$SRCDIR/kernel/dts/as5610-52x.dts" \
-       "$KSRC/arch/powerpc/boot/dts/as5610-52x.dts"
-    grep -q "as5610-52x" "$KSRC/arch/powerpc/boot/dts/Makefile" || \
-        echo 'dtb-$(CONFIG_PPC_85xx) += as5610-52x.dtb' >> \
-        "$KSRC/arch/powerpc/boot/dts/Makefile"
+    # Install selected DTS.
+    local DTS_SRC="$SRCDIR/$EDGENOS_DTS_SOURCE"
+    local DTS_DST="$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dts"
+    [ -f "$DTS_SRC" ] || { echo "ERROR: selected DTS not found: $DTS_SRC"; exit 1; }
+    cp "$DTS_SRC" "$DTS_DST"
+    grep -q "${EDGENOS_DTS_BASENAME}.dtb" "$KSRC/arch/powerpc/boot/dts/Makefile" || \
+        echo "dtb-\$(CONFIG_PPC_85xx) += ${EDGENOS_DTS_BASENAME}.dtb" >> \
+            "$KSRC/arch/powerpc/boot/dts/Makefile"
 
     # Apply kernel patches
     for p in "$SRCDIR/kernel/patches/"*.patch; do
@@ -64,15 +68,16 @@ build_kernel() {
         (cd "$KSRC" && patch -p1 < "$p") || true
     done
 
-    cp "$SRCDIR/config/kernel/as5610_defconfig" "$KSRC/.config"
+    cp "$SRCDIR/$EDGENOS_KERNEL_DEFCONFIG" "$KSRC/.config"
     make -C "$KSRC" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- olddefconfig
     make -C "$KSRC" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- -j${JOBS} uImage dtbs modules
 
     mkdir -p "$OUTDIR/kernel"
     cp "$KSRC/arch/powerpc/boot/uImage" "$OUTDIR/kernel/"
-    cp "$KSRC/arch/powerpc/boot/dts/as5610-52x.dtb" "$OUTDIR/kernel/"
+    cp "$KSRC/arch/powerpc/boot/dts/${EDGENOS_DTS_BASENAME}.dtb" "$OUTDIR/kernel/"
 
     log "Kernel: $OUTDIR/kernel/uImage"
+    log "DTB: $OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb"
 }
 
 # ── Build initramfs ──────────────────────────────────────────
@@ -83,15 +88,37 @@ build_initramfs() {
     rm -rf "$INITROOT"
     mkdir -p "$INITROOT"/{bin,sbin,dev,proc,sys,newroot,lower,rw}
 
-    # Compile static init
-    powerpc-linux-gnu-gcc -static -Os \
-        -o "$INITROOT/init" "$SRCDIR/initramfs/nos-init.c"
+    local INIT_SRC="$SRCDIR/initramfs/nos-init.c"
+    [ -f "$INIT_SRC" ] || { echo "ERROR: init source not found: $INIT_SRC"; exit 1; }
+
+    powerpc-linux-gnu-gcc -static -nostdlib -nostartfiles -nodefaultlibs \
+        -ffreestanding -fno-stack-protector -Os -Wall -Wno-unused-function \
+        -Wl,-e,_start \
+        -o "$INITROOT/init" "$INIT_SRC" -lgcc
     chmod +x "$INITROOT/init"
 
     # Create cpio archive
     mkdir -p "$OUTDIR/images"
     (cd "$INITROOT" && find . | cpio -o -H newc) | gzip -9 > "$OUTDIR/images/initramfs.cpio.gz"
     log "Initramfs: $OUTDIR/images/initramfs.cpio.gz ($(du -sh "$OUTDIR/images/initramfs.cpio.gz" | cut -f1))"
+}
+
+# ── Build external modules ───────────────────────────────────
+build_modules() {
+    log "Building external kernel modules..."
+
+    for dir in asic/bde platform/cpld platform/retimer; do
+        make -C "$KSRC" M="$SRCDIR/$dir" ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- modules
+    done
+
+    for mod in \
+        asic/bde/linux-kernel-bde.ko \
+        asic/bde/linux-user-bde.ko \
+        platform/cpld/accton_as5610_52x_cpld.ko \
+        platform/retimer/retimer_class.ko \
+        platform/retimer/ds100df410.ko; do
+        [ -f "$SRCDIR/$mod" ] || { echo "ERROR: expected module missing: $mod"; exit 1; }
+    done
 }
 
 # ── Build Debian rootfs ──────────────────────────────────────
@@ -187,6 +214,10 @@ EOF
     mkdir -p "$STAGING/etc/switchd"
     cp "$SRCDIR/config/bcm/"* "$STAGING/etc/switchd/" 2>/dev/null || true
 
+    # Select board-specific runtime defaults.
+    mkdir -p "$STAGING/etc/edgenos"
+    printf '%s\n' "$EDGENOS_BOARD" > "$STAGING/etc/edgenos/board"
+
     # Install switchd binary if built
     [ -f "$OUTDIR/switchd/switchd" ] && \
         install -m 755 "$OUTDIR/switchd/switchd" "$STAGING/usr/sbin/switchd"
@@ -237,6 +268,11 @@ EOF
     # Persist mount point
     mkdir -p "$STAGING/mnt/persist"
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+            "$SRCDIR/scripts/install-openbcm-init-probe.sh" "$STAGING"
+    fi
+
     # Cleanup
     rm -f "$STAGING/usr/bin/qemu-ppc-static" "$STAGING/usr/bin/qemu-powerpc-static"
     rm -f "$STAGING/usr/sbin/policy-rc.d"
@@ -267,13 +303,14 @@ build_fit() {
     dumpimage -T kernel -p 0 -o "$FITDIR/kernel.gz" "$OUTDIR/kernel/uImage" || \
         dd if="$OUTDIR/kernel/uImage" of="$FITDIR/kernel.gz" bs=64 skip=1 2>/dev/null
 
-    cp "$OUTDIR/kernel/as5610-52x.dtb" "$FITDIR/as5610_52x.dtb"
+    local FIT_DTB_FILE="${EDGENOS_DTS_BASENAME}.dtb"
+    cp "$OUTDIR/kernel/${EDGENOS_DTS_BASENAME}.dtb" "$FITDIR/$FIT_DTB_FILE"
     cp "$OUTDIR/images/initramfs.cpio.gz" "$FITDIR/"
 
-    cat > "$FITDIR/nos.its" <<'ITS'
+    cat > "$FITDIR/nos.its" <<ITS
 /dts-v1/;
 / {
-    description = "EdgeNOS for AS5610-52X";
+    description = "${EDGENOS_FIT_DESCRIPTION}";
     #address-cells = <1>;
     images {
         kernel {
@@ -287,9 +324,9 @@ build_fit() {
             entry = <0x00000000>;
             hash { algo = "crc32"; };
         };
-        accton_as5610_52x_dtb {
-            description = "AS5610-52X device tree";
-            data = /incbin/("as5610_52x.dtb");
+        ${EDGENOS_FIT_DTB_NODE} {
+            description = "${EDGENOS_DTS_BASENAME} device tree";
+            data = /incbin/("${FIT_DTB_FILE}");
             type = "flat_dt";
             arch = "powerpc";
             compression = "none";
@@ -308,11 +345,11 @@ build_fit() {
         };
     };
     configurations {
-        default = "accton_as5610_52x";
-        accton_as5610_52x {
-            description = "EdgeNOS AS5610-52X";
+        default = "${EDGENOS_FIT_CONFIG}";
+        ${EDGENOS_FIT_CONFIG} {
+            description = "${EDGENOS_FIT_DESCRIPTION}";
             kernel = "kernel";
-            fdt = "accton_as5610_52x_dtb";
+            fdt = "${EDGENOS_FIT_DTB_NODE}";
             ramdisk = "initramfs";
         };
     };
@@ -329,22 +366,29 @@ build_installer() {
     log "Building ONIE installer..."
 
     local TMPDIR=$(mktemp -d)
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        log "Checking Redstone rootfs.sqsh contents..."
+        REQUIRE_OPENBCM_INIT_PROBE="${REQUIRE_OPENBCM_INIT_PROBE:-1}" \
+            "$SRCDIR/scripts/check-redstone-image.sh" --squashfs "$OUTDIR/images/rootfs.sqsh"
+    fi
     cp "$OUTDIR/images/uImage-powerpc.itb" "$TMPDIR/"
     cp "$OUTDIR/images/rootfs.sqsh" "$TMPDIR/"
     (cd "$TMPDIR" && tar cf payload.tar uImage-powerpc.itb rootfs.sqsh)
 
-    cp "$SRCDIR/installer/install.sh" "$OUTDIR/images/edgenos-as5610-52x.bin"
-    cat "$TMPDIR/payload.tar" >> "$OUTDIR/images/edgenos-as5610-52x.bin"
-    chmod +x "$OUTDIR/images/edgenos-as5610-52x.bin"
+    local INSTALLER_IMAGE="$OUTDIR/images/$EDGENOS_IMAGE_NAME"
+    cp "$SRCDIR/installer/install.sh" "$INSTALLER_IMAGE"
+    cat "$TMPDIR/payload.tar" >> "$INSTALLER_IMAGE"
+    chmod +x "$INSTALLER_IMAGE"
     rm -rf "$TMPDIR"
 
-    log "ONIE installer: $OUTDIR/images/edgenos-as5610-52x.bin ($(du -sh "$OUTDIR/images/edgenos-as5610-52x.bin" | cut -f1))"
+    log "ONIE installer: $INSTALLER_IMAGE ($(du -sh "$INSTALLER_IMAGE" | cut -f1))"
 }
 
 # ── Main ─────────────────────────────────────────────────────
 log "EdgeNOS full build starting..."
 install_deps
 build_kernel
+build_modules
 build_initramfs
 build_rootfs
 build_fit
@@ -357,4 +401,4 @@ log "============================================"
 log ""
 ls -lh "$OUTDIR/images/"
 log ""
-log "Install: onie-nos-install http://<server>/edgenos-as5610-52x.bin"
+log "Install: onie-nos-install http://<server>/$EDGENOS_IMAGE_NAME"
