@@ -41,8 +41,11 @@ browser.
 - original SDK reference manifest presence plus generated config/PHY hashes,
 - eth1 management-port link state,
 - BCM56846 PCI presence and bound driver,
-- BDE device nodes and module presence,
-- switchd process state,
+- BDE device nodes, module presence, device paths, and diagnostic summary,
+- switchd process state, executable path, pidfile state, and stop reason,
+- OpenBCM BDE smoke and init-probe tool paths plus latest run summary,
+- Runtime diagnostics that explain the current BDE, switchd, and OpenBCM gate
+  blockers without requiring shell access,
 - development/public profile and reset-risk execution policy,
 - front-panel port tiles derived from the selected portmap and live `swpN`
   sysfs state,

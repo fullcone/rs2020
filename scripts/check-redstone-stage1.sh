@@ -933,6 +933,18 @@ check_grep 'artifact-download' \
 check_grep 'OpenBCM Tools' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays OpenBCM tool readiness"
+check_grep 'Runtime Diagnostics' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays BDE, switchd, and OpenBCM diagnostics"
+check_grep 'bde-diagnostic' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page has a BDE diagnostic field"
+check_grep 'switchd-pidfile' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page has a switchd pidfile diagnostic field"
+check_grep 'openbcm-diagnostic' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page has an OpenBCM diagnostic field"
 check_grep 'Direct Boot Gate' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays direct-boot management Ethernet caveat"
@@ -966,6 +978,15 @@ check_grep 'actionParams' \
 check_grep 'renderFrontPanel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders front-panel port tiles"
+check_grep 'openbcm-diagnostic' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders OpenBCM diagnostic status"
+check_grep 'switchd-pidfile' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders switchd pidfile status"
+check_grep 'bde-paths' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders BDE device paths"
 check_grep '_files' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI can list files in a run directory"
@@ -1003,6 +1024,8 @@ check_grep 'redstone-evidence' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the evidence CGI endpoint"
 check_grep 'redstone-artifact' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the artifact CGI endpoint"
+check_grep 'Runtime diagnostics' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents BDE, switchd, and OpenBCM diagnostics"
 check_grep 'redstone-action[?]action=capture' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the capture action endpoint"
 check_grep 'redstone-action[?]action=validate-capture' "docs/redstone_web_mgmt_plan.md" \
@@ -1067,10 +1090,15 @@ EOF
     printf 'redstone\n' > "$tmpdir/board"
     REDSTONE_BOARD_FILE="$tmpdir/board" \
         REDSTONE_SWITCHD_CONFIG_DIR="$tmpdir/switchd" \
+        REDSTONE_SWITCHD_PID_FILE="$tmpdir/switchd.pid" \
+        REDSTONE_BDE_KERNEL_NODE="$tmpdir/linux-kernel-bde" \
+        REDSTONE_BDE_USER_NODE="$tmpdir/linux-user-bde" \
         sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
 
     if grep -q '"portmap_count": 2' "$tmpdir/status.json" && \
-        grep -q '"split_mode": "stage1-skeleton-4x40g"' "$tmpdir/status.json"; then
+        grep -q '"split_mode": "stage1-skeleton-4x40g"' "$tmpdir/status.json" && \
+        grep -q '"diagnostics":' "$tmpdir/status.json" && \
+        grep -q '"switchd": "stopped; BDE nodes not ready"' "$tmpdir/status.json"; then
         ok "management status counts portmap_N.0 config keys"
     else
         fail "management status does not count portmap_N.0 config keys"
@@ -1096,6 +1124,9 @@ EOF
     printf '1\n' > "$tmpdir/net/swp1/carrier"
     printf 'up\n' > "$tmpdir/net/swp1/operstate"
     printf '00:e0:ec:53:b8:31\n' > "$tmpdir/net/swp1/address"
+    : > "$tmpdir/linux-kernel-bde"
+    : > "$tmpdir/linux-user-bde"
+    printf '424242\n' > "$tmpdir/switchd.pid"
     printf 'summary\n' > "$evidence/20260304T010203Z/capture-summary.txt"
     : > "$evidence/20260304T010203Z.tar.gz"
     : > "$evidence/validate-20260304T010204Z.tar.gz"
@@ -1138,6 +1169,9 @@ EOF
         REDSTONE_BENCH_DIR="$evidence" \
         REDSTONE_WEB_ACTION_DIR="$evidence/web-actions" \
         REDSTONE_NET_CLASS_DIR="$tmpdir/net" \
+        REDSTONE_SWITCHD_PID_FILE="$tmpdir/switchd.pid" \
+        REDSTONE_BDE_KERNEL_NODE="$tmpdir/linux-kernel-bde" \
+        REDSTONE_BDE_USER_NODE="$tmpdir/linux-user-bde" \
         sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-status" > "$tmpdir/status.json"
 
     if grep -q '"latest_capture_dir":' "$tmpdir/status.json" && \
@@ -1157,7 +1191,12 @@ EOF
         grep -q '"swp_present_count": 1' "$tmpdir/status.json" && \
         grep -q '"swp_link_up_count": 1' "$tmpdir/status.json" && \
         grep -q '"name": "swp1"' "$tmpdir/status.json" && \
+        grep -q '"kernel_node_path":' "$tmpdir/status.json" && \
+        grep -q '"pid_file_pid": "424242"' "$tmpdir/status.json" && \
+        grep -q '"openbcm":' "$tmpdir/status.json" && \
+        grep -q '"diagnostics":' "$tmpdir/status.json" && \
         grep -q '"analysis":' "$tmpdir/status.json" && \
+        grep -q '"bde_nodes_ready": true' "$tmpdir/status.json" && \
         grep -q '"strict_validation_ready": true' "$tmpdir/status.json"; then
         ok "management status indexes capture, validation, bench, web action, and dry-run evidence"
     else

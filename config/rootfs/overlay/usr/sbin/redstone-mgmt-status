@@ -5,6 +5,7 @@ set -u
 
 BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
 SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
+SWITCHD_PID_FILE=${REDSTONE_SWITCHD_PID_FILE:-/var/run/switchd.pid}
 SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-original-active-sdk.manifest"}
 CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
 VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
@@ -12,6 +13,8 @@ BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
 ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
 NET_CLASS_DIR=${REDSTONE_NET_CLASS_DIR:-/sys/class/net}
 PCI_DEVICES_DIR=${REDSTONE_PCI_DEVICES_DIR:-/sys/bus/pci/devices}
+BDE_KERNEL_NODE=${REDSTONE_BDE_KERNEL_NODE:-/dev/linux-kernel-bde}
+BDE_USER_NODE=${REDSTONE_BDE_USER_NODE:-/dev/linux-user-bde}
 MGMT_PROFILE=${REDSTONE_MGMT_PROFILE:-development}
 FALLBACK_HTTPD=${REDSTONE_MGMT_HTTPD:-/usr/sbin/redstone-httpd/httpd}
 
@@ -46,6 +49,10 @@ bool_cmd() {
     else
         printf false
     fi
+}
+
+cmd_path() {
+    command -v "$1" 2>/dev/null || true
 }
 
 busybox_has_httpd() {
@@ -321,6 +328,16 @@ done
 switchd_pids=$(pidof switchd 2>/dev/null || true)
 switchd_running=false
 [ -n "$switchd_pids" ] && switchd_running=true
+switchd_pid_file_exists=false
+switchd_pid_file_pid=
+switchd_pid_file_running=false
+if [ -f "$SWITCHD_PID_FILE" ]; then
+    switchd_pid_file_exists=true
+    switchd_pid_file_pid=$(read_first "$SWITCHD_PID_FILE")
+    if [ -n "$switchd_pid_file_pid" ] && kill -0 "$switchd_pid_file_pid" 2>/dev/null; then
+        switchd_pid_file_running=true
+    fi
+fi
 
 capture_latest=$(latest_dir "$CAPTURE_BASE" '[0-9]*T*Z*')
 capture_archive=$(latest_file "$CAPTURE_BASE" '[0-9]*T*Z*.tar.gz')
@@ -414,12 +431,20 @@ fi
 front_panel_present=$(front_panel_present_count)
 front_panel_link_up=$(front_panel_link_up_count)
 
+bde_kernel_node=$(bool_file "$BDE_KERNEL_NODE")
+bde_user_node=$(bool_file "$BDE_USER_NODE")
+bde_kernel_module=$(module_loaded linux-kernel-bde linux_kernel_bde)
+bde_user_module=$(module_loaded linux-user-bde linux_user_bde)
+openbcm_bde_smoke_tool=$(cmd_path redstone-openbcm-bde-smoke.sh)
+openbcm_init_probe_tool=$(cmd_path redstone-openbcm-init-probe)
+switchd_tool=$(cmd_path switchd)
+
 analysis_management_eth_ready=false
 [ "$eth_carrier" = "1" ] && [ "$eth_speed" = "1000" ] && analysis_management_eth_ready=true
 analysis_bcm_ready=false
 $bcm_present && analysis_bcm_ready=true
 analysis_bde_ready=false
-if [ -e /dev/linux-kernel-bde ] && [ -e /dev/linux-user-bde ]; then
+if [ "$bde_kernel_node" = "true" ] && [ "$bde_user_node" = "true" ]; then
     analysis_bde_ready=true
 fi
 analysis_strict_validation_ready=false
@@ -427,6 +452,47 @@ analysis_strict_validation_ready=false
 analysis_openbcm_probe_ready=false
 if [ "$probe_present" = "true" ] && [ "$probe_exit" = "0" ] && [ "$probe_unavailable" = "false" ]; then
     analysis_openbcm_probe_ready=true
+fi
+
+bde_diagnostic="BDE nodes missing"
+if [ "$bde_kernel_node" != "true" ]; then
+    bde_diagnostic="missing $BDE_KERNEL_NODE"
+elif [ "$bde_user_node" != "true" ]; then
+    bde_diagnostic="missing $BDE_USER_NODE"
+elif [ "$bde_kernel_module" != "true" ] || [ "$bde_user_module" != "true" ]; then
+    bde_diagnostic="nodes ready; module names not visible in /proc/modules"
+else
+    bde_diagnostic="nodes and modules ready"
+fi
+
+switchd_diagnostic="switchd stopped"
+if [ "$switchd_running" = "true" ]; then
+    switchd_diagnostic="running ${switchd_pids}"
+elif [ "$config_exists" != "true" ]; then
+    switchd_diagnostic="stopped; selected config missing"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    switchd_diagnostic="stopped; BDE nodes not ready"
+elif [ -z "$switchd_tool" ]; then
+    switchd_diagnostic="stopped; switchd binary not in PATH"
+else
+    switchd_diagnostic="stopped; config and BDE gates ready"
+fi
+
+openbcm_diagnostic="OpenBCM tools missing"
+if [ -z "$openbcm_bde_smoke_tool" ]; then
+    openbcm_diagnostic="missing redstone-openbcm-bde-smoke.sh"
+elif [ -z "$openbcm_init_probe_tool" ]; then
+    openbcm_diagnostic="missing redstone-openbcm-init-probe"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    openbcm_diagnostic="tools present; BDE nodes not ready"
+elif [ "$probe_present" = "true" ] && [ "$probe_unavailable" = "true" ]; then
+    openbcm_diagnostic="latest init probe reports unavailable tool or SDK"
+elif [ "$probe_present" = "true" ]; then
+    openbcm_diagnostic="tools present; latest init probe exit ${probe_exit:-unknown}"
+elif [ -n "$bench_bde_smoke_exit" ]; then
+    openbcm_diagnostic="tools present; latest BDE smoke exit $bench_bde_smoke_exit"
+else
+    openbcm_diagnostic="tools present; no OpenBCM run evidence yet"
 fi
 
 cat <<EOF
@@ -484,14 +550,33 @@ cat <<EOF
     "driver": $(json_str "$bcm_driver")
   },
   "bde": {
-    "kernel_node": $(bool_file /dev/linux-kernel-bde),
-    "user_node": $(bool_file /dev/linux-user-bde),
-    "kernel_module": $(module_loaded linux-kernel-bde linux_kernel_bde),
-    "user_module": $(module_loaded linux-user-bde linux_user_bde)
+    "kernel_node_path": $(json_str "$BDE_KERNEL_NODE"),
+    "kernel_node": $bde_kernel_node,
+    "user_node_path": $(json_str "$BDE_USER_NODE"),
+    "user_node": $bde_user_node,
+    "kernel_module": $bde_kernel_module,
+    "user_module": $bde_user_module,
+    "summary": $(json_str "$bde_diagnostic")
   },
   "switchd": {
     "running": $switchd_running,
-    "pids": $(json_str "$switchd_pids")
+    "pids": $(json_str "$switchd_pids"),
+    "tool": $(json_str "$switchd_tool"),
+    "pid_file": $(json_str "$SWITCHD_PID_FILE"),
+    "pid_file_exists": $switchd_pid_file_exists,
+    "pid_file_pid": $(json_str "$switchd_pid_file_pid"),
+    "pid_file_running": $switchd_pid_file_running,
+    "summary": $(json_str "$switchd_diagnostic")
+  },
+  "openbcm": {
+    "bde_smoke_tool": $(json_str "$openbcm_bde_smoke_tool"),
+    "init_probe_tool": $(json_str "$openbcm_init_probe_tool"),
+    "latest_bde_smoke_exit": $(json_str "$bench_bde_smoke_exit"),
+    "latest_init_probe_path": $(json_str "$probe_file"),
+    "latest_init_probe_exists": $probe_present,
+    "latest_init_probe_exit": $(json_str "$probe_exit"),
+    "latest_init_probe_unavailable": $probe_unavailable,
+    "summary": $(json_str "$openbcm_diagnostic")
   },
   "tools": {
     "redstone_stage1_capture": $(bool_cmd redstone-stage1-capture),
@@ -551,6 +636,11 @@ cat <<EOF
       "exit": $(json_str "$probe_exit"),
       "unavailable": $probe_unavailable
     }
+  },
+  "diagnostics": {
+    "bde": $(json_str "$bde_diagnostic"),
+    "switchd": $(json_str "$switchd_diagnostic"),
+    "openbcm": $(json_str "$openbcm_diagnostic")
   },
   "analysis": {
     "management_eth_ready": $analysis_management_eth_ready,

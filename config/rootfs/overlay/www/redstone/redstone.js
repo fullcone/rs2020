@@ -280,6 +280,7 @@ function renderStatus(data) {
   const bcm = data.bcm56846 || {};
   const bde = data.bde || {};
   const sw = data.switchd || {};
+  const openbcm = data.openbcm || {};
   const sdk = data.original_sdk_reference || {};
   const evidence = data.evidence || {};
   const captureSummary = evidence.latest_capture_summary || {};
@@ -288,6 +289,7 @@ function renderStatus(data) {
   const probe = evidence.init_probe_dry_run || {};
   const webAction = data.web_action || {};
   const tools = data.tools || {};
+  const diagnostics = data.diagnostics || {};
   const analysis = data.analysis || {};
 
   text("board", data.board);
@@ -305,6 +307,21 @@ function renderStatus(data) {
   text("config-sha", cfg.sha256 || "unavailable");
   text("config-portmaps", String(cfg.portmap_count || 0));
   text("switchd", sw.running ? `running ${sw.pids || ""}`.trim() : "stopped");
+  text("bde-diagnostic", diagnostics.bde || bde.summary || "unknown");
+  text(
+    "bde-paths",
+    `${bde.kernel_node_path || "/dev/linux-kernel-bde"}=${yesNo(bde.kernel_node)} ${bde.user_node_path || "/dev/linux-user-bde"}=${yesNo(bde.user_node)}`,
+  );
+  text("switchd-diagnostic", diagnostics.switchd || sw.summary || "unknown");
+  text(
+    "switchd-pidfile",
+    `${sw.pid_file || "/var/run/switchd.pid"} exists=${yesNo(sw.pid_file_exists)} pid=${sw.pid_file_pid || "none"} alive=${yesNo(sw.pid_file_running)}`,
+  );
+  text("openbcm-diagnostic", diagnostics.openbcm || openbcm.summary || "unknown");
+  text(
+    "openbcm-tools",
+    `smoke=${pathOrNone(openbcm.bde_smoke_tool)} probe=${pathOrNone(openbcm.init_probe_tool)}`,
+  );
   text("sdk-ref", sdk.exists ? `${sdk.generated_portmap_count || "unknown"} portmaps` : "missing");
   text("sdk-split", sdk.split_interfaces || "unknown");
   text("sdk-config-sha", sdk.generated_config_sha256 || "unavailable");
@@ -354,6 +371,12 @@ function renderStatus(data) {
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
   stateClass("switchd", sw.running ? "ok" : "warn");
+  stateClass("bde-diagnostic", analysis.bde_nodes_ready ? "ok" : "warn");
+  stateClass("bde-paths", analysis.bde_nodes_ready ? "ok" : "warn");
+  stateClass("switchd-diagnostic", sw.running ? "ok" : "warn");
+  stateClass("switchd-pidfile", sw.pid_file_running ? "ok" : sw.pid_file_exists ? "warn" : "warn");
+  stateClass("openbcm-diagnostic", analysis.openbcm_probe_ready ? "ok" : "warn");
+  stateClass("openbcm-tools", openbcm.bde_smoke_tool && openbcm.init_probe_tool ? "ok" : "warn");
   stateClass("sdk-ref", sdk.exists ? "ok" : "warn");
   stateClass("validation-summary", validationState(validation));
   stateClass("bench-validate-exit", bench.validate_exit === "0" ? "ok" : bench.validate_exit ? "bad" : "warn");

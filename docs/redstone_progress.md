@@ -5,6 +5,25 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 Web Runtime Diagnostics
+
+Completed:
+
+- Extended `redstone-mgmt-status` with BDE path summaries, switchd pidfile
+  state, OpenBCM tool paths, latest BDE smoke / init-probe summaries, and a
+  `diagnostics` block that explains the current blocker for each gate.
+- Added a Hardware-tab Runtime Diagnostics panel so operators can see whether
+  the next blocker is missing BDE nodes, missing OpenBCM tools, a stopped
+  `switchd`, or missing run evidence.
+- Extended the stage-1 preflight checks to cover the new status JSON fields and
+  browser rendering hooks.
+
+Next checkpoint:
+
+- Use the live Web page to run BDE smoke and init-probe dry-run once the next
+  image or hotfix is installed, then use the diagnostics output to choose the
+  next OpenBCM bring-up patch.
+
 ### Stage-5 SSH PTY And B2 FIT Rootfs Packaging Fix
 
 Completed:
