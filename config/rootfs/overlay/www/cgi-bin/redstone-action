@@ -129,21 +129,21 @@ case "$action" in
     capture)
         command_label='redstone-stage1-capture --verbose'
         command_override=${REDSTONE_CAPTURE_CMD:-}
-        command_default='redstone-stage1-capture --verbose'
+        command_default='/usr/sbin/redstone-stage1-capture --verbose'
         success_message='capture completed'
         failed_message='capture failed'
         ;;
     validate-capture)
         command_label='redstone-stage1-validate --capture'
         command_override=${REDSTONE_VALIDATE_CMD:-}
-        command_default='redstone-stage1-validate --capture'
+        command_default='/usr/sbin/redstone-stage1-validate --capture'
         success_message='validation capture completed'
         failed_message='validation capture failed'
         ;;
     bench-capture)
         command_label='redstone-stage1-bench-run --capture-only'
         command_override=${REDSTONE_BENCH_CMD:-}
-        command_default='redstone-stage1-bench-run --capture-only'
+        command_default='/usr/sbin/redstone-stage1-bench-run --capture-only'
         success_message='bench capture completed'
         failed_message='bench capture failed'
         ;;

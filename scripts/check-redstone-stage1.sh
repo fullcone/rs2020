@@ -673,6 +673,9 @@ check_grep 'redstone-mgmt-status' \
 check_grep 'redstone-mgmt-evidence' \
     "config/rootfs/overlay/www/cgi-bin/redstone-evidence" \
     "evidence CGI delegates to the read-only evidence provider"
+check_grep 'exec /usr/sbin/redstone-mgmt-evidence' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-evidence" \
+    "evidence CGI uses an absolute provider path"
 check_grep 'capture_runs' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
     "evidence provider lists capture runs"
@@ -697,12 +700,21 @@ check_grep 'action=bench-capture' \
 check_grep 'redstone-stage1-capture --verbose' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI runs the capture tool"
+check_grep '/usr/sbin/redstone-stage1-capture --verbose' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI uses an absolute capture tool path"
 check_grep 'redstone-stage1-validate --capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI runs non-strict validation capture"
+check_grep '/usr/sbin/redstone-stage1-validate --capture' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI uses an absolute validation tool path"
 check_grep 'redstone-stage1-bench-run --capture-only' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI runs capture-only bench evidence"
+check_grep '/usr/sbin/redstone-stage1-bench-run --capture-only' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-action" \
+    "management action CGI uses an absolute bench tool path"
 check_grep 'mkdir "\$LOCK_DIR"' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI uses a single-action lock"
@@ -1071,6 +1083,7 @@ echo "Return bench run evidence directory to the host: /var/log/redstone-stage1/
 EOF
 
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=capture \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/action.lock" \
@@ -1089,6 +1102,7 @@ EOF
     fi
 
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=validate-capture \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/validate-actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/validate.lock" \
@@ -1103,6 +1117,7 @@ EOF
     fi
 
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=bench-capture \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/bench-actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/bench.lock" \
@@ -1117,6 +1132,7 @@ EOF
     fi
 
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=reset \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/reject-actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/reject.lock" \
@@ -1130,6 +1146,7 @@ EOF
 
     mkdir "$tmpdir/held.lock"
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=capture \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/locked-actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/held.lock" \
@@ -1143,6 +1160,7 @@ EOF
 
     : > "$tmpdir/not-a-lock-dir"
     REQUEST_METHOD=POST \
+        PATH=/usr/bin:/bin \
         QUERY_STRING=action=capture \
         REDSTONE_WEB_ACTION_DIR="$tmpdir/lock-failed-actions" \
         REDSTONE_WEB_ACTION_LOCK="$tmpdir/not-a-lock-dir" \
