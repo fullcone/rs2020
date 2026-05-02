@@ -86,7 +86,9 @@ uses `redstone-mgmt-status` through `/cgi-bin/redstone-status` to show eth1,
 BCM56846, BDE, switchd, selected BCM config, original SDK reference manifest,
 and evidence paths. It also uses `redstone-mgmt-evidence` through
 `/cgi-bin/redstone-evidence` to browse recent capture, validation, bench, and
-web-action runs. Browser actions that run SDK reset-risk, flash, ONIE install,
+web-action runs, and `redstone-mgmt-artifact` through
+`/cgi-bin/redstone-artifact` to show safe direct run files, log tails, and
+download links. Browser actions that run SDK reset-risk, flash, ONIE install,
 or U-Boot environment writes remain out of scope until explicitly reviewed. See
 `docs/redstone_web_mgmt_plan.md`.
 
@@ -94,6 +96,23 @@ The current eth1 management-port fix assumes the U-Boot-good BCM54616S/SerDes
 state is present when Linux starts. For a later USB/flash boot path that does
 not first use U-Boot networking, add a separate gate to replicate or prove the
 U-Boot SGMII initialization before treating management Ethernet as solved.
+
+### Direct USB/flash boot management matrix
+
+The current proven path is `U-Boot TFTP on eTSEC2 -> Linux preserves the
+U-Boot-good BCM54616S/SerDes state -> eth1 TFTP succeeds`. Before claiming a
+USB or flash boot that skips U-Boot networking is equivalent, collect this
+matrix:
+
+| Boot path | Required evidence | Pass condition |
+| --- | --- | --- |
+| U-Boot TFTP first | `Redstone BCM54616S: preserve-uboot-sgmii`, `Redstone TBI`, eth1 TFTP GET | baseline good path |
+| U-Boot USB without prior network | early BCM54616S/TBI register dump, eth1 TFTP GET | same register state or Linux-side init reproduces it |
+| Flash boot without prior network | early BCM54616S/TBI register dump, eth1 TFTP GET | same register state or Linux-side init reproduces it |
+| Linux-side replicated init | explicit kernel log naming each replicated PHY/SerDes write | succeeds without relying on prior U-Boot network use |
+
+Until that matrix is filled, the management Ethernet issue is solved only for
+the U-Boot-preserved development boot path.
 
 The recommended first bench sequence is:
 

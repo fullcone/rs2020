@@ -150,6 +150,22 @@
             </section>
           </div>
         </article>
+
+        <article class="panel wide" id="artifact-detail-panel">
+          <div class="panel-heading">
+            <h2>Run Detail</h2>
+            <a id="artifact-download" class="button-link disabled" href="#" aria-disabled="true">Download</a>
+          </div>
+          <dl>
+            <div><dt>Kind</dt><dd id="artifact-kind">none</dd></div>
+            <div><dt>Run</dt><dd id="artifact-run">none</dd></div>
+            <div><dt>File</dt><dd id="artifact-file">none</dd></div>
+            <div><dt>Size</dt><dd id="artifact-size">none</dd></div>
+            <div><dt>Status</dt><dd id="artifact-status">none</dd></div>
+            <div><dt>Path</dt><dd id="artifact-path">none</dd></div>
+          </dl>
+          <pre id="artifact-tail" class="artifact-tail">Select a run artifact.</pre>
+        </article>
       </div>
     </section>
 
@@ -162,6 +178,9 @@
             <div><dt>Split</dt><dd id="sdk-split">unknown</dd></div>
             <div><dt>Generated Config</dt><dd id="sdk-config-sha">unknown</dd></div>
             <div><dt>Generated PHY</dt><dd id="sdk-phy-sha">unknown</dd></div>
+            <div><dt>Original Tuning</dt><dd id="sdk-original-tuning">unknown</dd></div>
+            <div><dt>PHY84848</dt><dd id="sdk-phy84848">unknown</dd></div>
+            <div><dt>FXE52</dt><dd id="sdk-fxe52">unknown</dd></div>
           </dl>
         </article>
 
@@ -172,6 +191,10 @@
             <div><dt>BCM56846 PCIe</dt><dd id="hardware-bcm">unknown</dd></div>
             <div><dt>BDE Nodes</dt><dd id="hardware-bde">unknown</dd></div>
             <div><dt>OpenBCM Probe</dt><dd id="hardware-probe">unknown</dd></div>
+            <div><dt>OpenBCM Tools</dt><dd id="hardware-tools">unknown</dd></div>
+            <div><dt>Validation Gate</dt><dd id="hardware-validation">unknown</dd></div>
+            <div><dt>OpenBCM Gate</dt><dd id="hardware-openbcm-gate">unknown</dd></div>
+            <div><dt>Direct Boot Gate</dt><dd id="direct-boot-gate">manual evidence required</dd></div>
           </dl>
         </article>
       </div>
@@ -183,9 +206,17 @@
           <h2>Next Gates</h2>
           <dl>
             <div><dt>1</dt><dd>Capture evidence browser and safe action logs</dd></div>
-            <div><dt>2</dt><dd>OpenBCM BDE smoke evidence</dd></div>
-            <div><dt>3</dt><dd>Init-probe dry run with original-active config</dd></div>
-            <div><dt>4</dt><dd>Single front-panel link validation</dd></div>
+            <div><dt>2</dt><dd>Safe artifact details and downloads</dd></div>
+            <div><dt>3</dt><dd>Action completion polling and log surfacing</dd></div>
+            <div><dt>4</dt><dd>Hardware status and original SDK reference gates</dd></div>
+            <div><dt>5</dt><dd>OpenBCM BDE smoke evidence</dd></div>
+            <div><dt>6</dt><dd>Init-probe dry run with original-active config</dd></div>
+            <div><dt>7</dt><dd>Evidence analysis results in the UI</dd></div>
+            <div><dt>8</dt><dd>Log quality cleanup and explicit failure states</dd></div>
+            <div><dt>9</dt><dd>Original Redstone behavior comparison</dd></div>
+            <div><dt>10</dt><dd>Direct USB/flash boot SerDes validation design</dd></div>
+            <div><dt>11</dt><dd>Web management polish for operator use</dd></div>
+            <div><dt>12</dt><dd>PR verification, push, and re-review request</dd></div>
           </dl>
         </article>
       </div>

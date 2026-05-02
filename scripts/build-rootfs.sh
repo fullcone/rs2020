@@ -166,9 +166,11 @@ assemble() {
         usr/sbin/redstone-stage1-capture \
         usr/sbin/redstone-stage1-validate \
         usr/sbin/redstone-stage1-bench-run \
+        usr/sbin/redstone-mgmt-artifact \
         usr/sbin/redstone-mgmt-evidence \
         usr/sbin/redstone-mgmt-status \
         usr/sbin/redstone-mgmt-web \
+        www/cgi-bin/redstone-artifact \
         www/cgi-bin/redstone-evidence \
         www/cgi-bin/redstone-status \
         www/cgi-bin/redstone-action

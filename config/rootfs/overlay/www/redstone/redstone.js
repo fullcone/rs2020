@@ -1,6 +1,9 @@
 const statusUrl = "/cgi-bin/redstone-status";
 const evidenceUrl = "/cgi-bin/redstone-evidence";
 const actionUrl = "/cgi-bin/redstone-action";
+const artifactUrl = "/cgi-bin/redstone-artifact";
+
+let actionPollTimer = null;
 
 const text = (id, value) => {
   const node = document.getElementById(id);
@@ -17,6 +20,19 @@ const stateClass = (id, state) => {
 const yesNo = (value) => (value ? "yes" : "no");
 const pathOrNone = (value) => value || "none";
 const exitLabel = (value) => (value === undefined || value === "" ? "not run" : `exit ${value}`);
+const boolLabel = (value) => {
+  if (value === true || value === "true") return "yes";
+  if (value === false || value === "false") return "no";
+  return value || "unknown";
+};
+
+const bytesLabel = (value) => {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+};
 
 const linkLabel = (eth) => {
   if (!eth || !eth.present) return "missing";
@@ -70,13 +86,16 @@ const benchState = (run) => {
   return run.validate_exit === "0" ? "ok" : "bad";
 };
 
+const artifactRequest = (kind, run, file, download = false) =>
+  `${artifactUrl}?kind=${encodeURIComponent(kind)}&run=${encodeURIComponent(run)}&file=${encodeURIComponent(file)}${download ? "&download=1" : ""}`;
+
 async function fetchJson(url) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`${url} ${response.status}`);
   return response.json();
 }
 
-function runRow({ title, state, lines, tail }) {
+function runRow({ title, state, lines, tail, actions }) {
   const row = document.createElement("div");
   row.className = "run-row";
   if (state) row.classList.add(state);
@@ -96,6 +115,29 @@ function runRow({ title, state, lines, tail }) {
     pre.className = "run-tail";
     pre.textContent = tail;
     row.appendChild(pre);
+  }
+
+  if (actions && actions.length) {
+    const actionRow = document.createElement("div");
+    actionRow.className = "run-actions";
+    actions.forEach((action) => {
+      if (action.href) {
+        const link = document.createElement("a");
+        link.className = "button-link compact";
+        link.href = action.href;
+        link.textContent = action.label;
+        actionRow.appendChild(link);
+        return;
+      }
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "compact";
+      button.textContent = action.label;
+      button.addEventListener("click", action.onClick);
+      actionRow.appendChild(button);
+    });
+    row.appendChild(actionRow);
   }
 
   return row;
@@ -124,6 +166,11 @@ function renderEvidence(evidence) {
       run.path,
     ],
     tail: run.summary_head,
+    actions: [
+      { label: "Files", onClick: () => showArtifact("capture", run.name, "_files") },
+      { label: "Summary", onClick: () => showArtifact("capture", run.name, "capture-summary.txt") },
+      ...(run.archive_exists ? [{ label: "Archive", href: artifactRequest("capture", run.name, "archive", true) }] : []),
+    ],
   }));
 
   renderRuns("validation-runs", evidence.validation_runs, (run) => ({
@@ -135,6 +182,12 @@ function renderEvidence(evidence) {
       run.path,
     ],
     tail: run.log_tail,
+    actions: [
+      { label: "Files", onClick: () => showArtifact("validation", run.name, "_files") },
+      { label: "Log", onClick: () => showArtifact("validation", run.name, "validate.log") },
+      { label: "Probe", onClick: () => showArtifact("validation", run.name, "openbcm_init_probe_dry_run.txt") },
+      ...(run.bundle_exists ? [{ label: "Bundle", href: artifactRequest("validation", run.name, "archive", true) }] : []),
+    ],
   }));
 
   renderRuns("bench-runs", evidence.bench_runs, (run) => ({
@@ -146,6 +199,11 @@ function renderEvidence(evidence) {
       run.path,
     ],
     tail: run.log_tail,
+    actions: [
+      { label: "Files", onClick: () => showArtifact("bench", run.name, "_files") },
+      { label: "Log", onClick: () => showArtifact("bench", run.name, "bench-run.log") },
+      { label: "Validator", onClick: () => showArtifact("bench", run.name, "validate-console.log") },
+    ],
   }));
 
   renderRuns("action-runs", evidence.web_actions, (run) => ({
@@ -157,6 +215,12 @@ function renderEvidence(evidence) {
       pathOrNone(run.log),
     ],
     tail: run.log_tail,
+    actions: [
+      { label: "Files", onClick: () => showArtifact("action", run.name, "_files") },
+      { label: "Log", onClick: () => showArtifact("action", run.name, "action.log") },
+      { label: "Result", onClick: () => showArtifact("action", run.name, "result.env") },
+      { label: "Download", href: artifactRequest("action", run.name, "action.log", true) },
+    ],
   }));
 }
 
@@ -173,6 +237,7 @@ function renderStatus(data) {
   const bench = evidence.bench_summary || {};
   const probe = evidence.init_probe_dry_run || {};
   const webAction = data.web_action || {};
+  const tools = data.tools || {};
 
   text("board", data.board);
   text("split-mode", cfg.split_mode);
@@ -193,6 +258,9 @@ function renderStatus(data) {
   text("sdk-split", sdk.split_interfaces || "unknown");
   text("sdk-config-sha", sdk.generated_config_sha256 || "unavailable");
   text("sdk-phy-sha", sdk.generated_phy_sha256 || "unavailable");
+  text("sdk-original-tuning", boolLabel(sdk.has_original_global_tuning));
+  text("sdk-phy84848", boolLabel(sdk.has_phy_84848));
+  text("sdk-fxe52", sdk.fxe52_unsplit === "true" ? "unsplit 40G" : boolLabel(sdk.fxe52_unsplit));
   text("latest-capture-dir", pathOrNone(evidence.latest_capture_dir));
   text("latest-capture-archive", pathOrNone(evidence.latest_capture_archive));
   text("latest-validate-dir", pathOrNone(evidence.latest_validate_dir));
@@ -215,6 +283,13 @@ function renderStatus(data) {
   text("hardware-bcm", bcm.pci_present ? `${bcm.slot || "present"} ${bcm.driver || "no driver"}` : "missing");
   text("hardware-bde", `${yesNo(bde.kernel_node && bde.user_node)} nodes`);
   text("hardware-probe", probeLabel(probe));
+  text(
+    "hardware-tools",
+    `smoke=${yesNo(tools.redstone_openbcm_bde_smoke)} probe=${yesNo(tools.redstone_openbcm_init_probe)}`,
+  );
+  text("hardware-validation", validationLabel(validation));
+  text("hardware-openbcm-gate", `BDE ${exitLabel(bench.bde_smoke_exit)}, probe ${probeLabel(probe)}`);
+  text("direct-boot-gate", eth.carrier === "1" ? "U-Boot-preserved SGMII proven; direct boot still pending" : "manual SerDes evidence required");
 
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
@@ -230,6 +305,47 @@ function renderStatus(data) {
   stateClass("hardware-bcm", bcm.pci_present ? "ok" : "bad");
   stateClass("hardware-bde", bde.kernel_node && bde.user_node ? "ok" : "warn");
   stateClass("hardware-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : "warn");
+  stateClass("hardware-tools", tools.redstone_openbcm_bde_smoke && tools.redstone_openbcm_init_probe ? "ok" : "warn");
+  stateClass("hardware-validation", validationState(validation));
+  stateClass("hardware-openbcm-gate", bench.bde_smoke_exit === "0" && probe.exists && probe.exit === "0" ? "ok" : "warn");
+  stateClass("direct-boot-gate", "warn");
+}
+
+async function showArtifact(kind, run, file) {
+  text("artifact-kind", kind);
+  text("artifact-run", run);
+  text("artifact-file", file);
+  text("artifact-status", "loading");
+  text("artifact-size", "unknown");
+  text("artifact-path", "unknown");
+  text("artifact-tail", "Loading artifact...");
+  stateClass("artifact-status", "warn");
+
+  const download = document.getElementById("artifact-download");
+  if (download) {
+    download.classList.add("disabled");
+    download.setAttribute("aria-disabled", "true");
+    download.setAttribute("href", "#");
+  }
+
+  try {
+    const artifact = await fetchJson(artifactRequest(kind, run, file));
+    text("artifact-status", artifact.status || "unknown");
+    text("artifact-size", bytesLabel(artifact.size));
+    text("artifact-path", artifact.path || "none");
+    text("artifact-tail", artifact.tail || (artifact.files || []).join("\n") || artifact.message || "No content.");
+    stateClass("artifact-status", artifact.status === "ok" ? "ok" : "bad");
+
+    if (download && artifact.download_url && artifact.status === "ok") {
+      download.href = artifact.download_url;
+      download.classList.remove("disabled");
+      download.removeAttribute("aria-disabled");
+    }
+  } catch (error) {
+    text("artifact-status", `error: ${error.message}`);
+    text("artifact-tail", `Artifact unavailable: ${error.message}`);
+    stateClass("artifact-status", "bad");
+  }
 }
 
 async function refreshEvidence() {
@@ -241,6 +357,21 @@ async function refresh() {
   const data = await fetchJson(statusUrl);
   renderStatus(data);
   await refreshEvidence();
+}
+
+function startActionPolling() {
+  if (actionPollTimer) clearInterval(actionPollTimer);
+  const stopAt = Date.now() + 30000;
+  actionPollTimer = setInterval(() => {
+    refresh().catch((error) => {
+      text("generated-at", `status unavailable: ${error.message}`);
+      stateClass("generated-at", "bad");
+    });
+    if (Date.now() > stopAt) {
+      clearInterval(actionPollTimer);
+      actionPollTimer = null;
+    }
+  }, 2500);
 }
 
 function setActionButtons(disabled) {
@@ -271,6 +402,7 @@ async function runAction(action) {
     stateClass("action-state", actionState(result));
     stateClass("latest-action", actionState(result));
     await refresh();
+    startActionPolling();
   } catch (error) {
     text("action-state", `action failed: ${error.message}`);
     stateClass("action-state", "bad");

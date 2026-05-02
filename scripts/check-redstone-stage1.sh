@@ -108,9 +108,11 @@ check_file "config/bcm/redstone-original-active-sdk.manifest"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-capture"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-validate"
 check_file "config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run"
+check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-status"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
+check_file "config/rootfs/overlay/www/cgi-bin/redstone-artifact"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-evidence"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-status"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-action"
@@ -186,10 +188,14 @@ check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
     "build-rootfs installs optional Redstone OpenBCM init probe"
 check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone bench runner executable mode"
+check_grep 'redstone-mgmt-artifact' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone artifact provider executable mode"
 check_grep 'redstone-mgmt-evidence' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone evidence provider executable mode"
 check_grep 'redstone-mgmt-status' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone management status executable mode"
+check_grep 'www/cgi-bin/redstone-artifact' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone artifact CGI executable mode"
 check_grep 'www/cgi-bin/redstone-evidence' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone evidence CGI executable mode"
 check_grep 'www/cgi-bin/redstone-status' "scripts/build-rootfs.sh" \
@@ -204,10 +210,14 @@ check_grep 'Redstone stage-1 manual management links' "config/rootfs/post-build.
     "Redstone post-build keeps eTSEC management links manual"
 check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" \
     "Redstone post-build repairs sshd /var/empty permissions at runtime"
+check_grep 'redstone-mgmt-artifact' "config/rootfs/post-build.sh" \
+    "Redstone post-build normalizes management artifact script"
 check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management status script"
 check_grep 'redstone-mgmt-evidence' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management evidence script"
+check_grep 'www/cgi-bin/redstone-artifact' "config/rootfs/post-build.sh" \
+    "Redstone post-build marks artifact CGI executable"
 check_grep 'www/cgi-bin/redstone-evidence' "config/rootfs/post-build.sh" \
     "Redstone post-build marks evidence CGI executable"
 check_grep 'www/cgi-bin/redstone-status' "config/rootfs/post-build.sh" \
@@ -670,6 +680,12 @@ check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space
 check_grep 'redstone-mgmt-status' \
     "config/rootfs/overlay/www/cgi-bin/redstone-status" \
     "management CGI delegates to the read-only status provider"
+check_grep 'redstone-mgmt-artifact' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-artifact" \
+    "artifact CGI delegates to the read-only artifact provider"
+check_grep 'exec /usr/sbin/redstone-mgmt-artifact' \
+    "config/rootfs/overlay/www/cgi-bin/redstone-artifact" \
+    "artifact CGI uses an absolute provider path"
 check_grep 'redstone-mgmt-evidence' \
     "config/rootfs/overlay/www/cgi-bin/redstone-evidence" \
     "evidence CGI delegates to the read-only evidence provider"
@@ -688,6 +704,21 @@ check_grep 'bench_runs' \
 check_grep 'web_actions' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
     "evidence provider lists web actions"
+check_grep 'redstone-mgmt-artifact.v1' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider emits a versioned schema"
+check_grep 'resolve_run_dir' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider constrains reads to known run directories"
+check_grep 'file_key.*_files|emit_file_list' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider can list run files for development diagnostics"
+check_grep 'Content-Disposition: attachment' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider supports safe downloads"
+check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider does not expose destructive actions"
 check_grep 'action=capture' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI accepts the capture action"
@@ -790,6 +821,18 @@ check_grep 'bench-runs' \
 check_grep 'action-runs' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays web action evidence runs"
+check_grep 'artifact-detail-panel' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays artifact details"
+check_grep 'artifact-download' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page exposes artifact downloads"
+check_grep 'OpenBCM Tools' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays OpenBCM tool readiness"
+check_grep 'Direct Boot Gate' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays direct-boot management Ethernet caveat"
 check_grep 'validationLabel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI formats validation summary"
@@ -805,6 +848,21 @@ check_grep 'redstone-action[?]action=capture|actionUrl' \
 check_grep 'redstone-evidence|evidenceUrl' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI calls the evidence endpoint"
+check_grep 'redstone-artifact|artifactUrl' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI calls the artifact endpoint"
+check_grep 'startActionPolling' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI polls status after web actions"
+check_grep 'showArtifact' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders artifact detail content"
+check_grep '_files' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI can list files in a run directory"
+check_grep 'artifact-tail' \
+    "config/rootfs/overlay/www/redstone/redstone.css" \
+    "management stylesheet formats artifact detail text"
 check_grep 'validate-capture' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management UI can run validation capture"
@@ -815,8 +873,12 @@ check_grep 'redstone-mgmt-status' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the read-only status provider"
 check_grep 'redstone-mgmt-evidence' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the read-only evidence provider"
+check_grep 'redstone-mgmt-artifact' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the artifact provider"
 check_grep 'redstone-evidence' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the evidence CGI endpoint"
+check_grep 'redstone-artifact' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents the artifact CGI endpoint"
 check_grep 'redstone-action[?]action=capture' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the capture action endpoint"
 check_grep 'redstone-action[?]action=validate-capture' "docs/redstone_web_mgmt_plan.md" \
@@ -831,8 +893,12 @@ check_grep 'redstone-mgmt-web' "docs/redstone_stage1_plan.md" \
     "stage plan documents manual web management launcher"
 check_grep 'redstone-mgmt-evidence' "docs/redstone_stage1_plan.md" \
     "stage plan documents the web evidence provider"
+check_grep 'redstone-mgmt-artifact' "docs/redstone_stage1_plan.md" \
+    "stage plan documents the web artifact provider"
 check_grep 'U-Boot-good BCM54616S/SerDes' "docs/redstone_stage1_plan.md" \
     "stage plan records the management SGMII boot caveat"
+check_grep 'Direct USB/flash boot management matrix' "docs/redstone_stage1_plan.md" \
+    "stage plan records the direct boot management validation matrix"
 check_grep 'redstone-original-active-sdk' "docs/redstone_stage1_plan.md" \
     "stage plan documents the original-active SDK reference manifest"
 check_grep 'redstone-original-active-sdk' "docs/redstone_progress.md" \
@@ -1032,6 +1098,85 @@ EOF
     rm -rf "$tmpdir"
 }
 
+check_mgmt_artifact_provider() {
+    tmpdir=$(mktemp -d)
+    evidence="$tmpdir/evidence"
+    mkdir -p \
+        "$evidence/20260304T010203Z" \
+        "$evidence/validate-20260304T010204Z" \
+        "$evidence/bench-run-20260304T010205Z" \
+        "$evidence/web-actions/20260304T010206Z-capture"
+
+    cat > "$evidence/20260304T010203Z/capture-summary.txt" <<EOF
+capture summary first
+capture summary second
+EOF
+    printf 'registers\n' > "$evidence/20260304T010203Z/gianfar_registers.txt"
+    printf 'archive bytes\n' > "$evidence/20260304T010203Z.tar.gz"
+    printf 'PASS: validation\n' > "$evidence/validate-20260304T010204Z/validate.log"
+    printf 'bench log\n' > "$evidence/bench-run-20260304T010205Z/bench-run.log"
+    printf 'action log\n' > "$evidence/web-actions/20260304T010206Z-capture/action.log"
+
+    REQUEST_METHOD=GET \
+        QUERY_STRING='kind=capture&run=20260304T010203Z&file=capture-summary.txt' \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" > "$tmpdir/artifact.json"
+    if grep -q '"schema": "redstone-mgmt-artifact.v1"' "$tmpdir/artifact.json" && \
+        grep -q '"status": "ok"' "$tmpdir/artifact.json" && \
+        grep -q 'capture summary second' "$tmpdir/artifact.json" && \
+        grep -q '"download_url":' "$tmpdir/artifact.json"; then
+        ok "artifact provider returns safe capture file details"
+    else
+        fail "artifact provider did not return capture file details"
+    fi
+
+    REQUEST_METHOD=GET \
+        QUERY_STRING='kind=capture&run=20260304T010203Z&file=gianfar_registers.txt' \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" > "$tmpdir/registers.json"
+    if grep -q '"status": "ok"' "$tmpdir/registers.json" && \
+        grep -q 'registers' "$tmpdir/registers.json"; then
+        ok "artifact provider allows development access to safe run files"
+    else
+        fail "artifact provider blocked a safe run file"
+    fi
+
+    REQUEST_METHOD=GET \
+        QUERY_STRING='kind=capture&run=20260304T010203Z&file=_files' \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" > "$tmpdir/files.json"
+    if grep -q '"files":' "$tmpdir/files.json" && \
+        grep -q '"capture-summary.txt"' "$tmpdir/files.json" && \
+        grep -q '"gianfar_registers.txt"' "$tmpdir/files.json"; then
+        ok "artifact provider lists direct run files"
+    else
+        fail "artifact provider did not list direct run files"
+    fi
+
+    REQUEST_METHOD=GET \
+        QUERY_STRING='kind=capture&run=20260304T010203Z&file=archive&download=1' \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" > "$tmpdir/download.bin"
+    if grep -q 'Content-Disposition: attachment; filename="20260304T010203Z.tar.gz"' "$tmpdir/download.bin" && \
+        grep -q 'archive bytes' "$tmpdir/download.bin"; then
+        ok "artifact provider serves safe run downloads"
+    else
+        fail "artifact provider did not serve safe run download"
+    fi
+
+    REQUEST_METHOD=GET \
+        QUERY_STRING='kind=capture&run=../bad&file=capture-summary.txt' \
+        REDSTONE_CAPTURE_DIR="$evidence" \
+        sh "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" > "$tmpdir/reject.json"
+    if grep -q '"status": "rejected"' "$tmpdir/reject.json"; then
+        ok "artifact provider rejects path traversal selectors"
+    else
+        fail "artifact provider did not reject path traversal selectors"
+    fi
+
+    rm -rf "$tmpdir"
+}
+
 check_mgmt_status_missing_validation_log() {
     tmpdir=$(mktemp -d)
     evidence="$tmpdir/evidence"
@@ -1180,6 +1325,7 @@ if command -v mktemp >/dev/null 2>&1; then
     check_mgmt_status_portmap_formats
     check_mgmt_status_evidence_index
     check_mgmt_evidence_index
+    check_mgmt_artifact_provider
     check_mgmt_status_missing_validation_log
     check_web_action_cgi
     check_unusable_explicit_dir \
@@ -1264,9 +1410,11 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-status \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-web \
+        config/rootfs/overlay/www/cgi-bin/redstone-artifact \
         config/rootfs/overlay/www/cgi-bin/redstone-evidence \
         config/rootfs/overlay/www/cgi-bin/redstone-status \
         config/rootfs/overlay/www/cgi-bin/redstone-action \
@@ -1501,6 +1649,15 @@ if command -v git >/dev/null 2>&1; then
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-mgmt-artifact is tracked executable"
+    else
+        fail "redstone-mgmt-artifact git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence |
         awk '{print $1; exit}')
     if [ "$mode" = "100755" ]; then
@@ -1525,6 +1682,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-mgmt-web is tracked executable"
     else
         fail "redstone-mgmt-web git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/www/cgi-bin/redstone-artifact |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "redstone-artifact CGI is tracked executable"
+    else
+        fail "redstone-artifact CGI git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

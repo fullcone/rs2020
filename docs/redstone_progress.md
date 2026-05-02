@@ -2158,6 +2158,31 @@ Verified:
 The full preflight includes fake-CGI regression coverage for successful
 capture, unsupported action rejection, and already-running lock reporting.
 
+## 2026-05-02 Web Evidence Detail and Development Diagnostics
+
+Added the next development web-management slice:
+
+- `redstone-mgmt-artifact` is a read-only provider for run artifact details,
+  direct file lists, and safe downloads below the fixed capture, validation,
+  bench, and web-action evidence roots.
+- `/cgi-bin/redstone-artifact` delegates to that provider using an absolute
+  path.
+- The management page now adds run-level file listing, log/detail buttons, and
+  download links for available bundles or action logs.
+- The page polls status and evidence briefly after web-triggered actions so the
+  latest action evidence appears without a manual refresh.
+- The hardware view now surfaces OpenBCM tool availability, validation status,
+  OpenBCM gate status, original SDK reference detail, and the direct-boot
+  management Ethernet caveat.
+
+Development policy:
+
+- Read-only diagnostic exposure is intentionally broad for development builds:
+  direct safe filenames inside fixed evidence run directories can be opened from
+  the browser.
+- Destructive paths remain outside the browser: no flash write, ONIE install,
+  `saveenv`, or SDK reset-risk exec action is exposed.
+
 ### Stage-4 Follow-Up: Original Kernel IDA and ECNTRL/TBI Ordering
 
 Completed:

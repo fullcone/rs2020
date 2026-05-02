@@ -10,6 +10,7 @@ browser.
 - Serve a static page from `/www/redstone/`.
 - Serve status JSON through `/cgi-bin/redstone-status`.
 - Serve recent evidence JSON through `/cgi-bin/redstone-evidence`.
+- Serve safe run artifact details and downloads through `/cgi-bin/redstone-artifact`.
 - Serve the capture-only action through `/cgi-bin/redstone-action?action=capture`.
 - Serve non-strict validation capture through
   `/cgi-bin/redstone-action?action=validate-capture`.
@@ -19,6 +20,8 @@ browser.
 - Bind to `127.0.0.1:8080` by default.
 - Reuse `redstone-mgmt-status` for status and `redstone-mgmt-evidence` for
   recent run lists.
+- Reuse `redstone-mgmt-artifact` for fixed-run file details, direct file lists,
+  and downloads.
 - Store web action logs under `/var/log/redstone-stage1/web-actions`.
 
 ## Current Status Fields
@@ -47,6 +50,21 @@ action runs from the configured Redstone evidence directories. It returns only
 fixed-directory indexes and log excerpts; it does not accept arbitrary path
 inputs.
 
+`redstone-mgmt-artifact` reports or downloads files only from these fixed run
+directories:
+
+- capture runs below `/var/log/redstone-stage1/<run>`,
+- validation runs below `/var/log/redstone-stage1/validate-*`,
+- bench runs below `/var/log/redstone-stage1/bench-run-*`,
+- web action runs below `/var/log/redstone-stage1/web-actions/<run>`.
+
+For development builds, it intentionally allows any direct file with a safe
+basename inside one of those run directories, plus the known run tarball sidecar
+where present. `file=_files` lists direct files in the selected run directory
+so operators can expose new diagnostic captures in the browser without changing
+the UI first. It still rejects slash, backslash, dot-dot, hidden-name, and
+non-token selectors.
+
 ## Safety Boundary
 
 The first web slice must not:
@@ -69,6 +87,10 @@ Current actions:
 1. `capture`: runs `redstone-stage1-capture --verbose`.
 2. `validate-capture`: runs `redstone-stage1-validate --capture`.
 3. `bench-capture`: runs `redstone-stage1-bench-run --capture-only`.
+
+The browser polls status and evidence briefly after each action returns so the
+latest action result, generated evidence, and log tail converge without a manual
+refresh.
 
 Remaining explicit CGI actions should be added in this order:
 

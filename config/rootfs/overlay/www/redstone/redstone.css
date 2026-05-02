@@ -90,6 +90,37 @@ button:disabled {
   opacity: 0.72;
 }
 
+.button-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-link:hover {
+  border-color: var(--accent);
+}
+
+.button-link.disabled {
+  color: var(--muted);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.compact {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .status-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -241,6 +272,27 @@ dd {
   padding-top: 8px;
   color: var(--muted);
   font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+}
+
+.run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.artifact-tail {
+  min-height: 160px;
+  max-height: 360px;
+  margin: 16px 0 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbfc;
+  padding: 12px;
+  color: var(--ink);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   white-space: pre-wrap;
 }
 
