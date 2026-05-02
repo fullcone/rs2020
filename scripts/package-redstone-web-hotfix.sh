@@ -77,12 +77,24 @@ EOF
 
 copy_rootfs_file() {
     rel=$1
-    if [ -f "$STAGING/$rel" ]; then
-        copy_file "$STAGING/$rel" "$WORKDIR/$rel"
-    elif [ -f "$TOPDIR/config/rootfs/overlay/$rel" ]; then
+    if [ -f "$TOPDIR/config/rootfs/overlay/$rel" ]; then
         copy_file "$TOPDIR/config/rootfs/overlay/$rel" "$WORKDIR/$rel"
+    elif [ -f "$STAGING/$rel" ]; then
+        copy_file "$STAGING/$rel" "$WORKDIR/$rel"
     else
         fail "missing required file: $STAGING/$rel"
+    fi
+}
+
+copy_rootfs_tree() {
+    rel=$1
+    mkdir -p "$(dirname "$WORKDIR/$rel")"
+    if [ -d "$TOPDIR/config/rootfs/overlay/$rel" ]; then
+        cp -a "$TOPDIR/config/rootfs/overlay/$rel" "$(dirname "$WORKDIR/$rel")/"
+    elif [ -d "$STAGING/$rel" ]; then
+        cp -a "$STAGING/$rel" "$(dirname "$WORKDIR/$rel")/"
+    else
+        fail "missing required directory: $STAGING/$rel"
     fi
 }
 
@@ -113,7 +125,7 @@ package() {
 
     require_dir "$STAGING"
     require_file "$STAGING/bin/busybox"
-    require_file "$STAGING/usr/sbin/redstone-mgmt-web"
+    require_file "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
     require_file "$TOPDIR/config/bcm/redstone-stage1.bcm"
     require_file "$TOPDIR/config/bcm/redstone-original-active-sdk.manifest"
 
@@ -143,9 +155,7 @@ package() {
         copy_rootfs_file etc/edgenos/board
     fi
 
-    require_dir "$STAGING/www/redstone"
-    mkdir -p "$WORKDIR/www"
-    cp -a "$STAGING/www/redstone" "$WORKDIR/www/"
+    copy_rootfs_tree www/redstone
 
     mkdir -p "$WORKDIR/etc/switchd"
     cp -p "$TOPDIR/config/bcm/"* "$WORKDIR/etc/switchd/"

@@ -305,6 +305,12 @@ check_grep 'realpath -m' \
 check_grep 'config/rootfs/overlay' \
     "scripts/package-redstone-web-hotfix.sh" \
     "Redstone web hotfix package can fall back to overlay files before rebuild"
+check_grep 'if \[ -f "\$TOPDIR/config/rootfs/overlay/\$rel" \]' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package prefers current overlay files over stale staging files"
+check_grep 'copy_rootfs_tree www/redstone' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package prefers current overlay web assets"
 check_grep 'First Hardware Boot Policy' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook starts with a non-destructive first-boot policy"
@@ -816,6 +822,9 @@ check_grep 'redstone|rs2020|r0678' \
 check_grep 'ps[[:space:]]*\|[[:space:]]*while read' \
     "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
     "management web init can stop orphaned hotfix httpd processes"
+check_grep '/proc/\$pid/cmdline' \
+    "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
+    "management web init identifies orphaned httpd processes by command line"
 check_grep 'redstone-httpd/httpd' \
     "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
     "management web init stop path matches fallback httpd processes"
