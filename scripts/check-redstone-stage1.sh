@@ -813,6 +813,12 @@ check_grep 'redstone-mgmt-web' \
 check_grep 'redstone|rs2020|r0678' \
     "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
     "management web init is gated to Redstone board aliases"
+check_grep 'ps[[:space:]]*\|[[:space:]]*while read' \
+    "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
+    "management web init can stop orphaned hotfix httpd processes"
+check_grep 'redstone-httpd/httpd' \
+    "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
+    "management web init stop path matches fallback httpd processes"
 check_grep 'httpd_help_looks_usable' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-web" \
     "management web launcher validates httpd before exec"

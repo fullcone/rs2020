@@ -27,6 +27,18 @@ case "$1" in
             kill "$(cat /run/redstone-mgmt-web.pid 2>/dev/null)" 2>/dev/null || true
             rm -f /run/redstone-mgmt-web.pid
         fi
+        ps | while read -r pid rest; do
+            case "$pid" in
+                ''|PID|*[!0-9]*)
+                    continue
+                    ;;
+            esac
+            case "$rest" in
+                *redstone-mgmt-web*|*redstone-httpd/httpd*|*redstone-busybox*' httpd '*|*' httpd '*' -h /www'*|*' httpd '*'8080'*)
+                    kill "$pid" 2>/dev/null || true
+                    ;;
+            esac
+        done
         ;;
     restart)
         "$0" stop
