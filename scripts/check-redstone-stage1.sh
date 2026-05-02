@@ -122,6 +122,7 @@ check_file "config/rootfs/overlay/www/redstone/redstone.js"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
 check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
 check_file "config/rootfs/overlay/etc/init.d/S38devpts"
+check_file "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
 check_file "scripts/build-rootfs.sh"
 check_file "scripts/build-kernel.sh"
@@ -196,6 +197,8 @@ check_grep 'redstone-mgmt-evidence' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone evidence provider executable mode"
 check_grep 'redstone-mgmt-status' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone management status executable mode"
+check_grep 'S41redstone-mgmt-web' "scripts/build-rootfs.sh" \
+    "build-rootfs preserves Redstone management web init executable mode"
 check_grep 'www/cgi-bin/redstone-artifact' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone artifact CGI executable mode"
 check_grep 'www/cgi-bin/redstone-evidence' "scripts/build-rootfs.sh" \
@@ -220,6 +223,8 @@ check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management status script"
 check_grep 'redstone-mgmt-evidence' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management evidence script"
+check_grep 'redstone-httpd/httpd' "config/rootfs/post-build.sh" \
+    "Redstone post-build provisions fallback httpd applet symlink"
 check_grep 'www/cgi-bin/redstone-artifact' "config/rootfs/post-build.sh" \
     "Redstone post-build marks artifact CGI executable"
 check_grep 'www/cgi-bin/redstone-evidence' "config/rootfs/post-build.sh" \
@@ -240,6 +245,8 @@ check_grep 'cpio .* -R 0:0' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder writes root-owned initramfs entries"
 check_grep 'patch -p1 --forward --dry-run' "scripts/build-kernel.sh" \
     "build-kernel applies kernel patches idempotently"
+check_no_regex 'Skipping patch|hunks ignored' "scripts/build-kernel.sh" \
+    "build-kernel does not treat generic skipped hunks as already applied"
 check_grep 'vmlinux\.bin' "scripts/build-kernel.sh" \
     "build-kernel exports the raw PowerPC kernel payload for B2 FIT tests"
 check_grep 'Redstone TBI.*0xffff|BMSR read returned all ones' \
@@ -289,6 +296,15 @@ check_grep 'etc/switchd' \
 check_grep 'redstone-httpd/httpd' \
     "scripts/package-redstone-web-hotfix.sh" \
     "Redstone web hotfix package creates an applet-named httpd symlink"
+check_grep 'S41redstone-mgmt-web' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package includes default web init script"
+check_grep 'realpath -m' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package canonicalizes output and work paths"
+check_grep 'config/rootfs/overlay' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package can fall back to overlay files before rebuild"
 check_grep 'First Hardware Boot Policy' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook starts with a non-destructive first-boot policy"
@@ -788,12 +804,24 @@ check_grep '\[ -d "\$LOCK_DIR" \]' \
 check_no_regex 'i-accept-hardware-reset-risk|redstone-openbcm-init-probe[[:space:]]+--exec|saveenv|onie-nos-install' \
     "config/rootfs/overlay/www/cgi-bin/redstone-action" \
     "management action CGI does not expose destructive actions"
-check_grep '127[.]0[.]0[.]1:8080' \
+check_grep '0[.]0[.]0[.]0:8080' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-web" \
-    "management web launcher binds to loopback by default"
+    "management web launcher binds externally by default in development builds"
+check_grep 'redstone-mgmt-web' \
+    "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
+    "management web UI auto-starts from Redstone BusyBox init"
+check_grep 'redstone|rs2020|r0678' \
+    "config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web" \
+    "management web init is gated to Redstone board aliases"
+check_grep 'httpd_help_looks_usable' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-web" \
+    "management web launcher validates httpd before exec"
+check_grep 'httpd_help_looks_usable' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status validates runnable httpd applet availability"
 check_no_regex 'redstone-mgmt-web|httpd' \
     "config/rootfs/overlay/etc/init.d/S20edgenos" \
-    "management web UI is not auto-started by BusyBox init"
+    "legacy switchd init does not start the management web UI"
 check_no_regex 'redstone-mgmt-web|httpd' \
     "config/rootfs/overlay/etc/systemd/system/switchd.service" \
     "management web UI is not auto-started by switchd service"
@@ -966,12 +994,12 @@ check_grep 'redstone-action[?]action=validate-capture' "docs/redstone_web_mgmt_p
     "web management plan documents the validation capture action endpoint"
 check_grep 'redstone-action[?]action=bench-capture' "docs/redstone_web_mgmt_plan.md" \
     "web management plan documents the bench capture action endpoint"
-check_grep '127[.]0[.]0[.]1:8080' "docs/redstone_web_mgmt_plan.md" \
-    "web management plan documents loopback default bind"
+check_grep '0[.]0[.]0[.]0:8080' "docs/redstone_web_mgmt_plan.md" \
+    "web management plan documents development default bind"
 check_grep 'must not:' "docs/redstone_web_mgmt_plan.md" \
     "web management plan records safety boundaries"
 check_grep 'redstone-mgmt-web' "docs/redstone_stage1_plan.md" \
-    "stage plan documents manual web management launcher"
+    "stage plan documents web management launcher"
 check_grep 'redstone-mgmt-evidence' "docs/redstone_stage1_plan.md" \
     "stage plan documents the web evidence provider"
 check_grep 'redstone-mgmt-artifact' "docs/redstone_stage1_plan.md" \
@@ -1583,6 +1611,7 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
         config/rootfs/overlay/etc/init.d/S38devpts \
+        config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
@@ -1867,6 +1896,15 @@ if command -v git >/dev/null 2>&1; then
         ok "redstone-mgmt-web is tracked executable"
     else
         fail "redstone-mgmt-web git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/etc/init.d/S41redstone-mgmt-web |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "S41redstone-mgmt-web is tracked executable"
+    else
+        fail "S41redstone-mgmt-web git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

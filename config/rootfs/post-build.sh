@@ -81,6 +81,7 @@ for text_file in \
     "${TARGET_DIR}/www/cgi-bin/redstone-status" \
     "${TARGET_DIR}/www/cgi-bin/redstone-action" \
     "${TARGET_DIR}/etc/init.d/S38devpts" \
+    "${TARGET_DIR}/etc/init.d/S41redstone-mgmt-web" \
     "${TARGET_DIR}/usr/sbin/switchd-init"
 do
     [ -f "$text_file" ] && sed -i 's/\r$//' "$text_file"
@@ -149,6 +150,13 @@ EOF
 chmod 0755 "${TARGET_DIR}/etc/init.d/S39loopback"
 [ -f "${TARGET_DIR}/etc/init.d/S38devpts" ] && \
     chmod 0755 "${TARGET_DIR}/etc/init.d/S38devpts"
+[ -f "${TARGET_DIR}/etc/init.d/S41redstone-mgmt-web" ] && \
+    chmod 0755 "${TARGET_DIR}/etc/init.d/S41redstone-mgmt-web"
+
+if [ -x "${TARGET_DIR}/bin/busybox" ]; then
+    mkdir -p "${TARGET_DIR}/usr/sbin/redstone-httpd"
+    ln -snf ../../../bin/busybox "${TARGET_DIR}/usr/sbin/redstone-httpd/httpd"
+fi
 
 for script in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-artifact" \

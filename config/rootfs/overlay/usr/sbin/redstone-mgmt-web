@@ -3,7 +3,7 @@
 
 set -eu
 
-BIND=${REDSTONE_MGMT_BIND:-127.0.0.1:8080}
+BIND=${REDSTONE_MGMT_BIND:-0.0.0.0:8080}
 DOCROOT=${REDSTONE_MGMT_DOCROOT:-/www}
 FALLBACK_HTTPD=${REDSTONE_MGMT_HTTPD:-/usr/sbin/redstone-httpd/httpd}
 
@@ -11,20 +11,32 @@ busybox_has_httpd() {
     "$1" --list 2>/dev/null | grep -qx httpd
 }
 
+httpd_help_looks_usable() {
+    output=$("$@" --help 2>&1 || true)
+    printf '%s\n' "$output" | grep -q httpd &&
+        printf '%s\n' "$output" | grep -q -- '-p' &&
+        printf '%s\n' "$output" | grep -q -- '-h' &&
+        printf '%s\n' "$output" | grep -Eq -- '(^|[[:space:]])-f|\[-[^]]*f'
+}
+
+busybox_httpd_usable() {
+    busybox_has_httpd "$1" && httpd_help_looks_usable "$1" httpd
+}
+
 if [ ! -d "$DOCROOT/redstone" ]; then
     echo "redstone-mgmt-web: missing web assets under $DOCROOT/redstone" >&2
     exit 1
 fi
 
-if command -v httpd >/dev/null 2>&1; then
-    exec httpd -f -p "$BIND" -h "$DOCROOT"
+if httpd_path=$(command -v httpd 2>/dev/null) && httpd_help_looks_usable "$httpd_path"; then
+    exec "$httpd_path" -f -p "$BIND" -h "$DOCROOT"
 fi
 
-if command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
-    exec busybox httpd -f -p "$BIND" -h "$DOCROOT"
+if busybox_path=$(command -v busybox 2>/dev/null) && busybox_httpd_usable "$busybox_path"; then
+    exec "$busybox_path" httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
-if [ -x "$FALLBACK_HTTPD" ]; then
+if [ -x "$FALLBACK_HTTPD" ] && httpd_help_looks_usable "$FALLBACK_HTTPD"; then
     exec "$FALLBACK_HTTPD" -f -p "$BIND" -h "$DOCROOT"
 fi
 

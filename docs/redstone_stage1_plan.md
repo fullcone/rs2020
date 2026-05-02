@@ -79,9 +79,10 @@ not the Redstone EdgeNOS stage-1 image. Likewise,
 not a raw USB disk image that can be written directly with `dd` and booted by
 the Redstone U-Boot.
 
-The rootfs also carries a manual, read-only Web management scaffold for the
-follow-up work. It is not started at boot. On a bench system, an operator can
-run `redstone-mgmt-web` to serve `/www/redstone/` on `127.0.0.1:8080`; the page
+The rootfs also carries a read-only Web management scaffold for the follow-up
+work. On Redstone BusyBox-init development images, `S41redstone-mgmt-web`
+starts it at boot and binds `/www/redstone/` on `0.0.0.0:8080`; an operator can
+still run `redstone-mgmt-web` manually or override `REDSTONE_MGMT_BIND`. The page
 uses `redstone-mgmt-status` through `/cgi-bin/redstone-status` to show eth1,
 BCM56846, BDE, switchd, selected BCM config, original SDK reference manifest,
 front-panel `swpN` state, gate analysis, development profile, and evidence

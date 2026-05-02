@@ -57,6 +57,14 @@ sha256_file() {
     fi
 }
 
+canonical_path() {
+    if command -v realpath >/dev/null 2>&1 && realpath -m "$1" >/dev/null 2>&1; then
+        realpath -m "$1"
+    else
+        fail "missing realpath -m support for path safety checks"
+    fi
+}
+
 print_env() {
     cat <<EOF
 topdir=$TOPDIR
@@ -67,32 +75,54 @@ targz=$OUT_TARGZ
 EOF
 }
 
-copy_staging_file() {
+copy_rootfs_file() {
     rel=$1
-    copy_file "$STAGING/$rel" "$WORKDIR/$rel"
+    if [ -f "$STAGING/$rel" ]; then
+        copy_file "$STAGING/$rel" "$WORKDIR/$rel"
+    elif [ -f "$TOPDIR/config/rootfs/overlay/$rel" ]; then
+        copy_file "$TOPDIR/config/rootfs/overlay/$rel" "$WORKDIR/$rel"
+    else
+        fail "missing required file: $STAGING/$rel"
+    fi
 }
 
 package() {
+    top_real=$(canonical_path "$TOPDIR")
+    output_real="$top_real/output"
+    image_real="$output_real/images"
+    out_tar_real=$(canonical_path "$OUT_TAR")
+    out_targz_real=$(canonical_path "$OUT_TARGZ")
+    workdir_real=$(canonical_path "$WORKDIR")
+
+    case "$out_tar_real" in
+        "$image_real"/*) ;;
+        *) fail "refusing hotfix tar outside output/images: $OUT_TAR" ;;
+    esac
+    case "$out_targz_real" in
+        "$image_real"/*) ;;
+        *) fail "refusing hotfix gzip outside output/images: $OUT_TARGZ" ;;
+    esac
+    case "$workdir_real" in
+        "$output_real"/*) ;;
+        *) fail "refusing hotfix workdir outside output/: $WORKDIR" ;;
+    esac
+
+    OUT_TAR=$out_tar_real
+    OUT_TARGZ=$out_targz_real
+    WORKDIR=$workdir_real
+
     require_dir "$STAGING"
     require_file "$STAGING/bin/busybox"
     require_file "$STAGING/usr/sbin/redstone-mgmt-web"
     require_file "$TOPDIR/config/bcm/redstone-stage1.bcm"
     require_file "$TOPDIR/config/bcm/redstone-original-active-sdk.manifest"
 
-    case "$OUT_TAR" in
-        "$TOPDIR"/output/images/*) ;;
-        *) fail "refusing hotfix tar outside output/images: $OUT_TAR" ;;
-    esac
-    case "$WORKDIR" in
-        "$TOPDIR"/output/*) ;;
-        *) fail "refusing hotfix workdir outside output/: $WORKDIR" ;;
-    esac
-
     rm -rf "$WORKDIR"
     mkdir -p "$WORKDIR"
 
     for rel in \
         etc/init.d/S38devpts \
+        etc/init.d/S41redstone-mgmt-web \
         usr/sbin/redstone-stage1-capture \
         usr/sbin/redstone-stage1-validate \
         usr/sbin/redstone-stage1-bench-run \
@@ -105,12 +135,12 @@ package() {
         www/cgi-bin/redstone-status \
         www/cgi-bin/redstone-action
     do
-        copy_staging_file "$rel"
+        copy_rootfs_file "$rel"
         chmod 755 "$WORKDIR/$rel"
     done
 
     if [ -f "$STAGING/etc/edgenos/board" ]; then
-        copy_staging_file etc/edgenos/board
+        copy_rootfs_file etc/edgenos/board
     fi
 
     require_dir "$STAGING/www/redstone"

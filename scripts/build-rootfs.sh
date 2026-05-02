@@ -162,6 +162,7 @@ assemble() {
     for script in \
         etc/init.d/S20edgenos \
         etc/init.d/S38devpts \
+        etc/init.d/S41redstone-mgmt-web \
         usr/sbin/platform-init.sh \
         usr/sbin/switchd-init \
         usr/sbin/redstone-stage1-capture \

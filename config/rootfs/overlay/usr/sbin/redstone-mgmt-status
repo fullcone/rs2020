@@ -52,15 +52,27 @@ busybox_has_httpd() {
     "$1" --list 2>/dev/null | grep -qx httpd
 }
 
+httpd_help_looks_usable() {
+    output=$("$@" --help 2>&1 || true)
+    printf '%s\n' "$output" | grep -q httpd &&
+        printf '%s\n' "$output" | grep -q -- '-p' &&
+        printf '%s\n' "$output" | grep -q -- '-h' &&
+        printf '%s\n' "$output" | grep -Eq -- '(^|[[:space:]])-f|\[-[^]]*f'
+}
+
+busybox_httpd_usable() {
+    busybox_has_httpd "$1" && httpd_help_looks_usable "$1" httpd
+}
+
 bool_httpd() {
-    if command -v httpd >/dev/null 2>&1; then
+    if httpd_path=$(command -v httpd 2>/dev/null) && httpd_help_looks_usable "$httpd_path"; then
         printf true
-    elif command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
+    elif busybox_path=$(command -v busybox 2>/dev/null) && busybox_httpd_usable "$busybox_path"; then
         printf true
-    elif [ -x "$FALLBACK_HTTPD" ]; then
+    elif [ -x "$FALLBACK_HTTPD" ] && httpd_help_looks_usable "$FALLBACK_HTTPD"; then
         printf true
     elif [ -x "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" ] &&
-        busybox_has_httpd "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}"; then
+        busybox_httpd_usable "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}"; then
         printf true
     else
         printf false
@@ -425,7 +437,7 @@ cat <<EOF
   "board": $(json_str "$board"),
   "profile": {
     "mode": $(json_str "$MGMT_PROFILE"),
-    "external_bind_default": false,
+    "external_bind_default": true,
     "destructive_web_actions": false,
     "reset_risk_exec": false,
     "public_lockdown_pending": true

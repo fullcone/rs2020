@@ -42,14 +42,7 @@ apply_patches() {
         local patch_log
         patch_log=$(mktemp)
         if (cd "$KSRC" && patch -p1 --forward --dry-run < "$p" >"$patch_log" 2>&1); then
-            if grep -Eq 'Reversed.*previously applied|Skipping patch|hunks ignored' "$patch_log"; then
-                echo "    already applied"
-            else
-                (cd "$KSRC" && patch -p1 < "$p")
-            fi
-            rm -f "$patch_log"
-        elif grep -Eq 'Reversed.*previously applied|Skipping patch|hunks ignored' "$patch_log"; then
-            echo "    already applied"
+            (cd "$KSRC" && patch -p1 < "$p")
             rm -f "$patch_log"
         elif (cd "$KSRC" && patch -p1 --reverse --dry-run < "$p" >/dev/null 2>&1); then
             echo "    already applied"

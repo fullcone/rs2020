@@ -22,8 +22,10 @@ browser.
   `/cgi-bin/redstone-action?action=bde-smoke`.
 - Serve OpenBCM init-probe dry-run through
   `/cgi-bin/redstone-action?action=init-probe-dry-run&config=stage1`.
-- Start the web UI only when an operator runs `redstone-mgmt-web`.
-- Bind to `127.0.0.1:8080` by default.
+- Start the web UI by default on Redstone BusyBox-init development images
+  through `S41redstone-mgmt-web`; operators can still run `redstone-mgmt-web`
+  manually.
+- Bind to `0.0.0.0:8080` by default in development builds.
 - Reuse `redstone-mgmt-status` for status and `redstone-mgmt-evidence` for
   recent run lists.
 - Reuse `redstone-mgmt-artifact` for fixed-run file details, direct file lists,
@@ -78,14 +80,16 @@ non-token selectors.
 
 ## Safety Boundary
 
-The first web slice must not:
+The development web slice must not:
 
-- start automatically at boot,
-- bind to an external address by default,
 - run `redstone-openbcm-init-probe --exec`,
 - accept the `i-accept-hardware-reset-risk` path from the browser,
 - write U-Boot environment variables,
 - write NAND, flash, or ONIE install targets.
+
+Public firmware still needs a separate lockdown profile before release. That
+profile should revisit default binding, default boot enablement, and which
+diagnostic files are visible through the browser.
 
 ## Next Web Actions
 

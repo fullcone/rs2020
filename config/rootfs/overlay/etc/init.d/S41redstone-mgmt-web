@@ -1,0 +1,40 @@
+#!/bin/sh
+# Auto-start the Redstone development web management UI.
+
+case "$1" in
+    start)
+        board=$(cat /etc/edgenos/board 2>/dev/null || true)
+        case "$board" in
+            redstone|rs2020|r0678)
+                ;;
+            *)
+                exit 0
+                ;;
+        esac
+        [ -x /usr/sbin/redstone-mgmt-web ] || exit 0
+        mkdir -p /run
+        if [ -f /run/redstone-mgmt-web.pid ] &&
+            kill -0 "$(cat /run/redstone-mgmt-web.pid 2>/dev/null)" 2>/dev/null; then
+            exit 0
+        fi
+        REDSTONE_MGMT_BIND=${REDSTONE_MGMT_BIND:-0.0.0.0:8080}
+        export REDSTONE_MGMT_BIND
+        /usr/sbin/redstone-mgmt-web >/var/log/redstone-mgmt-web.log 2>&1 &
+        echo $! > /run/redstone-mgmt-web.pid
+        ;;
+    stop)
+        if [ -f /run/redstone-mgmt-web.pid ]; then
+            kill "$(cat /run/redstone-mgmt-web.pid 2>/dev/null)" 2>/dev/null || true
+            rm -f /run/redstone-mgmt-web.pid
+        fi
+        ;;
+    restart)
+        "$0" stop
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+exit 0
