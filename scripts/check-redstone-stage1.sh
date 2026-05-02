@@ -131,6 +131,7 @@ check_file "scripts/build-all.sh"
 check_file "scripts/build-redstone-b2-tftp-fit.sh"
 check_file "scripts/check-redstone-image.sh"
 check_file "scripts/package-redstone-hardware-handoff.sh"
+check_file "scripts/package-redstone-web-hotfix.sh"
 check_file "scripts/package-redstone-usb-stage1.sh"
 check_file "scripts/verify-redstone-usb-stage1-image.sh"
 check_file "scripts/verify-redstone-hardware-handoff.sh"
@@ -279,6 +280,15 @@ check_grep 'check-redstone-image\.sh.*--squashfs|--squashfs.*check-redstone-imag
 check_grep 'redstone-stage1-hardware-handoff\.tar\.gz' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff package writes a stable tarball name"
+check_grep 'redstone-web-ssh-hotfix\.tar' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package writes a stable tarball name"
+check_grep 'etc/switchd' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package includes switchd config files"
+check_grep 'redstone-httpd/httpd' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package creates an applet-named httpd symlink"
 check_grep 'First Hardware Boot Policy' \
     "scripts/package-redstone-hardware-handoff.sh" \
     "Redstone handoff runbook starts with a non-destructive first-boot policy"
@@ -1554,6 +1564,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/build-redstone-b2-tftp-fit.sh \
         scripts/check-redstone-image.sh \
         scripts/package-redstone-hardware-handoff.sh \
+        scripts/package-redstone-web-hotfix.sh \
         scripts/package-redstone-usb-stage1.sh \
         scripts/verify-redstone-usb-stage1-image.sh \
         scripts/verify-redstone-hardware-handoff.sh \
@@ -1649,6 +1660,15 @@ if command -v git >/dev/null 2>&1; then
         ok "package-redstone-hardware-handoff.sh is tracked executable"
     else
         fail "package-redstone-hardware-handoff.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/package-redstone-web-hotfix.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "package-redstone-web-hotfix.sh is tracked executable"
+    else
+        fail "package-redstone-web-hotfix.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \
