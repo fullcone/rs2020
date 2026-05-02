@@ -126,6 +126,7 @@ package() {
     require_dir "$STAGING"
     require_file "$STAGING/bin/busybox"
     require_file "$TOPDIR/config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
+    require_file "$TOPDIR/scripts/redstone-openbcm-bde-smoke.sh"
     require_file "$TOPDIR/config/bcm/redstone-stage1.bcm"
     require_file "$TOPDIR/config/bcm/redstone-original-active-sdk.manifest"
 
@@ -150,6 +151,28 @@ package() {
         copy_rootfs_file "$rel"
         chmod 755 "$WORKDIR/$rel"
     done
+
+    copy_file "$TOPDIR/scripts/redstone-openbcm-bde-smoke.sh" \
+        "$WORKDIR/usr/sbin/redstone-openbcm-bde-smoke.sh"
+    chmod 755 "$WORKDIR/usr/sbin/redstone-openbcm-bde-smoke.sh"
+
+    if [ -f "$TOPDIR/output/openbcm-init/redstone-openbcm-init-probe" ]; then
+        copy_file "$TOPDIR/output/openbcm-init/redstone-openbcm-init-probe" \
+            "$WORKDIR/usr/sbin/redstone-openbcm-init-probe"
+        chmod 755 "$WORKDIR/usr/sbin/redstone-openbcm-init-probe"
+    elif [ -f "$STAGING/usr/sbin/redstone-openbcm-init-probe" ]; then
+        copy_file "$STAGING/usr/sbin/redstone-openbcm-init-probe" \
+            "$WORKDIR/usr/sbin/redstone-openbcm-init-probe"
+        chmod 755 "$WORKDIR/usr/sbin/redstone-openbcm-init-probe"
+    fi
+
+    if [ -f "$TOPDIR/output/openbcm-init/redstone-openbcm-init-probe.manifest" ]; then
+        copy_file "$TOPDIR/output/openbcm-init/redstone-openbcm-init-probe.manifest" \
+            "$WORKDIR/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest"
+    elif [ -f "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" ]; then
+        copy_file "$STAGING/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest" \
+            "$WORKDIR/usr/share/edgenos/openbcm/redstone-openbcm-init-probe.manifest"
+    fi
 
     if [ -f "$STAGING/etc/edgenos/board" ]; then
         copy_rootfs_file etc/edgenos/board

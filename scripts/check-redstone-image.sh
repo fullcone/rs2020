@@ -90,6 +90,7 @@ check_exec usr/sbin/switchd-init
 check_exec usr/sbin/redstone-stage1-capture
 check_exec usr/sbin/redstone-stage1-validate
 check_exec usr/sbin/redstone-stage1-bench-run
+check_exec usr/sbin/redstone-openbcm-bde-smoke.sh
 check_exec usr/sbin/switchd
 
 case "$REQUIRE_OPENBCM_INIT_PROBE" in

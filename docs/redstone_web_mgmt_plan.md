@@ -39,14 +39,19 @@ browser.
 - selected board profile,
 - selected BCM config path, SHA256, portmap count, and detected split mode,
 - original SDK reference manifest presence plus generated config/PHY hashes,
+- selected-vs-original config comparison for portmap counts and split mode,
 - eth1 management-port link state,
 - BCM56846 PCI presence and bound driver,
 - BDE device nodes, module presence, device paths, and diagnostic summary,
-- switchd process state, executable path, pidfile state, and stop reason,
+- switchd process state, executable path/presence, pidfile state, and stop
+  reason,
 - OpenBCM BDE smoke and init-probe tool paths plus latest run summary,
+- OpenBCM SDK demo init executable presence so a dry-run wrapper pass is not
+  mistaken for a usable SDK init/switchd path,
 - Runtime diagnostics that explain the current BDE, switchd, and OpenBCM gate
   blockers without requiring shell access,
 - development/public profile and reset-risk execution policy,
+- top-level current blocker derived from the ordered hardware gates,
 - front-panel port tiles derived from the selected portmap and live `swpN`
   sysfs state,
 - latest capture directory/archive, validation directory/bundle, and bench-run
@@ -62,10 +67,10 @@ browser.
   matrix,
 - availability of capture, validation, BDE smoke, and init-probe tools.
 
-`redstone-mgmt-evidence` reports recent capture, validation, bench, and web
-action runs from the configured Redstone evidence directories. It returns only
-fixed-directory indexes and log excerpts; it does not accept arbitrary path
-inputs.
+`redstone-mgmt-evidence` reports recent capture, validation, bench, BDE smoke,
+and web action runs from the configured Redstone evidence directories. It
+returns only fixed-directory indexes and log excerpts; it does not accept
+arbitrary path inputs.
 
 `redstone-mgmt-artifact` reports or downloads files only from these fixed run
 directories:
@@ -73,6 +78,7 @@ directories:
 - capture runs below `/var/log/redstone-stage1/<run>`,
 - validation runs below `/var/log/redstone-stage1/validate-*`,
 - bench runs below `/var/log/redstone-stage1/bench-run-*`,
+- BDE smoke runs below `/var/log/redstone-stage1/openbcm-bde-smoke-*`,
 - web action runs below `/var/log/redstone-stage1/web-actions/<run>`.
 
 For development builds, it intentionally allows any direct file with a safe
@@ -109,11 +115,26 @@ Current actions:
 4. `validate-strict`: validates a selected `swpN` interface with an explicit
    local CIDR, peer IP, and ping count by calling `redstone-stage1-bench-run`.
 5. `bde-smoke`: runs `redstone-openbcm-bde-smoke.sh --strict --capture` when
-   the helper is available in `PATH`, `/opt/openbcm-bde/`, or the current
-   bundle directory.
+   the helper is available in `/opt/openbcm-bde/`, the current bundle
+   directory, or `PATH`. Redstone rootfs and web/SSH hotfix packaging install
+   a PATH helper at `/usr/sbin/redstone-openbcm-bde-smoke.sh`; when that helper
+   is used, the action passes a concrete `--bundle-dir` so `/opt/openbcm-bde`
+   remains usable for the module bundle. The OpenBCM BDE module build must keep
+   `-fno-common` in the generated target and Kbuild flags; Linux 5.10 rejects
+   the BDE module when a later standalone `-fcommon` flag reintroduces common
+   symbols. The helper and `platform-init.sh` create the legacy static
+   `/dev/linux-kernel-bde` and `/dev/linux-user-bde` character nodes from
+   `/proc/devices` because these BDE modules do not create devtmpfs nodes by
+   themselves.
 6. `init-probe-dry-run`: runs `redstone-openbcm-init-probe --dry-run` with a
    selected BCM config token. The browser exposes only known config tokens, not
-   arbitrary paths.
+   arbitrary paths. The probe binary is statically linked for the uClibc
+   stage-1 rootfs. `redstone-mgmt-status` treats the latest Web action log as
+   init-probe evidence, because this dry-run verifies BDE nodes, exact BCM56846
+   PCI presence, and config readability without creating a separate evidence
+   directory. A successful dry-run does not prove the SDK demo init or switchd
+   datapath; the current hardware blocker is still the missing executable SDK
+   init/switchd path.
 
 The browser polls status and evidence briefly after each action returns so the
 latest action result, generated evidence, and log tail converge without a manual
@@ -121,8 +142,10 @@ refresh.
 
 Remaining explicit CGI actions should be added in this order:
 
-1. SDK exec path only after hardware reset-risk policy is reviewed again.
-2. Public-firmware lockdown profile that disables development diagnostics not
+1. Switchd/OpenBCM management status for the executable SDK init path, including
+   the exact missing binary/config blocker when the BDE and dry-run gates pass.
+2. SDK exec path only after hardware reset-risk policy is reviewed again.
+3. Public-firmware lockdown profile that disables development diagnostics not
    intended for field images.
 
 Each action should write an evidence directory and return the path in JSON.

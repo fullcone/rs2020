@@ -33,6 +33,10 @@
         <span class="label">BCM56846</span>
         <strong id="bcm-state">unknown</strong>
       </div>
+      <div class="status-item">
+        <span class="label">Blocker</span>
+        <strong id="current-blocker">unknown</strong>
+      </div>
     </section>
 
     <nav class="tabs" aria-label="Management sections">
@@ -188,6 +192,10 @@
               <div id="bench-runs" class="run-list"></div>
             </section>
             <section class="run-group">
+              <h3>BDE Smoke</h3>
+              <div id="bde-smoke-runs" class="run-list"></div>
+            </section>
+            <section class="run-group">
               <h3>Actions</h3>
               <div id="action-runs" class="run-list"></div>
             </section>
@@ -228,6 +236,18 @@
         </article>
 
         <article class="panel wide">
+          <h2>Config Comparison</h2>
+          <dl>
+            <div><dt>Selected Mode</dt><dd id="config-compare-selected-mode">unknown</dd></div>
+            <div><dt>Selected Portmaps</dt><dd id="config-compare-selected-count">unknown</dd></div>
+            <div><dt>Original Split</dt><dd id="config-compare-original-split">unknown</dd></div>
+            <div><dt>Original Portmaps</dt><dd id="config-compare-original-count">unknown</dd></div>
+            <div><dt>Portmap Delta</dt><dd id="config-compare-delta">unknown</dd></div>
+            <div><dt>FXE52</dt><dd id="config-compare-fxe52">unknown</dd></div>
+          </dl>
+        </article>
+
+        <article class="panel wide">
           <h2>Hardware Gates</h2>
           <dl>
             <div><dt>Management SGMII</dt><dd id="mgmt-sgmii">unknown</dd></div>
@@ -247,9 +267,11 @@
             <div><dt>BDE Detail</dt><dd id="bde-diagnostic">unknown</dd></div>
             <div><dt>BDE Paths</dt><dd id="bde-paths">unknown</dd></div>
             <div><dt>Switchd Detail</dt><dd id="switchd-diagnostic">unknown</dd></div>
+            <div><dt>Switchd Binary</dt><dd id="switchd-binary">unknown</dd></div>
             <div><dt>Switchd Pidfile</dt><dd id="switchd-pidfile">unknown</dd></div>
             <div><dt>OpenBCM Detail</dt><dd id="openbcm-diagnostic">unknown</dd></div>
             <div><dt>OpenBCM Tools</dt><dd id="openbcm-tools">unknown</dd></div>
+            <div><dt>SDK Demo Init</dt><dd id="sdk-demo-init">unknown</dd></div>
           </dl>
         </article>
 

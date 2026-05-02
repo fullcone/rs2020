@@ -86,6 +86,13 @@ const benchState = (run) => {
   return run.validate_exit === "0" ? "ok" : "bad";
 };
 
+const countState = (run) => {
+  if (!run || !run.log_exists) return "warn";
+  if (Number(run.fail_count || 0) > 0) return "bad";
+  if (Number(run.warn_count || 0) > 0) return "warn";
+  return Number(run.pass_count || 0) > 0 || run.complete ? "ok" : "warn";
+};
+
 const gateLabel = (value) => (value ? "ready" : "pending");
 const inputValue = (id) => {
   const node = document.getElementById(id);
@@ -212,6 +219,23 @@ function renderEvidence(evidence) {
     ],
   }));
 
+  renderRuns("bde-smoke-runs", evidence.bde_smoke_runs, (run) => ({
+    title: run.name,
+    state: countState(run),
+    lines: [
+      `${Number(run.pass_count || 0)} pass, ${Number(run.warn_count || 0)} warn, ${Number(run.fail_count || 0)} fail`,
+      run.complete || "incomplete",
+      run.path,
+    ],
+    tail: run.log_tail,
+    actions: [
+      { label: "Files", onClick: () => showArtifact("bde_smoke", run.name, "_files") },
+      { label: "Log", onClick: () => showArtifact("bde_smoke", run.name, "smoke.log") },
+      { label: "Devices", onClick: () => showArtifact("bde_smoke", run.name, "bde_devices.txt") },
+      { label: "Modules", onClick: () => showArtifact("bde_smoke", run.name, "modules_after.txt") },
+    ],
+  }));
+
   renderRuns("action-runs", evidence.web_actions, (run) => ({
     title: run.name,
     state: actionState(run),
@@ -282,10 +306,12 @@ function renderStatus(data) {
   const sw = data.switchd || {};
   const openbcm = data.openbcm || {};
   const sdk = data.original_sdk_reference || {};
+  const configComparison = data.config_comparison || {};
   const evidence = data.evidence || {};
   const captureSummary = evidence.latest_capture_summary || {};
   const validation = evidence.validation_summary || {};
   const bench = evidence.bench_summary || {};
+  const bdeSmoke = evidence.bde_smoke || {};
   const probe = evidence.init_probe_dry_run || {};
   const webAction = data.web_action || {};
   const tools = data.tools || {};
@@ -294,11 +320,15 @@ function renderStatus(data) {
   const bdeReady = Object.prototype.hasOwnProperty.call(analysis, "bde_ready")
     ? analysis.bde_ready
     : analysis.bde_nodes_ready;
+  const bdeSmokeExit = openbcm.latest_bde_smoke_exit || bdeSmoke.exit || bench.bde_smoke_exit;
+  const portmapDelta = configComparison.portmap_delta || "0";
+  const portmapDeltaLabel = portmapDelta === "0" ? "0" : `${Number(portmapDelta) > 0 ? "+" : ""}${portmapDelta}`;
 
   text("board", data.board);
   text("split-mode", cfg.split_mode);
   text("mgmt-link", linkLabel(eth));
   text("bcm-state", bcm.pci_present ? "present" : "missing");
+  text("current-blocker", data.current_blocker || "unknown");
   text("eth-address", eth.address);
   text("eth-state", `${eth.operstate || "unknown"} carrier=${eth.carrier || "unknown"}`);
   text("eth-speed", `${eth.speed || "unknown"} ${eth.duplex || ""}`.trim());
@@ -316,6 +346,7 @@ function renderStatus(data) {
     `${bde.kernel_node_path || "/dev/linux-kernel-bde"}=${yesNo(bde.kernel_node)} ${bde.user_node_path || "/dev/linux-user-bde"}=${yesNo(bde.user_node)}`,
   );
   text("switchd-diagnostic", diagnostics.switchd || sw.summary || "unknown");
+  text("switchd-binary", sw.tool ? `${sw.tool} executable=${yesNo(sw.tool_exists)}` : "missing");
   text(
     "switchd-pidfile",
     `${sw.pid_file || "/var/run/switchd.pid"} exists=${yesNo(sw.pid_file_exists)} pid=${sw.pid_file_pid || "none"} alive=${yesNo(sw.pid_file_running)}`,
@@ -323,7 +354,11 @@ function renderStatus(data) {
   text("openbcm-diagnostic", diagnostics.openbcm || openbcm.summary || "unknown");
   text(
     "openbcm-tools",
-    `smoke=${pathOrNone(openbcm.bde_smoke_tool)} probe=${pathOrNone(openbcm.init_probe_tool)}`,
+    `smoke=${pathOrNone(openbcm.bde_smoke_tool)} probe=${pathOrNone(openbcm.init_probe_tool)} demo=${pathOrNone(openbcm.demo_init_path)}`,
+  );
+  text(
+    "sdk-demo-init",
+    `${openbcm.demo_init_path || "/usr/sbin/demo_opennsa_init"} exists=${yesNo(openbcm.demo_init_exists)} executable=${yesNo(openbcm.demo_init_executable)}`,
   );
   text("sdk-ref", sdk.exists ? `${sdk.generated_portmap_count || "unknown"} portmaps` : "missing");
   text("sdk-split", sdk.split_interfaces || "unknown");
@@ -332,6 +367,12 @@ function renderStatus(data) {
   text("sdk-original-tuning", boolLabel(sdk.has_original_global_tuning));
   text("sdk-phy84848", boolLabel(sdk.has_phy_84848));
   text("sdk-fxe52", sdk.fxe52_unsplit === "true" ? "unsplit 40G" : boolLabel(sdk.fxe52_unsplit));
+  text("config-compare-selected-mode", configComparison.selected_split_mode || cfg.split_mode || "unknown");
+  text("config-compare-selected-count", String(configComparison.selected_portmap_count || cfg.portmap_count || 0));
+  text("config-compare-original-split", configComparison.original_split_interfaces || sdk.split_interfaces || "unknown");
+  text("config-compare-original-count", configComparison.original_portmap_count || sdk.generated_portmap_count || "unknown");
+  text("config-compare-delta", portmapDeltaLabel);
+  text("config-compare-fxe52", configComparison.fxe52_unsplit === "true" ? "unsplit 40G" : boolLabel(configComparison.fxe52_unsplit));
   text("latest-capture-dir", pathOrNone(evidence.latest_capture_dir));
   text("latest-capture-archive", pathOrNone(evidence.latest_capture_archive));
   text("latest-validate-dir", pathOrNone(evidence.latest_validate_dir));
@@ -340,7 +381,7 @@ function renderStatus(data) {
   text("validation-summary", validationLabel(validation));
   text("validation-log", pathOrNone(validation.log));
   text("bench-validate-exit", exitLabel(bench.validate_exit));
-  text("bde-smoke", exitLabel(bench.bde_smoke_exit));
+  text("bde-smoke", exitLabel(bdeSmokeExit));
   text("init-probe", probeLabel(probe));
   text("capture-summary", captureSummary.exists ? captureSummary.path : "none");
   text("action-state", actionLabel(webAction));
@@ -356,10 +397,10 @@ function renderStatus(data) {
   text("hardware-probe", probeLabel(probe));
   text(
     "hardware-tools",
-    `smoke=${yesNo(tools.redstone_openbcm_bde_smoke)} probe=${yesNo(tools.redstone_openbcm_init_probe)}`,
+    `smoke=${yesNo(tools.redstone_openbcm_bde_smoke)} probe=${yesNo(tools.redstone_openbcm_init_probe)} demo=${yesNo(tools.openbcm_demo_init)}`,
   );
   text("hardware-validation", validationLabel(validation));
-  text("hardware-openbcm-gate", `BDE ${exitLabel(bench.bde_smoke_exit)}, probe ${probeLabel(probe)}`);
+  text("hardware-openbcm-gate", `BDE ${exitLabel(bdeSmokeExit)}, probe ${probeLabel(probe)}`);
   text("direct-boot-gate", eth.carrier === "1" ? "U-Boot-preserved SGMII proven; direct boot still pending" : "manual SerDes evidence required");
   text("profile-mode", profile.mode || "unknown");
   text("reset-risk-exec", profile.reset_risk_exec ? "enabled" : "disabled");
@@ -373,17 +414,22 @@ function renderStatus(data) {
 
   stateClass("mgmt-link", eth.carrier === "1" ? "ok" : "bad");
   stateClass("bcm-state", bcm.pci_present ? "ok" : "bad");
+  stateClass("current-blocker", data.current_blocker === "none" ? "ok" : "warn");
   stateClass("switchd", sw.running ? "ok" : "warn");
   stateClass("bde-diagnostic", bdeReady ? "ok" : "warn");
   stateClass("bde-paths", bdeReady ? "ok" : "warn");
   stateClass("switchd-diagnostic", sw.running ? "ok" : "warn");
+  stateClass("switchd-binary", sw.tool_exists ? "ok" : "warn");
   stateClass("switchd-pidfile", sw.pid_file_running ? "ok" : sw.pid_file_exists ? "warn" : "warn");
-  stateClass("openbcm-diagnostic", analysis.openbcm_probe_ready ? "ok" : "warn");
-  stateClass("openbcm-tools", openbcm.bde_smoke_tool && openbcm.init_probe_tool ? "ok" : "warn");
+  stateClass("openbcm-diagnostic", analysis.openbcm_probe_ready && openbcm.demo_init_executable ? "ok" : "warn");
+  stateClass("openbcm-tools", openbcm.bde_smoke_tool && openbcm.init_probe_tool && openbcm.demo_init_executable ? "ok" : "warn");
+  stateClass("sdk-demo-init", openbcm.demo_init_executable ? "ok" : "warn");
   stateClass("sdk-ref", sdk.exists ? "ok" : "warn");
+  stateClass("config-compare-selected-mode", configComparison.selected_split_mode === "original-active-split-49-50-51" ? "ok" : "warn");
+  stateClass("config-compare-delta", configComparison.portmap_delta === "0" ? "ok" : "warn");
   stateClass("validation-summary", validationState(validation));
   stateClass("bench-validate-exit", bench.validate_exit === "0" ? "ok" : bench.validate_exit ? "bad" : "warn");
-  stateClass("bde-smoke", bench.bde_smoke_exit === "0" ? "ok" : bench.bde_smoke_exit ? "bad" : "warn");
+  stateClass("bde-smoke", bdeSmokeExit === "0" ? "ok" : bdeSmokeExit ? "bad" : "warn");
   stateClass("init-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : probe.exists ? "warn" : "warn");
   stateClass("action-state", actionState(webAction));
   stateClass("latest-action", actionState(webAction));
@@ -391,9 +437,12 @@ function renderStatus(data) {
   stateClass("hardware-bcm", bcm.pci_present ? "ok" : "bad");
   stateClass("hardware-bde", bdeReady ? "ok" : "warn");
   stateClass("hardware-probe", probe.exists && probe.exit === "0" && !probe.unavailable ? "ok" : "warn");
-  stateClass("hardware-tools", tools.redstone_openbcm_bde_smoke && tools.redstone_openbcm_init_probe ? "ok" : "warn");
+  stateClass("hardware-tools", tools.redstone_openbcm_bde_smoke && tools.redstone_openbcm_init_probe && tools.openbcm_demo_init ? "ok" : "warn");
   stateClass("hardware-validation", validationState(validation));
-  stateClass("hardware-openbcm-gate", bench.bde_smoke_exit === "0" && probe.exists && probe.exit === "0" ? "ok" : "warn");
+  stateClass(
+    "hardware-openbcm-gate",
+    bdeSmokeExit === "0" && probe.exists && probe.exit === "0" && openbcm.demo_init_executable ? "ok" : "warn",
+  );
   stateClass("direct-boot-gate", "warn");
   stateClass("reset-risk-exec", profile.reset_risk_exec ? "bad" : "ok");
   stateClass("analysis-management", analysis.management_eth_ready ? "ok" : "warn");

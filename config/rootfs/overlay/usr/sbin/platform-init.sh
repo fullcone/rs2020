@@ -38,6 +38,31 @@ load_mod() {
     fi
 }
 
+ensure_char_node() {
+    local path="$1" name="$2" desc="$3" major
+
+    [ -c "$path" ] && return 0
+
+    if [ -e "$path" ]; then
+        log "WARN: $desc path exists but is not a character device: $path"
+        return 1
+    fi
+
+    major=$(awk -v name="$name" '$2 == name { print $1; exit }' /proc/devices 2>/dev/null)
+    if [ -z "$major" ]; then
+        log "WARN: $desc major not registered in /proc/devices: $name"
+        return 1
+    fi
+
+    if mknod "$path" c "$major" 0 2>/dev/null && chmod 666 "$path" 2>/dev/null; then
+        log "Created $desc node: $path major=$major minor=0"
+        return 0
+    fi
+
+    log "WARN: failed to create $desc node: $path major=$major minor=0"
+    return 1
+}
+
 # ────── Phase 1: Load kernel modules ──────
 
 log "=== Phase 1: Loading kernel modules ==="
@@ -46,6 +71,8 @@ log "=== Phase 1: Loading kernel modules ==="
 # Try 4MB DMA first (32MB often fails on P2020 without CMA)
 load_mod linux-kernel-bde dma_size=4
 load_mod linux-user-bde
+ensure_char_node /dev/linux-kernel-bde linux-kernel-bde "kernel BDE"
+ensure_char_node /dev/linux-user-bde linux-user-bde "user BDE"
 
 # TUN: packet I/O interfaces
 load_mod tun

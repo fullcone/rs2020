@@ -102,6 +102,12 @@ resolve_artifact() {
                 *) path="$base/$run/$file_key"; display="$file_key" ;;
             esac
             ;;
+        bde_smoke)
+            base=$CAPTURE_BASE
+            case "$file_key" in
+                *) path="$base/$run/$file_key"; display="$file_key" ;;
+            esac
+            ;;
         action)
             base=$ACTION_BASE
             case "$file_key" in
@@ -120,6 +126,7 @@ resolve_run_dir() {
         capture) printf '%s/%s' "$CAPTURE_BASE" "$2" ;;
         validation) printf '%s/%s' "$VALIDATE_BASE" "$2" ;;
         bench) printf '%s/%s' "$BENCH_BASE" "$2" ;;
+        bde_smoke) printf '%s/%s' "$CAPTURE_BASE" "$2" ;;
         action) printf '%s/%s' "$ACTION_BASE" "$2" ;;
         *) return 1 ;;
     esac

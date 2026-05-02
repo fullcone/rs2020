@@ -62,6 +62,10 @@ echo "edgenos" > "${TARGET_DIR}/etc/hostname"
 mkdir -p "${TARGET_DIR}/etc/edgenos"
 printf '%s\n' "$EDGENOS_BOARD" > "${TARGET_DIR}/etc/edgenos/board"
 
+if [ -x "${REPO_ROOT}/scripts/install-openbcm-bde-smoke.sh" ]; then
+    "${REPO_ROOT}/scripts/install-openbcm-bde-smoke.sh" "$TARGET_DIR"
+fi
+
 # Windows checkouts can inject CRLF into overlay scripts and ifupdown config.
 # BusyBox ifupdown treats a trailing carriage return as part of the method
 # name, which turns "dhcp\r" into an unknown method on hardware.
@@ -76,6 +80,7 @@ for text_file in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-evidence" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
+    "${TARGET_DIR}/usr/sbin/redstone-openbcm-bde-smoke.sh" \
     "${TARGET_DIR}/www/cgi-bin/redstone-artifact" \
     "${TARGET_DIR}/www/cgi-bin/redstone-evidence" \
     "${TARGET_DIR}/www/cgi-bin/redstone-status" \
@@ -162,6 +167,7 @@ for script in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-artifact" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-status" \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-web" \
+    "${TARGET_DIR}/usr/sbin/redstone-openbcm-bde-smoke.sh" \
     "${TARGET_DIR}/www/cgi-bin/redstone-artifact" \
     "${TARGET_DIR}/www/cgi-bin/redstone-evidence" \
     "${TARGET_DIR}/www/cgi-bin/redstone-status" \

@@ -12,6 +12,7 @@ OPENBCM_INIT_DEFAULT_CONFIG=${OPENBCM_INIT_DEFAULT_CONFIG:-"/etc/switchd/redston
 CROSS_COMPILE=${CROSS_COMPILE:-powerpc-linux-gnu-}
 CC=${CC:-"${CROSS_COMPILE}gcc"}
 CFLAGS=${CFLAGS:-"-std=c99 -Wall -Wextra -Werror -O2"}
+LDFLAGS=${LDFLAGS:-"-static"}
 
 ok() {
     printf 'OK: %s\n' "$*"
@@ -42,6 +43,7 @@ OPENBCM_INIT_DEFAULT_CONFIG=$OPENBCM_INIT_DEFAULT_CONFIG
 CROSS_COMPILE=$CROSS_COMPILE
 CC=$CC
 CFLAGS=$CFLAGS
+LDFLAGS=$LDFLAGS
 EOF
 }
 
@@ -68,7 +70,7 @@ build_probe() {
     mkdir -p "$OPENBCM_INIT_OUT"
     "$CC" $CFLAGS -DDEFAULT_DEMO_INIT="\"$OPENBCM_INIT_DEFAULT_DEMO\"" \
         -DDEFAULT_BCM_CONFIG="\"$OPENBCM_INIT_DEFAULT_CONFIG\"" \
-        -o "$OPENBCM_INIT_BIN" "$OPENBCM_INIT_SRC"
+        -o "$OPENBCM_INIT_BIN" "$OPENBCM_INIT_SRC" $LDFLAGS
     chmod 0755 "$OPENBCM_INIT_BIN"
     ok "built $OPENBCM_INIT_BIN"
 }
@@ -82,6 +84,7 @@ write_manifest() {
         printf 'binary=%s\n' "$OPENBCM_INIT_BIN"
         printf 'demo_default=%s\n' "$OPENBCM_INIT_DEFAULT_DEMO"
         printf 'config_default=%s\n' "$OPENBCM_INIT_DEFAULT_CONFIG"
+        printf 'link_mode=static\n'
         printf 'hardware_gate=requires BDE device nodes, exact BCM56846 PCI ID 14e4:b846, readable BCM config, and explicit reset-risk flag for exec\n'
         printf 'dry_run_command=./redstone-openbcm-init-probe --dry-run\n'
         printf 'exec_command=./redstone-openbcm-init-probe --exec --i-accept-hardware-reset-risk\n'

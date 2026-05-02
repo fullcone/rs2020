@@ -161,6 +161,38 @@ check_char() {
     fi
 }
 
+ensure_char_node() {
+    path=$1
+    name=$2
+    desc=$3
+
+    if [ -c "$path" ]; then
+        return 0
+    fi
+
+    if [ -e "$path" ]; then
+        fail "$desc path exists but is not a character device: $path"
+        return 1
+    fi
+
+    major=$(
+        awk -v name="$name" '$2 == name { print $1; exit }' /proc/devices \
+            2>/dev/null
+    )
+    if [ -z "$major" ]; then
+        fail "$desc major not registered in /proc/devices: $name"
+        return 1
+    fi
+
+    if mknod "$path" c "$major" 0 2>/dev/null && chmod 666 "$path" 2>/dev/null; then
+        pass "$desc created: $path major=$major minor=0"
+        return 0
+    fi
+
+    fail "$desc mknod failed: $path major=$major minor=0"
+    return 1
+}
+
 check_module_loaded() {
     module=$1
 
@@ -281,11 +313,13 @@ else
     warn "module loading skipped by --no-load"
 fi
 
-capture_summary
 check_module_loaded linux-kernel-bde
 check_module_loaded linux-user-bde
+ensure_char_node /dev/linux-kernel-bde linux-kernel-bde "kernel BDE device"
+ensure_char_node /dev/linux-user-bde linux-user-bde "user BDE device"
 check_char /dev/linux-kernel-bde "kernel BDE device"
 check_char /dev/linux-user-bde "user BDE device"
+capture_summary
 detect_bcm56846
 
 if [ "$RUN_CAPTURE" = "1" ]; then

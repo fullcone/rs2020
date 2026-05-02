@@ -152,16 +152,27 @@ config_path_for_token() {
 
 find_bde_smoke_helper() {
     for candidate in \
-        "$(command -v redstone-openbcm-bde-smoke.sh 2>/dev/null || true)" \
         /opt/openbcm-bde/redstone-openbcm-bde-smoke.sh \
         ./openbcm-bde/redstone-openbcm-bde-smoke.sh \
         ./redstone-openbcm-bde-smoke.sh
     do
         [ -n "$candidate" ] || continue
         [ -x "$candidate" ] || continue
-        printf '%s\n' "$candidate"
+        printf '%s|%s\n' "$candidate" "$(dirname "$candidate")"
         return 0
     done
+
+    path=$(command -v redstone-openbcm-bde-smoke.sh 2>/dev/null || true)
+    if [ -n "$path" ] && [ -x "$path" ]; then
+        if [ -d /opt/openbcm-bde ]; then
+            bundle_dir=/opt/openbcm-bde
+        else
+            bundle_dir=$(dirname "$path")
+        fi
+        printf '%s|%s\n' "$path" "$bundle_dir"
+        return 0
+    fi
+
     return 1
 }
 
@@ -311,11 +322,13 @@ esac
                     --ping-count "$strict_ping_count"
                 ;;
             bde-smoke)
-                helper=$(find_bde_smoke_helper) || {
+                helper_spec=$(find_bde_smoke_helper) || {
                     echo "redstone-openbcm-bde-smoke.sh not found" >&2
                     exit 127
                 }
-                "$helper" --strict --capture
+                helper=${helper_spec%%|*}
+                bundle_dir=${helper_spec#*|}
+                "$helper" --bundle-dir "$bundle_dir" --strict --capture
                 ;;
             init-probe-dry-run)
                 BCM_CONFIG_FILE=$init_probe_config_path /usr/sbin/redstone-openbcm-init-probe --dry-run

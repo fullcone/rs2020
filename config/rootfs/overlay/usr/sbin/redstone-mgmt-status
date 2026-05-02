@@ -7,6 +7,7 @@ BOARD_FILE=${REDSTONE_BOARD_FILE:-/etc/edgenos/board}
 SWITCHD_CONFIG_DIR=${REDSTONE_SWITCHD_CONFIG_DIR:-/etc/switchd}
 SWITCHD_PID_FILE=${REDSTONE_SWITCHD_PID_FILE:-/var/run/switchd.pid}
 SDK_REF_MANIFEST=${REDSTONE_SDK_REF_MANIFEST:-"$SWITCHD_CONFIG_DIR/redstone-original-active-sdk.manifest"}
+OPENBCM_DEMO_INIT=${REDSTONE_OPENBCM_DEMO_INIT:-/usr/sbin/demo_opennsa_init}
 CAPTURE_BASE=${REDSTONE_CAPTURE_DIR:-/var/log/redstone-stage1}
 VALIDATE_BASE=${REDSTONE_VALIDATE_DIR:-/var/log/redstone-stage1}
 BENCH_BASE=${REDSTONE_BENCH_DIR:-/var/log/redstone-stage1}
@@ -53,6 +54,30 @@ bool_cmd() {
 
 cmd_path() {
     command -v "$1" 2>/dev/null || true
+}
+
+first_executable() {
+    for file in "$@"; do
+        if [ -x "$file" ]; then
+            printf '%s' "$file"
+            return 0
+        fi
+    done
+}
+
+cmd_or_known_path() {
+    name=$1
+    found=$(cmd_path "$name")
+    if [ -n "$found" ]; then
+        printf '%s' "$found"
+        return 0
+    fi
+    first_executable \
+        "/usr/sbin/$name" \
+        "/usr/bin/$name" \
+        "/sbin/$name" \
+        "/bin/$name" \
+        "/opt/openbcm/$name"
 }
 
 busybox_has_httpd() {
@@ -297,6 +322,14 @@ if [ -f "$SDK_REF_MANIFEST" ]; then
     sdk_ref_phy84848=$(manifest_value generated_has_phy_84848 "$SDK_REF_MANIFEST")
     sdk_ref_unsplit=$(manifest_value generated_has_unsplit_fxe52 "$SDK_REF_MANIFEST")
 fi
+config_portmap_delta=
+case "$portmap_count:$sdk_ref_portmaps" in
+    *[!0-9:]*|*:|:*)
+        ;;
+    *)
+        config_portmap_delta=$((sdk_ref_portmaps - portmap_count))
+        ;;
+esac
 
 eth=eth1
 eth_dir="$NET_CLASS_DIR/$eth"
@@ -328,6 +361,9 @@ done
 switchd_pids=$(pidof switchd 2>/dev/null || true)
 switchd_running=false
 [ -n "$switchd_pids" ] && switchd_running=true
+switchd_tool=$(cmd_or_known_path switchd)
+switchd_tool_exists=false
+[ -n "$switchd_tool" ] && switchd_tool_exists=true
 switchd_pid_file_exists=false
 switchd_pid_file_pid=
 switchd_pid_file_running=false
@@ -393,16 +429,6 @@ fi
 if [ -z "$probe_file" ] && [ -n "$capture_latest" ]; then
     probe_file=$(first_existing_file "$capture_latest/openbcm_init_probe.txt")
 fi
-probe_present=false
-probe_exit=
-probe_unavailable=false
-if [ -n "$probe_file" ]; then
-    probe_present=true
-    probe_exit=$(kv_last_value "$probe_file" exit)
-    if grep -Eiq 'unavailable|not packaged|not found' "$probe_file" 2>/dev/null; then
-        probe_unavailable=true
-    fi
-fi
 
 web_action_latest=$(latest_dir "$ACTION_BASE" '*')
 web_action_result=
@@ -428,6 +454,36 @@ if [ -n "$web_action_latest" ]; then
     web_action_message=$(kv_last_value "$web_action_result" message)
 fi
 
+bde_smoke_latest=$(latest_dir "$CAPTURE_BASE" 'openbcm-bde-smoke-*')
+bde_smoke_evidence_dir=$bde_smoke_latest
+bde_smoke_log=
+bde_smoke_summary=
+bde_smoke_exit=$bench_bde_smoke_exit
+if [ -n "$bde_smoke_latest" ]; then
+    bde_smoke_log="$bde_smoke_latest/smoke.log"
+    bde_smoke_summary=$(sed_last_value "$bde_smoke_log" 's/^Redstone OpenBCM BDE smoke complete: //p')
+fi
+if [ "$web_action_action" = "bde-smoke" ] && [ -n "$web_action_exit" ]; then
+    bde_smoke_exit=$web_action_exit
+    [ -n "$web_action_evidence_dir" ] && bde_smoke_evidence_dir=$web_action_evidence_dir
+elif [ -z "$bde_smoke_exit" ] && printf '%s\n' "$bde_smoke_summary" | grep -q '0 failure(s)'; then
+    bde_smoke_exit=0
+fi
+
+if [ "$web_action_action" = "init-probe-dry-run" ] && [ -n "$web_action_log" ]; then
+    probe_file=$web_action_log
+fi
+probe_present=false
+probe_exit=
+probe_unavailable=false
+if [ -n "$probe_file" ]; then
+    probe_present=true
+    probe_exit=$(kv_last_value "$probe_file" exit)
+    if grep -Eiq 'unavailable|not packaged|not found' "$probe_file" 2>/dev/null; then
+        probe_unavailable=true
+    fi
+fi
+
 front_panel_present=$(front_panel_present_count)
 front_panel_link_up=$(front_panel_link_up_count)
 
@@ -437,7 +493,11 @@ bde_kernel_module=$(module_loaded linux-kernel-bde linux_kernel_bde)
 bde_user_module=$(module_loaded linux-user-bde linux_user_bde)
 openbcm_bde_smoke_tool=$(cmd_path redstone-openbcm-bde-smoke.sh)
 openbcm_init_probe_tool=$(cmd_path redstone-openbcm-init-probe)
-switchd_tool=$(cmd_path switchd)
+demo_init_path=$OPENBCM_DEMO_INIT
+demo_init_exists=false
+demo_init_executable=false
+[ -e "$demo_init_path" ] && demo_init_exists=true
+[ -x "$demo_init_path" ] && demo_init_executable=true
 
 analysis_management_eth_ready=false
 [ "$eth_carrier" = "1" ] && [ "$eth_speed" = "1000" ] && analysis_management_eth_ready=true
@@ -496,13 +556,40 @@ elif [ "$analysis_bde_nodes_ready" != "true" ]; then
 elif [ "$analysis_bde_ready" != "true" ]; then
     openbcm_diagnostic="tools present; BDE module names not visible"
 elif [ "$probe_present" = "true" ] && [ "$probe_unavailable" = "true" ]; then
-    openbcm_diagnostic="latest init probe reports unavailable tool or SDK"
+    if [ "$bde_smoke_exit" = "0" ]; then
+        openbcm_diagnostic="BDE smoke passed; latest init probe reports unavailable tool or SDK"
+    else
+        openbcm_diagnostic="latest init probe reports unavailable tool or SDK"
+    fi
+elif [ "$probe_present" = "true" ] && [ "$probe_exit" = "0" ] && [ "$demo_init_executable" != "true" ]; then
+    openbcm_diagnostic="BDE and dry-run gates passed; SDK demo init missing: $demo_init_path"
 elif [ "$probe_present" = "true" ]; then
     openbcm_diagnostic="tools present; latest init probe exit ${probe_exit:-unknown}"
-elif [ -n "$bench_bde_smoke_exit" ]; then
-    openbcm_diagnostic="tools present; latest BDE smoke exit $bench_bde_smoke_exit"
+elif [ -n "$bde_smoke_exit" ]; then
+    openbcm_diagnostic="tools present; latest BDE smoke exit $bde_smoke_exit"
 else
     openbcm_diagnostic="tools present; no OpenBCM run evidence yet"
+fi
+
+current_blocker=
+if [ "$analysis_management_eth_ready" != "true" ]; then
+    current_blocker="management eth1 is not 1000/full link-up"
+elif [ "$analysis_bcm_ready" != "true" ]; then
+    current_blocker="BCM56846 PCIe device is not detected"
+elif [ "$analysis_bde_ready" != "true" ]; then
+    current_blocker=$bde_diagnostic
+elif [ "$analysis_openbcm_probe_ready" != "true" ]; then
+    current_blocker=$openbcm_diagnostic
+elif [ "$demo_init_executable" != "true" ] && [ "$switchd_tool_exists" != "true" ]; then
+    current_blocker="SDK demo init missing: $demo_init_path; switchd binary missing"
+elif [ "$demo_init_executable" != "true" ]; then
+    current_blocker="SDK demo init missing: $demo_init_path"
+elif [ "$switchd_tool_exists" != "true" ]; then
+    current_blocker="switchd binary missing"
+elif [ "$analysis_strict_validation_ready" != "true" ]; then
+    current_blocker="front-panel strict validation not run"
+else
+    current_blocker="direct boot matrix pending"
 fi
 
 cat <<EOF
@@ -511,6 +598,7 @@ cat <<EOF
   "generated_at": $(json_str "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date 2>/dev/null || true)"),
   "hostname": $(json_str "$(hostname 2>/dev/null || true)"),
   "board": $(json_str "$board"),
+  "current_blocker": $(json_str "$current_blocker"),
   "profile": {
     "mode": $(json_str "$MGMT_PROFILE"),
     "external_bind_default": true,
@@ -537,6 +625,17 @@ cat <<EOF
     "generated_fixup_sha256": $(json_str "$sdk_ref_fixup_sha"),
     "has_original_global_tuning": $(json_str "$sdk_ref_globals"),
     "has_phy_84848": $(json_str "$sdk_ref_phy84848"),
+    "fxe52_unsplit": $(json_str "$sdk_ref_unsplit")
+  },
+  "config_comparison": {
+    "selected_path": $(json_str "$selected_config"),
+    "selected_split_mode": $(json_str "$split_mode"),
+    "selected_portmap_count": $portmap_count,
+    "original_manifest": $(json_str "$SDK_REF_MANIFEST"),
+    "original_exists": $sdk_ref_exists,
+    "original_split_interfaces": $(json_str "$sdk_ref_split"),
+    "original_portmap_count": $(json_str "$sdk_ref_portmaps"),
+    "portmap_delta": $(json_str "$config_portmap_delta"),
     "fxe52_unsplit": $(json_str "$sdk_ref_unsplit")
   },
   "management_eth1": {
@@ -572,6 +671,7 @@ cat <<EOF
     "running": $switchd_running,
     "pids": $(json_str "$switchd_pids"),
     "tool": $(json_str "$switchd_tool"),
+    "tool_exists": $switchd_tool_exists,
     "pid_file": $(json_str "$SWITCHD_PID_FILE"),
     "pid_file_exists": $switchd_pid_file_exists,
     "pid_file_pid": $(json_str "$switchd_pid_file_pid"),
@@ -581,11 +681,17 @@ cat <<EOF
   "openbcm": {
     "bde_smoke_tool": $(json_str "$openbcm_bde_smoke_tool"),
     "init_probe_tool": $(json_str "$openbcm_init_probe_tool"),
-    "latest_bde_smoke_exit": $(json_str "$bench_bde_smoke_exit"),
+    "latest_bde_smoke_path": $(json_str "$bde_smoke_evidence_dir"),
+    "latest_bde_smoke_log": $(json_str "$bde_smoke_log"),
+    "latest_bde_smoke_exit": $(json_str "$bde_smoke_exit"),
+    "latest_bde_smoke_summary": $(json_str "$bde_smoke_summary"),
     "latest_init_probe_path": $(json_str "$probe_file"),
     "latest_init_probe_exists": $probe_present,
     "latest_init_probe_exit": $(json_str "$probe_exit"),
     "latest_init_probe_unavailable": $probe_unavailable,
+    "demo_init_path": $(json_str "$demo_init_path"),
+    "demo_init_exists": $demo_init_exists,
+    "demo_init_executable": $demo_init_executable,
     "summary": $(json_str "$openbcm_diagnostic")
   },
   "tools": {
@@ -594,6 +700,8 @@ cat <<EOF
     "redstone_stage1_bench_run": $(bool_cmd redstone-stage1-bench-run),
     "redstone_openbcm_bde_smoke": $(bool_cmd redstone-openbcm-bde-smoke.sh),
     "redstone_openbcm_init_probe": $(bool_cmd redstone-openbcm-init-probe),
+    "openbcm_demo_init": $demo_init_executable,
+    "switchd": $switchd_tool_exists,
     "busybox_httpd": $(bool_httpd)
   },
   "web_action": {
@@ -639,6 +747,12 @@ cat <<EOF
       "validation_bundle": $(json_str "$bench_validation_bundle"),
       "validation_evidence_dir": $(json_str "$bench_validation_evidence_dir"),
       "bde_smoke_exit": $(json_str "$bench_bde_smoke_exit")
+    },
+    "bde_smoke": {
+      "path": $(json_str "$bde_smoke_evidence_dir"),
+      "log": $(json_str "$bde_smoke_log"),
+      "exit": $(json_str "$bde_smoke_exit"),
+      "summary": $(json_str "$bde_smoke_summary")
     },
     "init_probe_dry_run": {
       "path": $(json_str "$probe_file"),

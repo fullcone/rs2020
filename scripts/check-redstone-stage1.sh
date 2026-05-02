@@ -112,6 +112,7 @@ check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-status"
 check_file "config/rootfs/overlay/usr/sbin/redstone-mgmt-web"
+check_file "config/rootfs/overlay/usr/sbin/platform-init.sh"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-artifact"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-evidence"
 check_file "config/rootfs/overlay/www/cgi-bin/redstone-status"
@@ -146,6 +147,7 @@ check_file "scripts/build-openbcm-bde.sh"
 check_file "scripts/redstone-openbcm-bde-smoke.sh"
 check_file "scripts/check-openbcm-userland-init.sh"
 check_file "scripts/build-openbcm-init-probe.sh"
+check_file "scripts/install-openbcm-bde-smoke.sh"
 check_file "scripts/install-openbcm-init-probe.sh"
 check_file "scripts/generate-redstone-original-active-sdk-reference.sh"
 check_file "asic/openbcm-init/redstone-openbcm-init-probe.c"
@@ -189,6 +191,8 @@ check_grep 'config/rootfs/overlay' "scripts/build-rootfs.sh" \
     "build-rootfs applies the rootfs overlay"
 check_grep 'install-openbcm-init-probe\.sh' "scripts/build-rootfs.sh" \
     "build-rootfs installs optional Redstone OpenBCM init probe"
+check_grep 'install-openbcm-bde-smoke\.sh' "scripts/build-rootfs.sh" \
+    "build-rootfs installs Redstone OpenBCM BDE smoke helper"
 check_grep 'redstone-stage1-bench-run' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone bench runner executable mode"
 check_grep 'redstone-mgmt-artifact' "scripts/build-rootfs.sh" \
@@ -209,6 +213,8 @@ check_grep 'www/cgi-bin/redstone-action' "scripts/build-rootfs.sh" \
     "build-rootfs preserves Redstone management action CGI executable mode"
 check_grep 'install-openbcm-init-probe\.sh' "config/rootfs/post-build.sh" \
     "Buildroot post-build installs optional Redstone OpenBCM init probe"
+check_grep 'install-openbcm-bde-smoke\.sh' "config/rootfs/post-build.sh" \
+    "Buildroot post-build installs Redstone OpenBCM BDE smoke helper"
 check_grep 'sed -i.*s/\\r\$//' "config/rootfs/post-build.sh" \
     "Buildroot post-build strips CRLF from text overlays"
 check_grep 'Redstone stage-1 manual management links' "config/rootfs/post-build.sh" \
@@ -223,6 +229,8 @@ check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management status script"
 check_grep 'redstone-mgmt-evidence' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management evidence script"
+check_grep 'redstone-openbcm-bde-smoke\.sh' "config/rootfs/post-build.sh" \
+    "Redstone post-build normalizes OpenBCM BDE smoke helper"
 check_grep 'redstone-httpd/httpd' "config/rootfs/post-build.sh" \
     "Redstone post-build provisions fallback httpd applet symlink"
 check_grep 'www/cgi-bin/redstone-artifact' "config/rootfs/post-build.sh" \
@@ -296,6 +304,27 @@ check_grep 'etc/switchd' \
 check_grep 'redstone-httpd/httpd' \
     "scripts/package-redstone-web-hotfix.sh" \
     "Redstone web hotfix package creates an applet-named httpd symlink"
+check_grep 'redstone-openbcm-bde-smoke\.sh' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package includes BDE smoke helper"
+check_grep 'redstone-openbcm-init-probe' \
+    "scripts/package-redstone-web-hotfix.sh" \
+    "Redstone web hotfix package refreshes OpenBCM init probe"
+check_grep 'ensure_char_node /dev/linux-kernel-bde linux-kernel-bde' \
+    "scripts/redstone-openbcm-bde-smoke.sh" \
+    "OpenBCM BDE smoke helper can create kernel BDE dev node"
+check_grep 'ensure_char_node /dev/linux-user-bde linux-user-bde' \
+    "scripts/redstone-openbcm-bde-smoke.sh" \
+    "OpenBCM BDE smoke helper can create user BDE dev node"
+check_grep 'mknod "\$path" c "\$major" 0' \
+    "config/rootfs/overlay/usr/sbin/platform-init.sh" \
+    "platform-init creates static BDE character nodes when mdev is absent"
+check_grep '-fno-common' \
+    "scripts/build-openbcm-bde.sh" \
+    "OpenBCM BDE build emits fno-common module flags for Linux 5.10"
+check_no_regex '(^|[[:space:]])-fcommon([^[:alnum:]_-]|$)' \
+    "scripts/build-openbcm-bde.sh" \
+    "OpenBCM BDE build does not emit fcommon module flags"
 check_grep 'S41redstone-mgmt-web' \
     "scripts/package-redstone-web-hotfix.sh" \
     "Redstone web hotfix package includes default web init script"
@@ -606,6 +635,8 @@ check_grep 'BCM_CONFIG_FILE' "asic/openbcm-init/redstone-openbcm-init-probe.c" \
     "OpenBCM init probe sets BCM_CONFIG_FILE before demo init execution"
 check_grep 'sdk_baseline=openbcm-6\.5\.27' "scripts/build-openbcm-init-probe.sh" \
     "OpenBCM init probe manifest records SDK baseline"
+check_grep 'LDFLAGS=.*-static' "scripts/build-openbcm-init-probe.sh" \
+    "OpenBCM init probe defaults to static linking for Redstone uClibc rootfs"
 check_grep 'redstone-openbcm-init-probe --dry-run' \
     "config/rootfs/overlay/usr/sbin/redstone-stage1-capture" \
     "capture records OpenBCM init probe dry-run evidence"
@@ -738,6 +769,9 @@ check_grep 'validation_runs' \
 check_grep 'bench_runs' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
     "evidence provider lists bench runs"
+check_grep 'bde_smoke_runs' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
+    "evidence provider lists BDE smoke runs"
 check_grep 'web_actions' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence" \
     "evidence provider lists web actions"
@@ -747,6 +781,9 @@ check_grep 'redstone-mgmt-artifact.v1' \
 check_grep 'resolve_run_dir' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
     "artifact provider constrains reads to known run directories"
+check_grep 'bde_smoke' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
+    "artifact provider serves BDE smoke evidence files"
 check_grep 'file_key.*_files|emit_file_list' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-artifact" \
     "artifact provider can list run files for development diagnostics"
@@ -864,6 +901,15 @@ check_grep 'init_probe_dry_run' \
 check_grep 'bde_smoke_exit' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports BDE smoke evidence"
+check_grep 'latest_bde_smoke_path' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports latest BDE smoke evidence path"
+check_grep 'demo_init_path' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports OpenBCM demo init executable state"
+check_grep 'switchd_tool_exists' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports switchd executable state"
 check_grep 'front_panel' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports front-panel port state"
@@ -873,9 +919,21 @@ check_grep 'profile' \
 check_grep 'analysis' \
     "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
     "management status reports gate analysis"
+check_grep 'current_blocker' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports top-level current blocker"
+check_grep 'config_comparison' \
+    "config/rootfs/overlay/usr/sbin/redstone-mgmt-status" \
+    "management status reports selected-vs-original config comparison"
 check_grep 'latest-validate-dir' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays validation evidence directory"
+check_grep 'current-blocker' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays top-level current blocker"
+check_grep 'Config Comparison' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays selected-vs-original config comparison"
 check_grep 'validation-summary' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays validation summary"
@@ -921,6 +979,9 @@ check_grep 'validation-runs' \
 check_grep 'bench-runs' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays bench evidence runs"
+check_grep 'bde-smoke-runs' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page displays BDE smoke evidence runs"
 check_grep 'action-runs' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays web action evidence runs"
@@ -942,9 +1003,15 @@ check_grep 'bde-diagnostic' \
 check_grep 'switchd-pidfile' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page has a switchd pidfile diagnostic field"
+check_grep 'switchd-binary' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page has a switchd binary diagnostic field"
 check_grep 'openbcm-diagnostic' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page has an OpenBCM diagnostic field"
+check_grep 'sdk-demo-init' \
+    "config/rootfs/overlay/www/redstone/index.html" \
+    "management page has an SDK demo init diagnostic field"
 check_grep 'Direct Boot Gate' \
     "config/rootfs/overlay/www/redstone/index.html" \
     "management page displays direct-boot management Ethernet caveat"
@@ -957,6 +1024,15 @@ check_grep 'log_exists' \
 check_grep 'probeLabel' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI formats init-probe dry-run status"
+check_grep 'bdeSmokeExit' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI uses latest BDE smoke evidence exit"
+check_grep 'current-blocker' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders top-level current blocker"
+check_grep 'configComparison' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders selected-vs-original config comparison"
 check_grep 'redstone-action[?]action=capture|actionUrl' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI calls the capture action endpoint"
@@ -972,6 +1048,9 @@ check_grep 'startActionPolling' \
 check_grep 'showArtifact' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders artifact detail content"
+check_grep 'bde_smoke' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI opens BDE smoke evidence artifacts"
 check_grep 'actionParams' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI passes action parameters"
@@ -984,6 +1063,12 @@ check_grep 'openbcm-diagnostic' \
 check_grep 'switchd-pidfile' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders switchd pidfile status"
+check_grep 'switchd-binary' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders switchd binary status"
+check_grep 'sdk-demo-init' \
+    "config/rootfs/overlay/www/redstone/redstone.js" \
+    "management UI renders SDK demo init status"
 check_grep 'bde-paths' \
     "config/rootfs/overlay/www/redstone/redstone.js" \
     "management UI renders BDE device paths"
@@ -1518,6 +1603,32 @@ EOF
         fail "management action CGI did not record BDE smoke evidence"
     fi
 
+    fake_path_dir="$tmpdir/pathbin"
+    mkdir -p "$fake_path_dir"
+    cat > "$fake_path_dir/redstone-openbcm-bde-smoke.sh" <<EOF
+#!/bin/sh
+echo "fake path BDE smoke"
+if [ "\$1" != "--bundle-dir" ] || [ "\$2" != "$fake_path_dir" ]; then
+    echo "unexpected args: \$*" >&2
+    exit 9
+fi
+echo "Evidence directory: /var/log/redstone-stage1/openbcm-bde-smoke-20260304T020401Z"
+EOF
+    chmod +x "$fake_path_dir/redstone-openbcm-bde-smoke.sh"
+
+    REQUEST_METHOD=POST \
+        PATH="$fake_path_dir:/usr/bin:/bin" \
+        QUERY_STRING=action=bde-smoke \
+        REDSTONE_WEB_ACTION_DIR="$tmpdir/bde-path-actions" \
+        REDSTONE_WEB_ACTION_LOCK="$tmpdir/bde-path.lock" \
+        sh "$TOPDIR/config/rootfs/overlay/www/cgi-bin/redstone-action" > "$tmpdir/bde-path.json"
+    if grep -q '"status": "success"' "$tmpdir/bde-path.json" && \
+        grep -q '"evidence_dir": "/var/log/redstone-stage1/openbcm-bde-smoke-20260304T020401Z"' "$tmpdir/bde-path.json"; then
+        ok "management action CGI passes bundle dir to PATH BDE smoke helper"
+    else
+        fail "management action CGI did not pass bundle dir to PATH BDE smoke helper"
+    fi
+
     REQUEST_METHOD=POST \
         PATH=/usr/bin:/bin \
         QUERY_STRING='action=init-probe-dry-run&config=original-active' \
@@ -1664,6 +1775,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/redstone-openbcm-bde-smoke.sh \
         scripts/check-openbcm-userland-init.sh \
         scripts/build-openbcm-init-probe.sh \
+        scripts/install-openbcm-bde-smoke.sh \
         scripts/install-openbcm-init-probe.sh \
         scripts/generate-redstone-original-active-sdk-reference.sh \
         config/rootfs/post-build.sh \
@@ -1677,6 +1789,7 @@ if command -v sh >/dev/null 2>&1; then
         config/rootfs/overlay/usr/sbin/redstone-mgmt-evidence \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-status \
         config/rootfs/overlay/usr/sbin/redstone-mgmt-web \
+        config/rootfs/overlay/usr/sbin/platform-init.sh \
         config/rootfs/overlay/www/cgi-bin/redstone-artifact \
         config/rootfs/overlay/www/cgi-bin/redstone-evidence \
         config/rootfs/overlay/www/cgi-bin/redstone-status \
@@ -1873,6 +1986,15 @@ if command -v git >/dev/null 2>&1; then
         ok "build-openbcm-init-probe.sh is tracked executable"
     else
         fail "build-openbcm-init-probe.sh git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        scripts/install-openbcm-bde-smoke.sh |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "install-openbcm-bde-smoke.sh is tracked executable"
+    else
+        fail "install-openbcm-bde-smoke.sh git mode is ${mode:-missing}, expected 100755"
     fi
 
     mode=$(git -C "$TOPDIR" ls-files --stage -- \

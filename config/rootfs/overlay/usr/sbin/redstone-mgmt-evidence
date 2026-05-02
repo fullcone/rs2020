@@ -188,6 +188,37 @@ EOF
     printf ']'
 }
 
+emit_bde_smoke_runs() {
+    first=1
+    count=0
+    printf '['
+    if [ -d "$CAPTURE_BASE" ]; then
+        for dir in $(ls -1dt "$CAPTURE_BASE"/openbcm-bde-smoke-* 2>/dev/null); do
+            [ -d "$dir" ] || continue
+            count=$((count + 1))
+            [ "$count" -le "$LIMIT" ] || break
+            [ "$first" = 1 ] || printf ','
+            first=0
+            log="$dir/smoke.log"
+            complete=$(sed_last_value "$log" 's/^Redstone OpenBCM BDE smoke complete: //p')
+            cat <<EOF
+{
+  "path": $(json_str "$dir"),
+  "name": $(json_str "${dir##*/}"),
+  "log": $(json_str "$log"),
+  "log_exists": $(bool_file "$log"),
+  "pass_count": $(grep_count "$log" '^PASS:'),
+  "warn_count": $(grep_count "$log" '^WARN:'),
+  "fail_count": $(grep_count "$log" '^FAIL:'),
+  "complete": $(json_str "$complete"),
+  "log_tail": $(json_tail "$log")
+}
+EOF
+        done
+    fi
+    printf ']'
+}
+
 emit_web_actions() {
     first=1
     count=0
@@ -240,6 +271,7 @@ cat <<EOF
   "capture_runs": $(emit_capture_runs),
   "validation_runs": $(emit_validation_runs),
   "bench_runs": $(emit_bench_runs),
+  "bde_smoke_runs": $(emit_bde_smoke_runs),
   "web_actions": $(emit_web_actions)
 }
 EOF

@@ -157,7 +157,7 @@ write_target() {
         printf '%s\n' 'CFLAGS += -Wno-error=sizeof-pointer-div -Wno-error=uninitialized'
         printf '%s\n' 'CFLAGS += -Wno-error=format-overflow -Wno-error=address-of-packed-member'
         printf '%s\n' 'CFLAGS += -Wno-stringop-overflow -Wno-stringop-truncation'
-        printf '%s\n' 'CFLAGS += -Wno-deprecated-declarations -fcommon'
+        printf '%s\n' 'CFLAGS += -Wno-deprecated-declarations -fno-common'
         printf '%s\n' 'CFGFLAGS += -fgnu89-inline'
         printf '%s\n' 'CFGFLAGS += -DSYS_BE_PIO=1 -DSYS_BE_PACKET=1 -DSYS_BE_OTHER=1'
         printf '%s\n' 'CFGFLAGS += -DBE_HOST=1'
@@ -248,7 +248,7 @@ write_module_makefile() {
         printf '%s\n' 'ccflags-y += -Wno-sizeof-pointer-div -Wno-uninitialized'
         printf '%s\n' 'ccflags-y += -Wno-format-overflow -Wno-address-of-packed-member'
         printf '%s\n' 'ccflags-y += -Wno-stringop-overflow -Wno-stringop-truncation'
-        printf '%s\n' 'ccflags-y += -Wno-deprecated-declarations -fcommon'
+        printf '%s\n' 'ccflags-y += -Wno-deprecated-declarations -fno-common'
     } > "$module_dir/Makefile"
 }
 

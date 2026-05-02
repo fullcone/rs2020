@@ -2200,6 +2200,211 @@ diff -u /tmp/eth1.irq.before /tmp/eth1.irq.after | head -80
 redstone-stage1-capture --verbose
 ```
 
+## 2026-05-02 BDE Smoke Live Module-Format Fix
+
+The first Web-triggered BDE smoke on `10.188.2.16` proved the helper packaging
+path was correct but the bundled module was rejected by the Linux 5.10 loader:
+
+- Web action: `/cgi-bin/redstone-action?action=bde-smoke`.
+- Run directory:
+  `/var/log/redstone-stage1/web-actions/20030305T083601Z-bde-smoke`.
+- Evidence directory:
+  `/var/log/redstone-stage1/openbcm-bde-smoke-20030305T083601Z`.
+- `insmod_linux_kernel_bde.txt` failed with `invalid module format`.
+- `dmesg` reported `linux_kernel_bde: please compile with -fno-common`.
+
+Fix:
+
+- `scripts/build-openbcm-bde.sh` now emits `-fno-common` for the generated
+  OpenBCM target file and both generated Kbuild module makefiles.
+- `scripts/check-redstone-stage1.sh` now fails if the BDE build script emits
+  a standalone `-fcommon` flag.
+
+Next checkpoint:
+
+- Rebuild `output/openbcm-bde`, deploy the refreshed bundle to
+  `/opt/openbcm-bde`, rerun the Web `bde-smoke` action, and use the next smoke
+  evidence to decide whether the BDE path has moved from module-load failure to
+  node creation or SDK init-probe work.
+
+## 2026-05-02 BDE Smoke Static Device Nodes
+
+The rebuilt `-fno-common` bundle loaded successfully on `10.188.2.16`, but the
+second Web-triggered BDE smoke still failed because the legacy BDE modules
+register static character majors without creating devtmpfs nodes:
+
+- Web action: `/cgi-bin/redstone-action?action=bde-smoke`.
+- Run directory:
+  `/var/log/redstone-stage1/web-actions/20030305T084307Z-bde-smoke`.
+- Evidence directory:
+  `/var/log/redstone-stage1/openbcm-bde-smoke-20030305T084308Z`.
+- `linux-kernel-bde.ko` and `linux-user-bde.ko` both loaded from
+  `/opt/openbcm-bde`.
+- `/proc/devices` registered `127 linux-kernel-bde` and
+  `126 linux-user-bde`.
+- `/dev/linux-kernel-bde` and `/dev/linux-user-bde` were missing, so the smoke
+  helper correctly failed before any SDK userland probe.
+
+Fix:
+
+- `redstone-openbcm-bde-smoke.sh` now creates the missing static character
+  nodes from `/proc/devices` before checking them.
+- `platform-init.sh` applies the same node creation after loading
+  `linux-kernel-bde` and `linux-user-bde`, so normal boot and `switchd-init`
+  do not depend on `mdev`/`udev` support.
+- The smoke helper now samples BDE device-node evidence after the node creation
+  step, which keeps the smoke evidence aligned with the final result.
+
+Live retest:
+
+- Web action:
+  `/var/log/redstone-stage1/web-actions/20030305T085201Z-bde-smoke`.
+- Smoke evidence:
+  `/var/log/redstone-stage1/openbcm-bde-smoke-20030305T085201Z`.
+- Result: `13 pass, 0 warning(s), 0 failure(s)`.
+- The helper loaded both BDE modules from `/opt/openbcm-bde`, created
+  `/dev/linux-kernel-bde` major 127 and `/dev/linux-user-bde` major 126,
+  detected BCM56846 as `14e4:b846`, and completed `redstone-stage1-capture`.
+- Host-side `scripts/analyze-redstone-openbcm-bde-smoke.sh --strict` on the
+  copied evidence passed with `11 pass, 0 warning(s), 0 failure(s)`.
+
+## 2026-05-02 OpenBCM Init-Probe Web Dry-Run
+
+The first Web-triggered init-probe dry-run on `10.188.2.16` reached the new
+action path but failed before running because the target binary was linked for
+the wrong runtime loader:
+
+- Web action:
+  `/var/log/redstone-stage1/web-actions/20030305T085803Z-init-probe-dry-run`.
+- Action log command:
+  `BCM_CONFIG_FILE=/etc/switchd/redstone-original-active-portmap.bcm redstone-openbcm-init-probe --dry-run`.
+- Result: `exit=127`.
+- Direct execution reported `/usr/sbin/redstone-openbcm-init-probe: not found`
+  even though the file existed, because the binary was a dynamic PowerPC glibc
+  ELF requesting `/lib/ld.so.1` while the stage-1 rootfs uses uClibc.
+
+Fix:
+
+- `scripts/build-openbcm-init-probe.sh` now links the probe with the default
+  `LDFLAGS=-static` and records `link_mode=static` in the generated manifest.
+- `scripts/package-redstone-web-hotfix.sh` refreshes
+  `/usr/sbin/redstone-openbcm-init-probe` from `output/openbcm-init/` when that
+  build output is present, so a hotfix cannot keep deploying a stale dynamic
+  binary.
+- `redstone-mgmt-status` reads the latest Web `init-probe-dry-run` action log
+  as init-probe evidence, because the dry-run action does not create a separate
+  capture directory.
+
+Live retest:
+
+- Web action:
+  `/var/log/redstone-stage1/web-actions/20030305T090233Z-init-probe-dry-run`.
+- Result: `status=success`, `exit=0`.
+- The dry-run passed the BDE node checks, exact BCM56846 PCI ID check, and BCM
+  config readability check.
+- The current blocker is not this wrapper anymore: the dry-run still warns that
+  `/usr/sbin/demo_opennsa_init` is not executable/present, so no SDK init path
+  or offload datapath has been proven yet.
+- The live Web status now reports
+  `/var/log/redstone-stage1/openbcm-bde-smoke-20030305T085201Z` with
+  `latest_bde_smoke_exit=0` and the init-probe action log above with
+  `latest_init_probe_exit=0`. It also reports the next blocker as
+  `switchd binary not in PATH`.
+
+## 2026-05-02 Switchd Management Blocker Fields
+
+Added the next non-destructive switchd management slice after the BDE and
+init-probe gates passed:
+
+- `redstone-mgmt-status` now reports whether a `switchd` executable is present
+  in `PATH` or a known runtime path, instead of only reporting process state.
+- The status contract now reports `/usr/sbin/demo_opennsa_init` existence and
+  executable state. This keeps the Web page from treating a successful dry-run
+  as a proven SDK init path when the demo init binary is still missing.
+- The Hardware tab now shows `Switchd Binary` and `SDK Demo Init` rows in the
+  Runtime Diagnostics panel.
+- OpenBCM gate styling remains warning until the BDE smoke, dry-run wrapper,
+  and SDK demo init executable are all present.
+
+Current blocker:
+
+- BDE modules and static `/dev/linux-*-bde` nodes are ready.
+- `redstone-openbcm-init-probe --dry-run` is ready.
+- The next bring-up input needed is the executable SDK demo init/switchd path;
+  the browser still exposes no SDK exec or reset-risk action.
+
+## 2026-05-02 BDE Smoke Evidence Browser
+
+Extended the Web evidence page so BDE smoke captures are first-class evidence,
+not only log paths linked from Web actions:
+
+- `redstone-mgmt-evidence` now lists recent
+  `/var/log/redstone-stage1/openbcm-bde-smoke-*` directories with pass, warn,
+  fail, completion summary, and smoke-log tail fields.
+- `redstone-mgmt-artifact` now supports the fixed `bde_smoke` evidence kind
+  for read-only file details and downloads below those BDE smoke directories.
+- The Evidence tab now has a BDE Smoke column with direct buttons for file
+  lists, `smoke.log`, `bde_devices.txt`, and `modules_after.txt`.
+
+This makes the current successful run
+`/var/log/redstone-stage1/openbcm-bde-smoke-20030305T085201Z` inspectable from
+the browser without shell access.
+
+## 2026-05-02 Top-Level Current Blocker
+
+Added a top-level `current_blocker` field to `redstone-mgmt-status` and the
+first-row Web status strip. The field is derived from the ordered hardware
+gates:
+
+1. management eth1 link,
+2. BCM56846 PCIe detection,
+3. BDE node/module readiness,
+4. OpenBCM init-probe dry-run,
+5. SDK demo init executable,
+6. switchd executable,
+7. strict front-panel validation,
+8. direct boot matrix.
+
+On the live board after the BDE and dry-run fixes, the current blocker is:
+
+`SDK demo init missing: /usr/sbin/demo_opennsa_init; switchd binary missing`
+
+## 2026-05-02 Original Config Comparison Panel
+
+Added a Web-visible selected-vs-original config comparison:
+
+- `redstone-mgmt-status` now emits `config_comparison` with selected config
+  path, selected split mode, selected portmap count, original manifest path,
+  original split interfaces, original generated portmap count, portmap delta,
+  and `fxe52` split state.
+- The Hardware tab now has a Config Comparison panel.
+- On the live development image this shows the expected gap: the selected
+  `redstone-stage1.bcm` skeleton has 52 portmaps and the original-active SDK
+  reference has 61 generated portmaps, so the delta is `+9` and the selected
+  config is still not original-active parity.
+
+## 2026-05-02 BDE Smoke Helper Packaging
+
+Added the OpenBCM BDE smoke helper to the Redstone runtime and hotfix packaging
+path:
+
+- `scripts/install-openbcm-bde-smoke.sh` installs
+  `/usr/sbin/redstone-openbcm-bde-smoke.sh` for Redstone rootfs trees.
+- `scripts/build-rootfs.sh` and the Buildroot `post-build.sh` hook now call
+  that installer for Redstone builds, and preserve the helper executable mode.
+- `scripts/package-redstone-web-hotfix.sh` includes the helper directly from
+  the current source tree, so lab systems can receive the web action support
+  without rebuilding the full image.
+- `/cgi-bin/redstone-action?action=bde-smoke` now resolves the helper and bundle
+  directory together. Bundle-local helpers under `/opt/openbcm-bde` are
+  preferred; if the PATH helper is used, the action passes `--bundle-dir` so it
+  can still load a separate BDE bundle.
+- `redstone-stage1-capture` now records `redstone-openbcm-bde-smoke.sh` in the
+  command inventory.
+
+This closes the missing-helper blocker seen on the board where
+`redstone-mgmt-status` reported `missing redstone-openbcm-bde-smoke.sh`.
+
 ## 2026-05-02 Web Capture Action
 
 Added the first safe web action for the Redstone management page:

@@ -159,6 +159,10 @@ assemble() {
         cp -a "$TOPDIR/config/rootfs/overlay/"* "$STAGING/"
     fi
 
+    if [ "$EDGENOS_BOARD" = "redstone" ]; then
+        "$TOPDIR/scripts/install-openbcm-bde-smoke.sh" "$STAGING"
+    fi
+
     for script in \
         etc/init.d/S20edgenos \
         etc/init.d/S38devpts \
@@ -172,6 +176,7 @@ assemble() {
         usr/sbin/redstone-mgmt-evidence \
         usr/sbin/redstone-mgmt-status \
         usr/sbin/redstone-mgmt-web \
+        usr/sbin/redstone-openbcm-bde-smoke.sh \
         www/cgi-bin/redstone-artifact \
         www/cgi-bin/redstone-evidence \
         www/cgi-bin/redstone-status \
