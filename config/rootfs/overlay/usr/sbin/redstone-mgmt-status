@@ -47,13 +47,17 @@ bool_cmd() {
     fi
 }
 
+busybox_has_httpd() {
+    "$1" --list 2>/dev/null | grep -qx httpd
+}
+
 bool_httpd() {
     if command -v httpd >/dev/null 2>&1; then
         printf true
-    elif command -v busybox >/dev/null 2>&1 && busybox httpd --help >/dev/null 2>&1; then
+    elif command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
         printf true
     elif [ -x "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" ] &&
-        "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" httpd --help >/dev/null 2>&1; then
+        busybox_has_httpd "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}"; then
         printf true
     else
         printf false

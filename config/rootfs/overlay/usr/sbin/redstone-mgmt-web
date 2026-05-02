@@ -7,6 +7,10 @@ BIND=${REDSTONE_MGMT_BIND:-127.0.0.1:8080}
 DOCROOT=${REDSTONE_MGMT_DOCROOT:-/www}
 FALLBACK_BUSYBOX=${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}
 
+busybox_has_httpd() {
+    "$1" --list 2>/dev/null | grep -qx httpd
+}
+
 if [ ! -d "$DOCROOT/redstone" ]; then
     echo "redstone-mgmt-web: missing web assets under $DOCROOT/redstone" >&2
     exit 1
@@ -16,11 +20,11 @@ if command -v httpd >/dev/null 2>&1; then
     exec httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
-if command -v busybox >/dev/null 2>&1 && busybox httpd --help >/dev/null 2>&1; then
+if command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
     exec busybox httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
-if [ -x "$FALLBACK_BUSYBOX" ] && "$FALLBACK_BUSYBOX" httpd --help >/dev/null 2>&1; then
+if [ -x "$FALLBACK_BUSYBOX" ]; then
     exec "$FALLBACK_BUSYBOX" httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
