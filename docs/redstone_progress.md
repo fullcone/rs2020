@@ -24,6 +24,14 @@ Next checkpoint:
 - Retest SSH with a mounted `/dev/pts`, then use the rebuilt Web/devpts
   hotfix or the next FIT for browser-side management validation.
 
+Follow-up:
+
+- After hardware showed `redstone-mgmt-web: BusyBox httpd is unavailable`, the
+  base Buildroot rootfs was rebuilt so BusyBox merges the Redstone httpd/CGI
+  fragment. The web launcher also accepts `/usr/sbin/redstone-busybox` as a
+  hotfix fallback so a running lab image can start the dashboard without
+  replacing `/bin/busybox`.
+
 ### Stage-5 Web Strict Gates And OpenBCM Actions
 
 Completed:

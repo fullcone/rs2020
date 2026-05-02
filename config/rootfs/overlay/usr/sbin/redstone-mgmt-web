@@ -5,6 +5,7 @@ set -eu
 
 BIND=${REDSTONE_MGMT_BIND:-127.0.0.1:8080}
 DOCROOT=${REDSTONE_MGMT_DOCROOT:-/www}
+FALLBACK_BUSYBOX=${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}
 
 if [ ! -d "$DOCROOT/redstone" ]; then
     echo "redstone-mgmt-web: missing web assets under $DOCROOT/redstone" >&2
@@ -17,6 +18,10 @@ fi
 
 if command -v busybox >/dev/null 2>&1 && busybox httpd --help >/dev/null 2>&1; then
     exec busybox httpd -f -p "$BIND" -h "$DOCROOT"
+fi
+
+if [ -x "$FALLBACK_BUSYBOX" ] && "$FALLBACK_BUSYBOX" httpd --help >/dev/null 2>&1; then
+    exec "$FALLBACK_BUSYBOX" httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
 echo "redstone-mgmt-web: BusyBox httpd is unavailable" >&2

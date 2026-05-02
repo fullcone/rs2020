@@ -52,6 +52,9 @@ bool_httpd() {
         printf true
     elif command -v busybox >/dev/null 2>&1 && busybox httpd --help >/dev/null 2>&1; then
         printf true
+    elif [ -x "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" ] &&
+        "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" httpd --help >/dev/null 2>&1; then
+        printf true
     else
         printf false
     fi
