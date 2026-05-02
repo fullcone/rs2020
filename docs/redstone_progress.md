@@ -5,6 +5,25 @@ checkpoint. Keep entries small enough to match one commit or one hardware test.
 
 ## 2026-05-02
 
+### Stage-5 SSH PTY And B2 FIT Rootfs Packaging Fix
+
+Completed:
+
+- Added a BusyBox init script that mounts `devpts` on `/dev/pts` before
+  OpenSSH starts. This fixes the hardware symptom where SSH accepted the
+  password but failed with `PTY allocation request failed on channel 0`.
+- Extended post-build handling to record the `devpts` fstab entry, normalize
+  the new init script, and keep it executable in both Buildroot and assembled
+  rootfs paths.
+- Fixed the B2 TFTP FIT builder to prefer `output/rootfs/staging` when it is
+  present. This prevents new FITs from silently packing stale `rootfs.tar`
+  content and omitting the Web management overlay.
+
+Next checkpoint:
+
+- Retest SSH with a mounted `/dev/pts`, then use the rebuilt Web/devpts
+  hotfix or the next FIT for browser-side management validation.
+
 ### Stage-5 Web Strict Gates And OpenBCM Actions
 
 Completed:

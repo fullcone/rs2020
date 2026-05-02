@@ -1,0 +1,24 @@
+#!/bin/sh
+# Mount devpts before sshd so SSH sessions can allocate a PTY.
+
+case "$1" in
+    start)
+        mkdir -p /dev/pts
+        if ! grep -q ' /dev/pts ' /proc/mounts 2>/dev/null; then
+            mount -t devpts devpts /dev/pts -o mode=0620,ptmxmode=0666 2>/dev/null ||
+                mount -t devpts devpts /dev/pts 2>/dev/null ||
+                true
+        fi
+        ;;
+    stop)
+        ;;
+    restart|reload)
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|reload}"
+        exit 1
+        ;;
+esac
+
+exit 0

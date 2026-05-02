@@ -11,7 +11,8 @@ TOPDIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUTDIR="$TOPDIR/output"
 IMAGE_DIR="$OUTDIR/images"
 FIT_NAME=${1:-uImage-b2-phytool.itb}
-ROOTFS_TAR=${REDSTONE_TFTP_ROOTFS_TAR:-$OUTDIR/rootfs/rootfs.tar}
+ROOTFS_TAR=${REDSTONE_TFTP_ROOTFS_TAR:-}
+ROOTFS_DIR=${REDSTONE_TFTP_ROOTFS_DIR:-}
 DTS=${REDSTONE_TFTP_DTS:-$TOPDIR/kernel/dts/redstone-stage1.dts}
 
 case "$FIT_NAME" in
@@ -58,8 +59,24 @@ require_cmd mkimage
 require_cmd sha256sum
 require_cmd tar
 require_file "$KERNEL_BIN"
-require_file "$ROOTFS_TAR"
 require_file "$DTS"
+
+if [ -z "$ROOTFS_TAR" ] && [ -z "$ROOTFS_DIR" ]; then
+    if [ -d "$OUTDIR/rootfs/staging" ]; then
+        ROOTFS_DIR="$OUTDIR/rootfs/staging"
+    else
+        ROOTFS_TAR="$OUTDIR/rootfs/rootfs.tar"
+    fi
+fi
+
+if [ -n "$ROOTFS_DIR" ]; then
+    if [ ! -d "$ROOTFS_DIR" ]; then
+        echo "ERROR: required rootfs directory not found: $ROOTFS_DIR" >&2
+        exit 1
+    fi
+else
+    require_file "$ROOTFS_TAR"
+fi
 
 mkdir -p "$IMAGE_DIR"
 IMAGE_DIR_REAL=$(CDPATH= cd -- "$IMAGE_DIR" && pwd -P)
@@ -114,7 +131,11 @@ mkdir -p "$WORK/root"
 
 cp "$KERNEL_BIN" "$WORK/kernel.bin"
 dtc -I dts -O dtb -o "$WORK/redstone-stage1-b2.dtb" "$DTS"
-tar -xf "$ROOTFS_TAR" -C "$WORK/root"
+if [ -n "$ROOTFS_DIR" ]; then
+    (cd "$ROOTFS_DIR" && tar -cf - .) | tar -xf - -C "$WORK/root"
+else
+    tar -xf "$ROOTFS_TAR" -C "$WORK/root"
+fi
 
 if [ ! -e "$WORK/root/init" ]; then
     ln -s sbin/init "$WORK/root/init"

@@ -80,6 +80,7 @@ for text_file in \
     "${TARGET_DIR}/www/cgi-bin/redstone-evidence" \
     "${TARGET_DIR}/www/cgi-bin/redstone-status" \
     "${TARGET_DIR}/www/cgi-bin/redstone-action" \
+    "${TARGET_DIR}/etc/init.d/S38devpts" \
     "${TARGET_DIR}/usr/sbin/switchd-init"
 do
     [ -f "$text_file" ] && sed -i 's/\r$//' "$text_file"
@@ -103,6 +104,9 @@ fi
 FSTAB="${TARGET_DIR}/etc/fstab"
 if [ -f "$FSTAB" ] && ! grep -qE '^[^#]*[[:space:]]/dev[[:space:]]+devtmpfs' "$FSTAB"; then
     printf 'devtmpfs\t/dev\t\tdevtmpfs\tdefaults\t0\t0\n' >> "$FSTAB"
+fi
+if [ -f "$FSTAB" ] && ! grep -qE '^[^#]*[[:space:]]/dev/pts[[:space:]]+devpts' "$FSTAB"; then
+    printf 'devpts\t/dev/pts\tdevpts\tmode=0620,ptmxmode=0666\t0\t0\n' >> "$FSTAB"
 fi
 
 # sshd refuses to use a privsep dir that is not owned by root or is
@@ -143,6 +147,8 @@ esac
 exit 0
 EOF
 chmod 0755 "${TARGET_DIR}/etc/init.d/S39loopback"
+[ -f "${TARGET_DIR}/etc/init.d/S38devpts" ] && \
+    chmod 0755 "${TARGET_DIR}/etc/init.d/S38devpts"
 
 for script in \
     "${TARGET_DIR}/usr/sbin/redstone-mgmt-artifact" \

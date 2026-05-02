@@ -121,6 +121,7 @@ check_file "config/rootfs/overlay/www/redstone/redstone.css"
 check_file "config/rootfs/overlay/www/redstone/redstone.js"
 check_file "config/rootfs/overlay/usr/sbin/switchd-init"
 check_file "config/rootfs/overlay/etc/init.d/S20edgenos"
+check_file "config/rootfs/overlay/etc/init.d/S38devpts"
 check_file "config/rootfs/overlay/etc/systemd/system/switchd.service"
 check_file "scripts/build-rootfs.sh"
 check_file "scripts/build-kernel.sh"
@@ -210,6 +211,8 @@ check_grep 'Redstone stage-1 manual management links' "config/rootfs/post-build.
     "Redstone post-build keeps eTSEC management links manual"
 check_grep 'Redstone var-empty permission repair' "config/rootfs/post-build.sh" \
     "Redstone post-build repairs sshd /var/empty permissions at runtime"
+check_grep 'devpts\\t/dev/pts\\tdevpts' "config/rootfs/post-build.sh" \
+    "Redstone post-build records devpts for SSH PTY allocation"
 check_grep 'redstone-mgmt-artifact' "config/rootfs/post-build.sh" \
     "Redstone post-build normalizes management artifact script"
 check_grep 'redstone-mgmt-status' "config/rootfs/post-build.sh" \
@@ -230,6 +233,8 @@ check_grep 'unsafe FIT image name' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder rejects path traversal in image names"
 check_grep 'REDSTONE_TFTP_WORKDIR must be under' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder constrains custom work directories before deletion"
+check_grep 'OUTDIR/rootfs/staging' "scripts/build-redstone-b2-tftp-fit.sh" \
+    "B2 TFTP FIT builder prefers assembled rootfs staging when present"
 check_grep 'cpio .* -R 0:0' "scripts/build-redstone-b2-tftp-fit.sh" \
     "B2 TFTP FIT builder writes root-owned initramfs entries"
 check_grep 'patch -p1 --forward --dry-run' "scripts/build-kernel.sh" \
@@ -1566,6 +1571,7 @@ if command -v sh >/dev/null 2>&1; then
         scripts/generate-redstone-original-active-sdk-reference.sh \
         config/rootfs/post-build.sh \
         config/rootfs/overlay/etc/init.d/S20edgenos \
+        config/rootfs/overlay/etc/init.d/S38devpts \
         config/rootfs/overlay/usr/sbin/redstone-stage1-capture \
         config/rootfs/overlay/usr/sbin/redstone-stage1-validate \
         config/rootfs/overlay/usr/sbin/redstone-stage1-bench-run \
@@ -1886,6 +1892,15 @@ if command -v git >/dev/null 2>&1; then
         ok "S20edgenos is tracked executable"
     else
         fail "S20edgenos git mode is ${mode:-missing}, expected 100755"
+    fi
+
+    mode=$(git -C "$TOPDIR" ls-files --stage -- \
+        config/rootfs/overlay/etc/init.d/S38devpts |
+        awk '{print $1; exit}')
+    if [ "$mode" = "100755" ]; then
+        ok "S38devpts is tracked executable"
+    else
+        fail "S38devpts git mode is ${mode:-missing}, expected 100755"
     fi
 else
     warn "git unavailable; skipped executable-mode check"
