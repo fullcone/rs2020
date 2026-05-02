@@ -5,7 +5,7 @@ set -eu
 
 BIND=${REDSTONE_MGMT_BIND:-127.0.0.1:8080}
 DOCROOT=${REDSTONE_MGMT_DOCROOT:-/www}
-FALLBACK_BUSYBOX=${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}
+FALLBACK_HTTPD=${REDSTONE_MGMT_HTTPD:-/usr/sbin/redstone-httpd/httpd}
 
 busybox_has_httpd() {
     "$1" --list 2>/dev/null | grep -qx httpd
@@ -24,8 +24,8 @@ if command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
     exec busybox httpd -f -p "$BIND" -h "$DOCROOT"
 fi
 
-if [ -x "$FALLBACK_BUSYBOX" ]; then
-    exec "$FALLBACK_BUSYBOX" httpd -f -p "$BIND" -h "$DOCROOT"
+if [ -x "$FALLBACK_HTTPD" ]; then
+    exec "$FALLBACK_HTTPD" -f -p "$BIND" -h "$DOCROOT"
 fi
 
 echo "redstone-mgmt-web: BusyBox httpd is unavailable" >&2

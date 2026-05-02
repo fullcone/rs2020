@@ -13,6 +13,7 @@ ACTION_BASE=${REDSTONE_WEB_ACTION_DIR:-/var/log/redstone-stage1/web-actions}
 NET_CLASS_DIR=${REDSTONE_NET_CLASS_DIR:-/sys/class/net}
 PCI_DEVICES_DIR=${REDSTONE_PCI_DEVICES_DIR:-/sys/bus/pci/devices}
 MGMT_PROFILE=${REDSTONE_MGMT_PROFILE:-development}
+FALLBACK_HTTPD=${REDSTONE_MGMT_HTTPD:-/usr/sbin/redstone-httpd/httpd}
 
 read_first() {
     file=$1
@@ -55,6 +56,8 @@ bool_httpd() {
     if command -v httpd >/dev/null 2>&1; then
         printf true
     elif command -v busybox >/dev/null 2>&1 && busybox_has_httpd busybox; then
+        printf true
+    elif [ -x "$FALLBACK_HTTPD" ]; then
         printf true
     elif [ -x "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}" ] &&
         busybox_has_httpd "${REDSTONE_MGMT_BUSYBOX:-/usr/sbin/redstone-busybox}"; then
